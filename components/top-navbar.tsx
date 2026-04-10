@@ -29,7 +29,7 @@ export default function TopNavbar() {
         <div className="flex items-center gap-3">
           <p className="text-xl font-black italic leading-none text-red-600">imarflex.</p>
           <div>
-          <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-lg font-bold text-transparent">
+          <h1 className="bg-gradient-to-r from-slate-900 via-amber-900 to-red-700 bg-clip-text text-lg font-bold text-transparent">
             Warehouse Information System
           </h1>
           {email ? <p className="text-xs text-slate-500">{email}</p> : null}
@@ -51,3 +51,4 @@ export default function TopNavbar() {
     </header>
   );
 }
+

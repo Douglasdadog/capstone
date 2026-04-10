@@ -208,7 +208,7 @@ export default function InventoryPage() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {message}
         </div>
       ) : null}
@@ -282,7 +282,7 @@ export default function InventoryPage() {
                             className={`rounded-full px-2 py-1 text-xs ${
                               lowStock
                                 ? "bg-red-100 text-red-700"
-                                : "bg-blue-100 text-blue-700"
+                                : "bg-amber-100 text-amber-700"
                             }`}
                           >
                             {lowStock ? "Below threshold" : "Healthy"}
@@ -368,4 +368,5 @@ export default function InventoryPage() {
     </section>
   );
 }
+
 

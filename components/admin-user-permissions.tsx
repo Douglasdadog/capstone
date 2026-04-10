@@ -99,7 +99,7 @@ export default function AdminUserPermissions() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 shadow-sm">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 shadow-sm">
           {message}
         </div>
       ) : null}
@@ -157,4 +157,5 @@ export default function AdminUserPermissions() {
     </div>
   );
 }
+
 

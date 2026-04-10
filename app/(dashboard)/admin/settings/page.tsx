@@ -4,7 +4,7 @@ export default function AdminSettingsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
-        <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
+        <h1 className="bg-gradient-to-r from-slate-900 via-amber-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Settings
         </h1>
         <p className="mt-2 text-slate-600">Account profile for this demo environment.</p>
@@ -18,3 +18,4 @@ export default function AdminSettingsPage() {
     </section>
   );
 }
+

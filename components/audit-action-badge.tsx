@@ -14,7 +14,7 @@ const toneStyles: Record<
   string
 > = {
   triggered: "bg-red-100 text-red-800 ring-1 ring-red-200/80",
-  success: "bg-blue-100 text-blue-800 ring-1 ring-blue-200/80",
+  success: "bg-amber-100 text-amber-800 ring-1 ring-amber-200/80",
   error: "bg-red-100 text-red-800 ring-1 ring-red-200/80",
   neutral: "bg-slate-100 text-slate-700 ring-1 ring-slate-200/80"
 };
@@ -47,4 +47,5 @@ export default function AuditActionBadge({
     </span>
   );
 }
+
 
