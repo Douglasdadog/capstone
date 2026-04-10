@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 
@@ -57,29 +57,40 @@ export default function AccountSettingsForm() {
   return (
     <div className="space-y-4">
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
           {message}
         </div>
       ) : null}
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">{error}</div>
       ) : null}
 
-      <form onSubmit={handleSave} className="max-w-xl space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+      <form
+        onSubmit={handleSave}
+        className="max-w-xl space-y-4 rounded-2xl border border-white/70 bg-white/85 p-5 shadow-sm backdrop-blur"
+      >
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Email</label>
-          <input value={email} disabled className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm" />
+          <input
+            value={email}
+            disabled
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+          />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Role</label>
-          <input value={role} disabled className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm" />
+          <input
+            value={role}
+            disabled
+            className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm"
+          />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Full Name</label>
           <input
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
           />
         </div>
         <div>
@@ -87,13 +98,13 @@ export default function AccountSettingsForm() {
           <input
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
           />
         </div>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-70"
+          className="rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-700 hover:to-cyan-600 disabled:opacity-70"
         >
           {saving ? "Saving..." : "Save account"}
         </button>

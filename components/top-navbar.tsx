@@ -24,19 +24,21 @@ export default function TopNavbar() {
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="flex items-center justify-between px-6 py-3">
+    <header className="sticky top-0 z-20 border-b border-white/50 bg-white/70 backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between px-6 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-slate-900">Warehouse Information System</h1>
+          <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-lg font-bold text-transparent">
+            Warehouse Information System
+          </h1>
           {email ? <p className="text-xs text-slate-500">{email}</p> : null}
         </div>
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
             Role: {role ?? "Unknown"}
           </span>
           <button
             onClick={handleLogout}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100"
             type="button"
           >
             Logout

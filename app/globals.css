@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply text-slate-900 antialiased;
+  background:
+    radial-gradient(1200px 600px at -10% -10%, rgba(56, 189, 248, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 110% 20%, rgba(59, 130, 246, 0.1), transparent 45%),
+    linear-gradient(to bottom, #f8fafc, #eef2ff 35%, #f8fafc);
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+/* Keep scrollbar subtle and premium */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  background-color: rgba(100, 116, 139, 0.45);
 }

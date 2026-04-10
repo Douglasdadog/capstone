@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -21,9 +21,11 @@ export default function SettingsPage() {
 
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Account Settings</h1>
-        <p className="text-slate-600">Manage your profile details used in this demo workspace.</p>
+      <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+        <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-3xl font-black text-transparent">
+          Account Settings
+        </h1>
+        <p className="mt-2 text-slate-600">Manage your profile details used in this demo workspace.</p>
       </div>
       <AccountSettingsForm />
     </section>
