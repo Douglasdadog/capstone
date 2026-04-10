@@ -53,7 +53,7 @@ export default function HomePage() {
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-wide text-red-100">Active alerts</p>
-                  <p className="mt-2 text-2xl font-bold text-rose-300">3</p>
+                  <p className="mt-2 text-2xl font-bold text-red-300">3</p>
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-wide text-red-100">System uptime</p>

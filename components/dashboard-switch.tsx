@@ -496,7 +496,7 @@ export default function DashboardSwitch() {
                     <Line
                       type="monotone"
                       dataKey="humidity"
-                      stroke="#2563eb"
+                      stroke="#f59e0b"
                       strokeWidth={2}
                       dot={false}
                       isAnimationActive
@@ -660,7 +660,7 @@ export default function DashboardSwitch() {
                     <YAxis />
                     <Tooltip />
                     <Line type="monotone" dataKey="temperature" stroke="#ef4444" dot={false} />
-                    <Line type="monotone" dataKey="humidity" stroke="#2563eb" dot={false} />
+                    <Line type="monotone" dataKey="humidity" stroke="#f59e0b" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
