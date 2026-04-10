@@ -201,14 +201,14 @@ export default function InventoryPage() {
           type="button"
           onClick={handleSensorSimulation}
           disabled={simulating}
-          className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-yellow-400 hover:to-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {simulating ? "Simulating..." : "Sensor Simulation"}
         </button>
       </div>
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           {message}
         </div>
       ) : null}
@@ -282,7 +282,7 @@ export default function InventoryPage() {
                             className={`rounded-full px-2 py-1 text-xs ${
                               lowStock
                                 ? "bg-red-100 text-red-700"
-                                : "bg-emerald-100 text-emerald-700"
+                                : "bg-blue-100 text-blue-700"
                             }`}
                           >
                             {lowStock ? "Below threshold" : "Healthy"}
@@ -347,13 +347,13 @@ export default function InventoryPage() {
             </div>
             <div className="space-y-3 p-4">
               {alerts.map((alert) => (
-                <article key={alert.id} className="rounded-md border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-sm font-medium text-amber-800">{alert.item_name}</p>
-                  <p className="mt-1 text-xs text-amber-700">
+                <article key={alert.id} className="rounded-md border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm font-medium text-red-800">{alert.item_name}</p>
+                  <p className="mt-1 text-xs text-red-700">
                     Qty {alert.reading_quantity} | Threshold {alert.threshold_limit}
                   </p>
-                  <p className="mt-1 text-xs text-amber-700">{alert.message}</p>
-                  <p className="mt-2 text-[11px] text-amber-600">
+                  <p className="mt-1 text-xs text-red-700">{alert.message}</p>
+                  <p className="mt-2 text-[11px] text-red-600">
                     {new Date(alert.created_at).toLocaleString()}
                   </p>
                 </article>
@@ -368,3 +368,4 @@ export default function InventoryPage() {
     </section>
   );
 }
+

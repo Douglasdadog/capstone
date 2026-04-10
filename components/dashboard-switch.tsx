@@ -371,13 +371,13 @@ export default function DashboardSwitch() {
             value="99.7%"
             icon={Activity}
             metricCard
-            valueClassName="text-emerald-600"
-            iconClassName="text-emerald-500"
+            valueClassName="text-yellow-600"
+            iconClassName="text-yellow-500"
           />
         </div>
 
         <div
-          className={`relative rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-sky-50/40 p-5 shadow-sm ${iotEnvLoading ? "opacity-95" : ""}`}
+          className={`relative rounded-xl border border-slate-100 bg-gradient-to-br from-slate-50 to-red-50/40 p-5 shadow-sm ${iotEnvLoading ? "opacity-95" : ""}`}
         >
           {iotEnvLoading ? (
             <div className="absolute right-4 top-4 flex items-center gap-2 text-xs text-slate-500">
@@ -415,16 +415,16 @@ export default function DashboardSwitch() {
                   Loading
                 </span>
               ) : iotLive ? (
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/90 px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm">
+                <span className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-white/90 px-2.5 py-1 text-xs font-medium text-yellow-800 shadow-sm">
                   <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-yellow-500" />
                   </span>
                   Live
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50/90 px-2.5 py-1 text-xs font-medium text-amber-900 shadow-sm">
-                  <span className="relative h-2 w-2 rounded-full bg-amber-500" />
+                <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-50/90 px-2.5 py-1 text-xs font-medium text-red-900 shadow-sm">
+                  <span className="relative h-2 w-2 rounded-full bg-red-500" />
                   Preview
                 </span>
               )}
@@ -470,7 +470,7 @@ export default function DashboardSwitch() {
             </div>
             <div className="rounded-lg border border-slate-100 bg-white/95 p-3 shadow-sm">
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                <Droplets className="h-4 w-4 text-sky-500" aria-hidden />
+                <Droplets className="h-4 w-4 text-red-500" aria-hidden />
                 Humidity (% RH)
               </div>
               <p className="mb-1 text-[11px] text-slate-500">Warehouse — last 24 hours</p>
@@ -599,7 +599,7 @@ export default function DashboardSwitch() {
               <button
                 onClick={() => void runSensorSimulation()}
                 type="button"
-                className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-blue-800 hover:to-red-700"
+                className="rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-yellow-400 hover:to-amber-400"
               >
                 Simulate IoT Trigger
               </button>
@@ -671,7 +671,7 @@ export default function DashboardSwitch() {
               <p className="mt-2 text-sm text-slate-600">{topSellingItem?.name ?? "No data"}</p>
               <div className="mt-3 h-3 w-full rounded-full bg-slate-200">
                 <div
-                  className="h-3 rounded-full bg-emerald-500"
+                  className="h-3 rounded-full bg-yellow-500"
                   style={{
                     width: `${Math.min(100, Math.max(5, Number(topSellingItem?.quantity ?? 0) * 5))}%`
                   }}
@@ -779,7 +779,7 @@ export default function DashboardSwitch() {
               return (
                 <div
                   key={step}
-                  className={`rounded-md border px-2 py-2 ${active ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
+                  className={`rounded-md border px-2 py-2 ${active ? "border-yellow-300 bg-yellow-50 text-yellow-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
                 >
                   {step}
                 </div>
@@ -807,3 +807,4 @@ export default function DashboardSwitch() {
     </section>
   );
 }
+

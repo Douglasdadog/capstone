@@ -98,7 +98,7 @@ export default function LogisticsPage() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           {message}
         </div>
       ) : null}
@@ -159,3 +159,4 @@ export default function LogisticsPage() {
     </section>
   );
 }
+

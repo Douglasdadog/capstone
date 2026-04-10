@@ -74,9 +74,14 @@ export default function Sidebar() {
 
   return (
     <aside className="h-screen w-full max-w-64 border-r border-white/40 bg-white/75 p-4 backdrop-blur-xl">
-      <h2 className="mb-6 bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-xl font-black text-transparent">
-        WIS
-      </h2>
+      <div className="mb-6">
+        <img
+          src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
+          alt="Imarflex logo"
+          className="h-10 w-auto"
+        />
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">WIS Console</p>
+      </div>
       {email ? (
         <p className="mb-3 text-xs text-slate-500">
           {email}
@@ -100,11 +105,11 @@ export default function Sidebar() {
                 href={link.href}
                 className={`flex items-center gap-2 rounded-r-lg border-l-4 py-2 pl-2 pr-3 text-sm transition-all ${
                   active
-                    ? "border-blue-600 bg-gradient-to-r from-blue-50 to-red-50 font-semibold text-slate-900 shadow-sm"
+                    ? "border-yellow-500 bg-gradient-to-r from-yellow-50 to-red-50 font-semibold text-slate-900 shadow-sm"
                     : "border-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
-                <Icon className={`h-4 w-4 shrink-0 ${active ? "text-blue-700" : "text-slate-500"}`} />
+                <Icon className={`h-4 w-4 shrink-0 ${active ? "text-red-600" : "text-slate-500"}`} />
                 {link.label}
               </Link>
             );

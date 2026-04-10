@@ -84,7 +84,7 @@ export default function ClientPage() {
                     key={step}
                     className={`rounded-md border px-2 py-2 ${
                       active
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                        ? "border-blue-300 bg-blue-50 text-blue-700"
                         : "border-slate-200 bg-slate-50 text-slate-500"
                     }`}
                   >
@@ -119,3 +119,4 @@ export default function ClientPage() {
     </section>
   );
 }
+

@@ -62,16 +62,21 @@ function LoginContent() {
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-red-400/20 blur-3xl" />
         <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-red-500/20 blur-3xl" />
       </div>
 
       <section className="relative z-10 w-full max-w-md rounded-2xl border border-white/15 bg-white/95 p-7 shadow-2xl backdrop-blur">
         {showFreshBanner ? (
-          <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
             Demo data was reset. You can sign in again with the sample accounts below.
           </div>
         ) : null}
 
+        <img
+          src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
+          alt="Imarflex logo"
+          className="mb-3 h-10 w-auto"
+        />
         <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Login
         </h1>
@@ -163,7 +168,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-300/50 transition-all hover:from-yellow-400 hover:to-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? "Please wait..." : mode === "login" ? "Sign in" : "Register and continue"}
           </button>
@@ -172,3 +177,4 @@ function LoginContent() {
     </main>
   );
 }
+

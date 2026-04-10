@@ -6,13 +6,18 @@ export default function HomePage() {
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-red-400/20 blur-3xl" />
         <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-red-500/20 blur-3xl" />
       </div>
 
       <section className="relative z-10 mx-auto w-full max-w-6xl space-y-8">
         <div className="overflow-hidden rounded-3xl border border-white/15 bg-white/95 shadow-2xl">
           <div className="grid gap-6 p-8 md:grid-cols-2 md:p-12">
             <div className="space-y-5">
+              <img
+                src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
+                alt="Imarflex logo"
+                className="h-12 w-auto"
+              />
               <span className="inline-flex rounded-full border border-red-300/60 bg-red-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-900">
                 Mission Control for Warehousing
               </span>
@@ -26,7 +31,7 @@ export default function HomePage() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/dashboard"
-                  className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:scale-[1.02] hover:from-blue-800 hover:to-red-700"
+                  className="rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-300/50 transition-all hover:scale-[1.02] hover:from-yellow-400 hover:to-amber-400"
                 >
                   Launch Mission Control
                 </Link>
@@ -56,7 +61,7 @@ export default function HomePage() {
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
                   <p className="text-xs uppercase tracking-wide text-red-100">System uptime</p>
-                  <p className="mt-2 text-2xl font-bold text-emerald-300">99.7%</p>
+                  <p className="mt-2 text-2xl font-bold text-blue-300">99.7%</p>
                 </div>
               </div>
               <p className="mt-6 text-xs text-blue-100/90">
@@ -102,3 +107,4 @@ export default function HomePage() {
     </main>
   );
 }
+

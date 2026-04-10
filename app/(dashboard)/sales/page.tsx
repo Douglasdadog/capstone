@@ -19,9 +19,10 @@ export default function SalesPage() {
         </article>
         <article className="rounded-xl border border-white/70 bg-white/80 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Dispatch</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">Ready</p>
+          <p className="mt-2 text-2xl font-bold text-blue-600">Ready</p>
         </article>
       </div>
     </section>
   );
 }
+

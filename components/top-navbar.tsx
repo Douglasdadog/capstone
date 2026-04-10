@@ -26,11 +26,18 @@ export default function TopNavbar() {
   return (
     <header className="sticky top-0 z-20 border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between px-6 py-3">
-        <div>
+        <div className="flex items-center gap-3">
+          <img
+            src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
+            alt="Imarflex logo"
+            className="h-9 w-auto"
+          />
+          <div>
           <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-lg font-bold text-transparent">
             Warehouse Information System
           </h1>
           {email ? <p className="text-xs text-slate-500">{email}</p> : null}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
