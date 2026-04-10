@@ -75,11 +75,7 @@ export default function Sidebar() {
   return (
     <aside className="h-screen w-full max-w-64 border-r border-white/40 bg-white/75 p-4 backdrop-blur-xl">
       <div className="mb-6">
-        <img
-          src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
-          alt="Imarflex logo"
-          className="h-10 w-auto"
-        />
+        <p className="text-2xl font-black italic leading-none text-red-600">imarflex.</p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">WIS Console</p>
       </div>
       {email ? (

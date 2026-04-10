@@ -13,11 +13,7 @@ export default function HomePage() {
         <div className="overflow-hidden rounded-3xl border border-white/15 bg-white/95 shadow-2xl">
           <div className="grid gap-6 p-8 md:grid-cols-2 md:p-12">
             <div className="space-y-5">
-              <img
-                src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
-                alt="Imarflex logo"
-                className="h-12 w-auto"
-              />
+              <p className="text-3xl font-black italic leading-none text-red-600">imarflex.</p>
               <span className="inline-flex rounded-full border border-red-300/60 bg-red-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-900">
                 Mission Control for Warehousing
               </span>

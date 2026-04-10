@@ -72,11 +72,7 @@ function LoginContent() {
           </div>
         ) : null}
 
-        <img
-          src="https://iconape.com/wp-content/files/ph/273774/svg/273774.svg"
-          alt="Imarflex logo"
-          className="mb-3 h-10 w-auto"
-        />
+        <p className="mb-3 text-2xl font-black italic leading-none text-red-600">imarflex.</p>
         <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Login
         </h1>
