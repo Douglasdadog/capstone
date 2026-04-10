@@ -2,54 +2,60 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-white px-6 py-10 sm:py-16">
-      <section className="mx-auto w-full max-w-6xl space-y-8">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <main className="relative min-h-screen overflow-hidden bg-slate-950 px-6 py-10 sm:py-16">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+      </div>
+
+      <section className="relative z-10 mx-auto w-full max-w-6xl space-y-8">
+        <div className="overflow-hidden rounded-3xl border border-white/15 bg-white/95 shadow-2xl">
           <div className="grid gap-6 p-8 md:grid-cols-2 md:p-12">
             <div className="space-y-5">
-              <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <span className="inline-flex rounded-full border border-cyan-300/60 bg-cyan-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-900">
                 Mission Control for Warehousing
               </span>
-              <h1 className="text-4xl font-bold leading-tight text-slate-900 md:text-5xl">
+              <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-4xl font-black leading-tight text-transparent md:text-6xl">
                 Warehouse Information System
               </h1>
-              <p className="max-w-xl text-base leading-relaxed text-slate-600">
+              <p className="max-w-xl text-base leading-relaxed text-slate-700">
                 Manage inventory, sales, logistics, and warehouse environment signals in one smart operational
                 cockpit built for speed and clarity.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/dashboard"
-                  className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                  className="rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:scale-[1.02] hover:from-blue-700 hover:to-cyan-600"
                 >
-                  Open Dashboard
+                  Launch Mission Control
                 </Link>
                 <Link
                   href="/login"
-                  className="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                  className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
                 >
-                  Sign In
+                  Enter Secure Login
                 </Link>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 to-blue-900 p-6 text-slate-100 shadow-inner">
-              <p className="text-xs font-semibold uppercase tracking-widest text-blue-200">Live overview</p>
+            <div className="rounded-2xl border border-blue-900/50 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-6 text-slate-100 shadow-inner">
+              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-200">Live overview</p>
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <div className="rounded-lg border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-100">Inventory health</p>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-cyan-100">Inventory health</p>
                   <p className="mt-2 text-2xl font-bold">98.2%</p>
                 </div>
-                <div className="rounded-lg border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-100">Orders in transit</p>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-cyan-100">Orders in transit</p>
                   <p className="mt-2 text-2xl font-bold">24</p>
                 </div>
-                <div className="rounded-lg border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-100">Active alerts</p>
-                  <p className="mt-2 text-2xl font-bold">3</p>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-cyan-100">Active alerts</p>
+                  <p className="mt-2 text-2xl font-bold text-rose-300">3</p>
                 </div>
-                <div className="rounded-lg border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs uppercase tracking-wide text-blue-100">System uptime</p>
+                <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
+                  <p className="text-xs uppercase tracking-wide text-cyan-100">System uptime</p>
                   <p className="mt-2 text-2xl font-bold text-emerald-300">99.7%</p>
                 </div>
               </div>
@@ -61,35 +67,35 @@ export default function HomePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Inventory Intelligence</h2>
-            <p className="mt-2 text-sm text-slate-600">
+          <article className="rounded-2xl border border-white/20 bg-white/90 p-5 shadow-xl transition-transform hover:-translate-y-1">
+            <h2 className="text-lg font-bold text-slate-900">Inventory Intelligence</h2>
+            <p className="mt-2 text-sm text-slate-700">
               Track stock thresholds, apply manual overrides, and respond to low-stock alerts fast.
             </p>
           </article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">Sales and Logistics Flow</h2>
-            <p className="mt-2 text-sm text-slate-600">
+          <article className="rounded-2xl border border-white/20 bg-white/90 p-5 shadow-xl transition-transform hover:-translate-y-1">
+            <h2 className="text-lg font-bold text-slate-900">Sales and Logistics Flow</h2>
+            <p className="mt-2 text-sm text-slate-700">
               Monitor shipment status, update fulfillment milestones, and keep delivery operations synced.
             </p>
           </article>
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900">IoT Environment Ready</h2>
-            <p className="mt-2 text-sm text-slate-600">
+          <article className="rounded-2xl border border-white/20 bg-white/90 p-5 shadow-xl transition-transform hover:-translate-y-1">
+            <h2 className="text-lg font-bold text-slate-900">IoT Environment Ready</h2>
+            <p className="mt-2 text-sm text-slate-700">
               Prepare temperature and humidity streams with connection checks for incoming IoT deployment.
             </p>
           </article>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <p className="text-sm text-slate-600">
-            Ready to manage operations? Enter the platform and take control of your warehouse workflow.
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-300/30 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 px-5 py-4 text-white shadow-lg">
+          <p className="text-sm text-slate-100">
+            Ready to run operations like a pro? Jump in and take full control of your warehouse floor.
           </p>
           <Link
             href="/dashboard"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+            className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-slate-100"
           >
-            Launch Mission Control
+            Open Dashboard
           </Link>
         </div>
       </section>
