@@ -74,7 +74,7 @@ export default function Sidebar() {
 
   return (
     <aside className="h-screen w-full max-w-64 border-r border-white/40 bg-white/75 p-4 backdrop-blur-xl">
-      <h2 className="mb-6 bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-xl font-black text-transparent">
+      <h2 className="mb-6 bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-xl font-black text-transparent">
         WIS
       </h2>
       {email ? (
@@ -100,7 +100,7 @@ export default function Sidebar() {
                 href={link.href}
                 className={`flex items-center gap-2 rounded-r-lg border-l-4 py-2 pl-2 pr-3 text-sm transition-all ${
                   active
-                    ? "border-blue-600 bg-gradient-to-r from-blue-50 to-cyan-50 font-semibold text-slate-900 shadow-sm"
+                    ? "border-blue-600 bg-gradient-to-r from-blue-50 to-red-50 font-semibold text-slate-900 shadow-sm"
                     : "border-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >

@@ -496,7 +496,7 @@ export default function DashboardSwitch() {
                     <Line
                       type="monotone"
                       dataKey="humidity"
-                      stroke="#0ea5e9"
+                      stroke="#2563eb"
                       strokeWidth={2}
                       dot={false}
                       isAnimationActive
@@ -566,7 +566,7 @@ export default function DashboardSwitch() {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="turnover" fill="#2563eb" />
+                  <Bar dataKey="turnover" fill="#dc2626" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -599,7 +599,7 @@ export default function DashboardSwitch() {
               <button
                 onClick={() => void runSensorSimulation()}
                 type="button"
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:from-blue-800 hover:to-red-700"
               >
                 Simulate IoT Trigger
               </button>

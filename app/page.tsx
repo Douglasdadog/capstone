@@ -4,7 +4,7 @@ export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 px-6 py-10 sm:py-16">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-red-400/20 blur-3xl" />
         <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
       </div>
@@ -13,10 +13,10 @@ export default function HomePage() {
         <div className="overflow-hidden rounded-3xl border border-white/15 bg-white/95 shadow-2xl">
           <div className="grid gap-6 p-8 md:grid-cols-2 md:p-12">
             <div className="space-y-5">
-              <span className="inline-flex rounded-full border border-cyan-300/60 bg-cyan-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-cyan-900">
+              <span className="inline-flex rounded-full border border-red-300/60 bg-red-100/70 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-red-900">
                 Mission Control for Warehousing
               </span>
-              <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-4xl font-black leading-tight text-transparent md:text-6xl">
+              <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-4xl font-black leading-tight text-transparent md:text-6xl">
                 Warehouse Information System
               </h1>
               <p className="max-w-xl text-base leading-relaxed text-slate-700">
@@ -26,7 +26,7 @@ export default function HomePage() {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/dashboard"
-                  className="rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:scale-[1.02] hover:from-blue-700 hover:to-cyan-600"
+                  className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:scale-[1.02] hover:from-blue-800 hover:to-red-700"
                 >
                   Launch Mission Control
                 </Link>
@@ -40,22 +40,22 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-2xl border border-blue-900/50 bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-900 p-6 text-slate-100 shadow-inner">
-              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-200">Live overview</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-red-200">Live overview</p>
               <div className="mt-6 grid grid-cols-2 gap-4">
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-cyan-100">Inventory health</p>
+                  <p className="text-xs uppercase tracking-wide text-red-100">Inventory health</p>
                   <p className="mt-2 text-2xl font-bold">98.2%</p>
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-cyan-100">Orders in transit</p>
+                  <p className="text-xs uppercase tracking-wide text-red-100">Orders in transit</p>
                   <p className="mt-2 text-2xl font-bold">24</p>
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-cyan-100">Active alerts</p>
+                  <p className="text-xs uppercase tracking-wide text-red-100">Active alerts</p>
                   <p className="mt-2 text-2xl font-bold text-rose-300">3</p>
                 </div>
                 <div className="rounded-lg border border-white/20 bg-white/10 p-4 backdrop-blur">
-                  <p className="text-xs uppercase tracking-wide text-cyan-100">System uptime</p>
+                  <p className="text-xs uppercase tracking-wide text-red-100">System uptime</p>
                   <p className="mt-2 text-2xl font-bold text-emerald-300">99.7%</p>
                 </div>
               </div>
@@ -87,7 +87,7 @@ export default function HomePage() {
           </article>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-300/30 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 px-5 py-4 text-white shadow-lg">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-300/30 bg-gradient-to-r from-red-500/20 to-blue-500/20 px-5 py-4 text-white shadow-lg">
           <p className="text-sm text-slate-100">
             Ready to run operations like a pro? Jump in and take full control of your warehouse floor.
           </p>

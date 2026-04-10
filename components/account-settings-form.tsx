@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useState } from "react";
 
@@ -104,7 +104,7 @@ export default function AccountSettingsForm() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-700 hover:to-cyan-600 disabled:opacity-70"
+          className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-800 hover:to-red-700 disabled:opacity-70"
         >
           {saving ? "Saving..." : "Save account"}
         </button>

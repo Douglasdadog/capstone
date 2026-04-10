@@ -60,7 +60,7 @@ function LoginContent() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-10">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-red-400/20 blur-3xl" />
         <div className="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
       </div>
@@ -72,7 +72,7 @@ function LoginContent() {
           </div>
         ) : null}
 
-        <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-3xl font-black text-transparent">
+        <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Login
         </h1>
         <p className="mt-2 text-sm text-slate-600">Access your WIS mission control workspace.</p>
@@ -163,7 +163,7 @@ function LoginContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-700 hover:to-cyan-600 disabled:cursor-not-allowed disabled:opacity-70"
+            className="w-full rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-400/30 transition-all hover:from-blue-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loading ? "Please wait..." : mode === "login" ? "Sign in" : "Register and continue"}
           </button>

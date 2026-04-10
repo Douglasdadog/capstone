@@ -201,7 +201,7 @@ export default function InventoryPage() {
           type="button"
           onClick={handleSensorSimulation}
           disabled={simulating}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+          className="rounded-md bg-gradient-to-r from-blue-700 to-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {simulating ? "Simulating..." : "Sensor Simulation"}
         </button>

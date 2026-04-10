@@ -27,7 +27,7 @@ export default function TopNavbar() {
     <header className="sticky top-0 z-20 border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between px-6 py-3">
         <div>
-          <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-cyan-700 bg-clip-text text-lg font-bold text-transparent">
+          <h1 className="bg-gradient-to-r from-slate-900 via-blue-900 to-red-700 bg-clip-text text-lg font-bold text-transparent">
             Warehouse Information System
           </h1>
           {email ? <p className="text-xs text-slate-500">{email}</p> : null}

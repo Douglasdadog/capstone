@@ -3,7 +3,7 @@
 body {
   @apply text-slate-900 antialiased;
   background:
-    radial-gradient(1200px 600px at -10% -10%, rgba(56, 189, 248, 0.12), transparent 55%),
+    radial-gradient(1200px 600px at -10% -10%, rgba(239, 68, 68, 0.12), transparent 55%),
     radial-gradient(900px 500px at 110% 20%, rgba(59, 130, 246, 0.1), transparent 45%),
     linear-gradient(to bottom, #f8fafc, #eef2ff 35%, #f8fafc);
 }
