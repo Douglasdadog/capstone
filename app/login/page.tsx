@@ -47,12 +47,7 @@ function LoginContent() {
     }
 
     const from = searchParams.get("redirectedFrom");
-    const next =
-      from && from.startsWith("/logistics")
-        ? from
-        : from
-          ? `/verify-otp?redirectedFrom=${encodeURIComponent(from)}`
-          : "/verify-otp";
+    const next = from ? `/verify-otp?redirectedFrom=${encodeURIComponent(from)}` : "/verify-otp";
     router.push(next);
     router.refresh();
   }

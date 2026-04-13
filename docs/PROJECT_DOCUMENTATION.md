@@ -1,216 +1,117 @@
-# Warehouse Information System (WIS) - Project Documentation
+# Warehouse Information System (WIS) - Features and Capabilities
 
-## 1) Overview
+## Core Functions
 
-This project is a role-based Warehouse Information System built with Next.js and Supabase.
-It supports Admin, Inventory, Sales, and Client workflows including:
+- Role-based warehouse operations platform for Admin, Inventory, Sales, and Client users.
+- Real-time inventory and shipment visibility with dashboard modules.
+- Public tracking support through secure tokenized links (no login required).
 
-- Authentication with role-based access control
-- MFA using TOTP (QR setup + OTP verification)
-- Inventory monitoring and manual override
-- Manifest upload and verification workflows
-- Logistics management with client communications
-- Public UUID-based tracking portal with issue reporting
+## User Roles and Capabilities
 
----
-
-## 2) Tech Stack
-
-- Frontend: Next.js (App Router), React, Tailwind CSS
-- Backend/API: Next.js API Routes
-- Database/Auth: Supabase (PostgreSQL + Auth)
-- Charts/UI libs: Recharts, Lucide
-- Barcode scanning: `html5-qrcode`
-- File parsing: `xlsx`
-- Email: Nodemailer SMTP (with Resend fallback still available in codebase)
-- PDF generation: `pdf-lib`
-- MFA: `otplib`
-
----
-
-## 3) Role Access Model
-
-- **Admin**
-  - Full dashboard visibility
-  - User permissions
-  - Manifest upload/status tracking
-  - Global logistics oversight
-- **Inventory**
-  - Inventory operations
-  - Manifest scanning and discrepancy reporting
-- **Sales**
-  - Logistics status updates
-  - 3PL metadata updates
-  - Tracking link generation
-- **Client**
-  - Shipment tracking for own account
-
-Public users can access `/track/[token]` only via secure UUID tracking links.
-
----
-
-## 4) Authentication and MFA
-
-### Login/Register
-- API routes:
-  - `/api/auth/demo-login`
-  - `/api/auth/demo-register`
-- Registered users are created in Supabase Auth.
-
-### MFA Flow (TOTP)
-- Login succeeds -> user is redirected to `/verify-otp`.
-- MFA APIs:
-  - `/api/auth/mfa/status`
-  - `/api/auth/mfa/setup`
-  - `/api/auth/mfa/verify`
-- QR setup provided for Google Authenticator-compatible apps.
-- Middleware enforces MFA before protected routes are accessible.
-
----
-
-## 5) Manifest Upload and Verification
-
-### Admin Upload
-- UI: `Admin Manifest Manager` in `admin` module.
-- Upload accepts `.xlsx` and `.csv`.
-- Required columns:
-  - Part Number
-  - Quantity
-  - Batch ID
-- API: `/api/admin/manifests` (POST/GET)
-- Initial status on upload: **Pending Verification**
-
-### Status Tracking
-- Admin can update status:
+### Admin
+- Manage system users and permission access.
+- Upload battery shipment manifests via `.xlsx` or `.csv`.
+- Monitor and update manifest lifecycle:
   - Pending Verification
   - Completed
   - Discrepancies
-- API: `/api/admin/manifests/[id]` (PATCH)
+- Access system-wide monitoring, logs, and IoT-related dashboard panels.
 
----
+### Inventory
+- View inventory levels, thresholds, and replenishment alerts.
+- Use manual quantity/threshold override controls.
+- Perform mobile-friendly manifest scanning workflow with camera barcode scanner.
+- Track scan counters per battery part against expected manifest quantities.
+- Complete verification when counts match.
+- Create discrepancy reports when counts do not match.
 
-## 6) Inventory Scanning Module
+### Sales
+- Manage logistics status updates for shipments.
+- Edit logistics metadata:
+  - 3PL Provider Name
+  - Waybill/Trucker Number
+  - ETA
+- Trigger automatic SMTP shipment notifications when status changes to In Transit.
+- Generate secure UUID-based client tracking links.
 
-### Mobile Scanning
-- Route: `/inventory/scanning`
-- Fetches oldest pending manifest.
-- Camera barcode scanning via `html5-qrcode`.
-- Per-part counters track scanned count vs expected count.
+### Client
+- Track shipment progress within client portal workflows.
+- View shipment details and status progression.
 
-### Completion and Reporting
-- If counts match -> Complete verification.
-- If mismatch -> “Make Report” flow:
-  - Route: `/inventory/scanning/report`
-  - Quick-select reasons:
-    - Short Shipment
-    - Damaged on Arrival
-    - Mismatched Part
-    - Over-shipment
-  - Optional comments
-- APIs:
-  - `/api/inventory/manifests/pending`
-  - `/api/inventory/manifests/[id]/complete`
-  - `/api/inventory/manifests/[id]/report`
+## Authentication and Access Control
 
----
+- Login and registration workflow integrated with Supabase user accounts.
+- Multi-Factor Authentication (TOTP) with QR setup and OTP verification.
+- Route-level access control enforced through middleware by role and session.
+- Logistics route configured as MFA-exempt while still requiring authenticated access.
 
-## 7) Logistics Management Module
+## Manifest Management Capabilities
 
-### Sales Logistics Fields
-Each shipment now supports:
-- 3PL Provider Name
-- Waybill/Trucker Number
-- ETA
+- Accept and parse Excel/CSV manifest files with required fields:
+  - Part Number
+  - Quantity
+  - Batch ID
+- Store manifest header and itemized rows in database.
+- Provide admin status tracking view with visual status indicators.
 
-### Status and Email Trigger
-- When Sales/Admin sets status to **In Transit**, an SMTP email is triggered to client.
-- API: `/api/logistics/update-status`
+## Inventory Scanning Capabilities
 
-### Tracking Link Generator
-- Secure UUID link generation for no-login client tracking:
-  - API: `/api/logistics/generate-tracking-link`
-  - Public URL format: `/track/[token]`
+- Pending manifest fetch for verification workflow.
+- Camera-based barcode capture using `html5-qrcode`.
+- Live scan counting per part number.
+- Mismatch handling with issue classification options:
+  - Short Shipment
+  - Damaged on Arrival
+  - Mismatched Part
+  - Over-shipment
+- Comment capture for discrepancy context.
 
----
+## Logistics and Communication Capabilities
 
-## 8) Public Client Tracking Portal
+- Shipment status updates with communication hooks.
+- Automatic outbound email notification on In Transit transition.
+- Tracking-link generation for client self-service shipment monitoring.
 
-### Public Portal
-- Route: `/track/[token]`
-- No login required.
-- Token must be valid UUID stored in shipment record.
+## Public Client Tracking Portal Capabilities
 
-### Displayed Information
-- Shipment summary and current status
-- ETA
-- Itemized battery list
+- Public access only through unique UUID token URL.
+- Displays:
+  - Order summary
+  - Itemized battery list
+  - ETA
+  - Logistics references (provider/waybill where available)
+- Digital packing list PDF download.
+- Issue reporting form with ticket generation (e.g. `#552`).
+- Thank-you confirmation page with 24-hour expected response notice.
 
-### Digital Packing List
-- PDF download endpoint:
-  - `/api/public/tracking/[token]/packing-list`
+## Security Capabilities Implemented
 
-### Report Issue
-- Embedded form with options:
-  - Delayed Shipment
-  - Incorrect Status
-  - Order Inquiry
-- API:
-  - `/api/public/tracking/[token]/issue`
-- Generates ticket ID (e.g. `#552`) and redirects to:
-  - `/track/[token]/thank-you`
-- SLA shown: response within 24 hours.
+- Baseline API request throttling for sensitive endpoints.
+- Anti-bruteforce delay controls on failed auth/MFA attempts.
+- Input constraints for abuse reduction on sensitive public/auth routes.
+- Security response headers applied via middleware.
+- Public token validation checks on tracking APIs.
 
----
+## Current Capability Status
 
-## 9) Database Setup Scripts
+- Authentication, MFA, manifests, scanning, logistics, communication, public tracking, issue ticketing, and baseline hardening are implemented and operational.
 
-Run these in Supabase SQL Editor:
+## Feature Matrix (Presentation Format)
 
-- `docs/supabase-inventory-setup.sql`
-- `docs/supabase-logistics-setup.sql`
-- `docs/supabase-manifest-setup.sql`
-
-Notes:
-- Logistics SQL is idempotent and safe to re-run.
-- Realtime publication checks are guarded to avoid duplicate membership errors.
-
----
-
-## 10) Environment Variables
-
-Typical required keys:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `MAIL_FROM`
-- SMTP keys for transport:
-  - `SMTP_HOST`
-  - `SMTP_PORT`
-  - `SMTP_USER`
-  - `SMTP_PASS`
-
-Optional:
-- `RESEND_API_KEY`
-- `WIS_IOT_HEALTH_URL`
-
----
-
-## 11) Build and Deploy
-
-### Local
-- `npm install`
-- `npm run build`
-- `npm run dev`
-
-### Production
-- Push to GitHub
-- Deploy via Vercel:
-  - `npx vercel --prod --yes`
-
----
-
-## 12) Current Status
-
-Core modules for authentication, MFA, manifests, inventory scanning, logistics, and public tracking are implemented and build-clean.
-
+| Module | Key Features | Primary User Role | Status |
+|---|---|---|---|
+| Authentication | Login, Register, Role-based session handling | All roles | Implemented |
+| MFA (TOTP) | QR setup, OTP verification, protected route gating | Admin, Inventory, Sales, Client | Implemented |
+| Admin Permissions | User permissions management and route grants | Admin | Implemented |
+| Manifest Upload | Upload `.xlsx/.csv`, parse and save manifest rows | Admin | Implemented |
+| Manifest Tracking | Pending/Completed/Discrepancies status management | Admin | Implemented |
+| Inventory Monitoring | Inventory table, thresholds, alerts, manual override | Inventory, Admin | Implemented |
+| Mobile Scanning | Camera barcode scan, part counters, completion checks | Inventory | Implemented |
+| Discrepancy Reporting | Quick-select issue types and comments | Inventory | Implemented |
+| Logistics Management | 3PL provider, waybill/trucker number, ETA updates | Sales, Admin | Implemented |
+| Shipment Communication | SMTP trigger on In Transit status updates | Sales, Admin | Implemented |
+| Tracking Link Generator | Secure UUID no-login client tracking links | Sales, Admin | Implemented |
+| Public Tracking Portal | Itemized order summary, ETA, status display | Public/Client | Implemented |
+| Packing List Export | Digital packing list PDF download | Public/Client | Implemented |
+| Public Issue Ticketing | Delayed/Incorrect/Inquiry issue form + ticket ID | Public/Client | Implemented |
+| Security Hardening | Rate limiting, anti-bruteforce delay, security headers | System-wide | Implemented |

@@ -7,8 +7,7 @@ import {
   readSession
 } from "@/lib/auth/demo-auth";
 
-const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh"];
-const mfaExemptRoutes = ["/logistics"];
+const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh", "/shipment-tracking"];
 
 function applySecurityHeaders(response: NextResponse) {
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -46,10 +45,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = normalizeRole(session.role);
-  const isMfaExempt = mfaExemptRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-  if (!session.mfaVerified && pathname !== "/verify-otp" && !isMfaExempt) {
+  if (!session.mfaVerified && pathname !== "/verify-otp") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/verify-otp";
     redirectUrl.searchParams.set("redirectedFrom", pathname);

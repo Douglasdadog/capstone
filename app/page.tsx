@@ -43,10 +43,10 @@ export default function HomePage() {
               Sign In
             </Link>
             <Link
-              href="/logistics"
+              href="/shipment-tracking"
               className="rounded-md border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 shadow-sm transition-colors hover:bg-red-100"
             >
-              Open Logistics
+              Track Shipment
             </Link>
           </div>
         </div>
