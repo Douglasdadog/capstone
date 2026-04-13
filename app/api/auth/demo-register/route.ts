@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { UserRole, normalizeRole } from "@/lib/auth/roles";
 import {
   DEMO_SESSION_COOKIE,
@@ -27,9 +28,34 @@ export async function POST(request: NextRequest) {
   const normalizedRole = normalizeRole(role);
   const registeredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
   const normalizedEmail = email.toLowerCase();
+  let supabaseUserId: string | null = null;
 
   if (registeredUsers.some((user) => user.email === normalizedEmail)) {
     return NextResponse.json({ error: "This test account already exists." }, { status: 409 });
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: normalizedEmail,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        role: normalizedRole
+      }
+    });
+
+    if (error) {
+      const message = error.message.toLowerCase();
+      if (message.includes("already") || message.includes("exists")) {
+        return NextResponse.json({ error: "This account already exists in Supabase." }, { status: 409 });
+      }
+      return NextResponse.json({ error: `Supabase registration failed: ${error.message}` }, { status: 400 });
+    }
+    supabaseUserId = data.user?.id ?? null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to connect to Supabase.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
   const updatedUsers = [...registeredUsers, buildRegisteredUser(normalizedEmail, password, normalizedRole)];
@@ -46,7 +72,9 @@ export async function POST(request: NextRequest) {
     serializeSession({
       email: normalizedEmail,
       role: normalizedRole,
-      source: "registered"
+      source: "registered",
+      mfaVerified: false,
+      supabaseUserId
     }),
     {
       httpOnly: true,

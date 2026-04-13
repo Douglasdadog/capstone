@@ -12,6 +12,10 @@ type Shipment = {
   origin: string;
   destination: string;
   status: ShipmentStatus;
+  provider_name?: string | null;
+  waybill_number?: string | null;
+  eta?: string | null;
+  tracking_token?: string | null;
   updated_at: string;
 };
 
@@ -21,6 +25,8 @@ export default function LogisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [rowSavingId, setRowSavingId] = useState<string | null>(null);
+  const [origin, setOrigin] = useState("");
 
   async function fetchShipments() {
     const response = await fetch("/api/logistics/shipments");
@@ -42,6 +48,10 @@ export default function LogisticsPage() {
       }
     }
     void load();
+  }, []);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
   }, []);
 
   useEffect(() => {
@@ -88,6 +98,54 @@ export default function LogisticsPage() {
     }
   }
 
+  async function saveDetails(shipment: Shipment) {
+    try {
+      setError(null);
+      setMessage(null);
+      setRowSavingId(shipment.id);
+      const response = await fetch("/api/logistics/update-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shipmentId: shipment.id,
+          providerName: shipment.provider_name ?? "",
+          waybillNumber: shipment.waybill_number ?? "",
+          eta: shipment.eta ?? null
+        })
+      });
+      const data = (await response.json()) as { error?: string; shipment?: Shipment };
+      if (!response.ok) throw new Error(data.error ?? "Unable to save logistics details.");
+      setShipments((prev) => prev.map((row) => (row.id === shipment.id ? { ...row, ...(data.shipment ?? {}) } : row)));
+      setMessage("Logistics details saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save logistics details.");
+    } finally {
+      setRowSavingId(null);
+    }
+  }
+
+  async function generateTrackingLink(shipmentId: string) {
+    const response = await fetch("/api/logistics/generate-tracking-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shipmentId })
+    });
+    const data = (await response.json()) as { error?: string; trackingLink?: string; token?: string };
+    if (!response.ok) {
+      setError(data.error ?? "Unable to generate tracking link.");
+      return;
+    }
+    setShipments((prev) =>
+      prev.map((row) => (row.id === shipmentId ? { ...row, tracking_token: data.token ?? row.tracking_token } : row))
+    );
+    if (data.trackingLink && navigator.clipboard) {
+      await navigator.clipboard.writeText(data.trackingLink);
+      setMessage("Tracking link generated and copied.");
+    } else {
+      setMessage(`Tracking link: ${data.trackingLink ?? "generated"}`);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div>
@@ -115,12 +173,18 @@ export default function LogisticsPage() {
               <th className="px-4 py-3">Tracking #</th>
               <th className="px-4 py-3">Client</th>
               <th className="px-4 py-3">Route</th>
+              <th className="px-4 py-3">3PL Provider</th>
+              <th className="px-4 py-3">Waybill/Trucker #</th>
+              <th className="px-4 py-3">ETA</th>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Tracking Link</th>
               <th className="px-4 py-3">Updated</th>
             </tr>
           </thead>
           <tbody>
-            {shipments.map((shipment) => (
+            {shipments.map((shipment) => {
+              const trackingUrl = shipment.tracking_token && origin ? `${origin}/track/${shipment.tracking_token}` : null;
+              return (
               <tr key={shipment.id} className="border-t border-slate-100">
                 <td className="px-4 py-3 font-medium text-slate-800">{shipment.tracking_number}</td>
                 <td className="px-4 py-3">
@@ -129,6 +193,60 @@ export default function LogisticsPage() {
                 </td>
                 <td className="px-4 py-3">
                   {shipment.origin} &rarr; {shipment.destination}
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    value={shipment.provider_name ?? ""}
+                    onChange={(event) =>
+                      setShipments((prev) =>
+                        prev.map((row) =>
+                          row.id === shipment.id ? { ...row, provider_name: event.target.value } : row
+                        )
+                      )
+                    }
+                    placeholder="e.g. LBC / J&T / Trucking Co"
+                    className="w-44 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    value={shipment.waybill_number ?? ""}
+                    onChange={(event) =>
+                      setShipments((prev) =>
+                        prev.map((row) =>
+                          row.id === shipment.id ? { ...row, waybill_number: event.target.value } : row
+                        )
+                      )
+                    }
+                    placeholder="Waybill / Trucker #"
+                    className="w-40 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="datetime-local"
+                      value={shipment.eta ? new Date(shipment.eta).toISOString().slice(0, 16) : ""}
+                      onChange={(event) =>
+                        setShipments((prev) =>
+                          prev.map((row) =>
+                            row.id === shipment.id
+                              ? { ...row, eta: event.target.value ? new Date(event.target.value).toISOString() : null }
+                              : row
+                          )
+                        )
+                      }
+                      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void saveDetails(shipment)}
+                      disabled={rowSavingId === shipment.id}
+                      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    >
+                      {rowSavingId === shipment.id ? "Saving..." : "Save"}
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <select
@@ -141,14 +259,27 @@ export default function LogisticsPage() {
                     <option value="Delivered">Delivered</option>
                   </select>
                 </td>
+                <td className="px-4 py-3">
+                  <div className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => void generateTrackingLink(shipment.id)}
+                      className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      Generate Link
+                    </button>
+                    {trackingUrl ? <p className="max-w-[240px] break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-slate-500">
                   {new Date(shipment.updated_at).toLocaleString()}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {!loading && shipments.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-500" colSpan={5}>
+                <td className="px-4 py-6 text-slate-500" colSpan={9}>
                   No shipments found.
                 </td>
               </tr>

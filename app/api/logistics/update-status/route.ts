@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { buildShipmentStatusEmail } from "@/lib/communication/shipment-email";
-import { sendEmail } from "@/lib/communication/mailer";
+import { sendSmtpEmail } from "@/lib/communication/mailer";
 
 type ShipmentStatus = "Pending" | "In Transit" | "Delivered";
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const { data: shipment, error: fetchError } = await supabase
     .from("shipments")
-    .select("id, tracking_number, client_name, client_email, origin, destination, status")
+    .select("id, tracking_number, client_name, client_email, origin, destination, status, eta, tracking_token")
     .eq("id", shipmentId)
     .single();
 
@@ -45,7 +45,9 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     })
     .eq("id", shipmentId)
-    .select("id, tracking_number, client_name, client_email, origin, destination, status, updated_at")
+    .select(
+      "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
+    )
     .single();
 
   if (updateError) {
@@ -62,11 +64,15 @@ export async function POST(request: NextRequest) {
         trackingNumber: shipment.tracking_number,
         status,
         origin: shipment.origin,
-        destination: shipment.destination
+        destination: shipment.destination,
+        eta: shipment.eta,
+        trackingLink: shipment.tracking_token
+          ? `${request.nextUrl.origin}/track/${shipment.tracking_token}`
+          : null
       });
 
-      await sendEmail(emailPayload);
-      communication = { sent: true, message: "Comm module sent client email." };
+      await sendSmtpEmail(emailPayload);
+      communication = { sent: true, message: "SMTP trigger sent client email." };
     } catch (error) {
       communication = {
         sent: false,

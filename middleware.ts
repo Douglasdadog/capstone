@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessWithExtras, normalizeRole } from "@/lib/auth/roles";
+import { canAccessWithExtras, getPostLoginRedirect, normalizeRole } from "@/lib/auth/roles";
 import {
   DEMO_PERMISSIONS_COOKIE,
   DEMO_SESSION_COOKIE,
@@ -7,7 +7,7 @@ import {
   readSession
 } from "@/lib/auth/demo-auth";
 
-const publicRoutes = ["/", "/login", "/forbidden", "/start-fresh"];
+const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/track/") ||
     pathname.includes(".") ||
     publicRoutes.includes(pathname)
   ) {
@@ -31,6 +32,19 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = normalizeRole(session.role);
+  if (!session.mfaVerified && pathname !== "/verify-otp") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/verify-otp";
+    redirectUrl.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (session.mfaVerified && pathname === "/verify-otp") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = getPostLoginRedirect(role);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   const extraRoutes = getUserExtraRoutes(session.email, request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
   if (!canAccessWithExtras(role, pathname, extraRoutes)) {
     const redirectUrl = request.nextUrl.clone();

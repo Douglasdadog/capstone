@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from "next/server";
+import { DEMO_MFA_COOKIE, DEMO_SESSION_COOKIE, readMfaSecrets, readSession } from "@/lib/auth/demo-auth";
+import { getSupabaseMfaMeta } from "@/lib/auth/mfa";
+
+export async function GET(request: NextRequest) {
+  const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let enrolled = false;
+  if (session.supabaseUserId) {
+    const supabaseMeta = await getSupabaseMfaMeta(session.supabaseUserId);
+    enrolled = Boolean(supabaseMeta.enabled && supabaseMeta.secret);
+  } else {
+    const mfaMap = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
+    enrolled = Boolean(mfaMap[session.email.toLowerCase()]);
+  }
+
+  return NextResponse.json({
+    enrolled,
+    mfaVerified: session.mfaVerified
+  });
+}

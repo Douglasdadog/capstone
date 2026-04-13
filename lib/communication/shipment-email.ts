@@ -5,6 +5,8 @@ type ShipmentEmailInput = {
   status: "Pending" | "In Transit" | "Delivered";
   origin: string;
   destination: string;
+  eta?: string | null;
+  trackingLink?: string | null;
 };
 
 export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
@@ -17,12 +19,17 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
     `Tracking Number: ${input.trackingNumber}`,
     `Status: ${input.status}`,
     `Route: ${input.origin} -> ${input.destination}`,
+    input.eta ? `ETA: ${new Date(input.eta).toLocaleString()}` : null,
     "",
-    "You can track your shipment anytime through the WIS Client Portal.",
+    input.trackingLink
+      ? `Track your shipment here (no login required): ${input.trackingLink}`
+      : "You can track your shipment anytime through the WIS Client Portal.",
     "",
     "Regards,",
     "Warehouse Information System"
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const html = `
     <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
@@ -33,8 +40,9 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
         <tr><td style="padding: 6px 10px; font-weight: 600;">Tracking</td><td style="padding: 6px 10px;">${input.trackingNumber}</td></tr>
         <tr><td style="padding: 6px 10px; font-weight: 600;">Status</td><td style="padding: 6px 10px;">${input.status}</td></tr>
         <tr><td style="padding: 6px 10px; font-weight: 600;">Route</td><td style="padding: 6px 10px;">${input.origin} &rarr; ${input.destination}</td></tr>
+        ${input.eta ? `<tr><td style="padding: 6px 10px; font-weight: 600;">ETA</td><td style="padding: 6px 10px;">${new Date(input.eta).toLocaleString()}</td></tr>` : ""}
       </table>
-      <p>You can track your shipment anytime through the WIS Client Portal.</p>
+      ${input.trackingLink ? `<p>Track your shipment (no login required): <a href="${input.trackingLink}">${input.trackingLink}</a></p>` : "<p>You can track your shipment anytime through the WIS Client Portal.</p>"}
       <p style="margin-top: 16px;">Regards,<br/>Warehouse Information System</p>
     </div>
   `;

@@ -15,7 +15,9 @@ export async function GET(request: NextRequest) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("shipments")
-    .select("id, tracking_number, client_name, client_email, origin, destination, status, updated_at")
+    .select(
+      "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
+    )
     .order("updated_at", { ascending: false });
 
   if (error) {

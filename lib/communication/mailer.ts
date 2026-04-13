@@ -57,6 +57,10 @@ async function sendViaSmtp(payload: EmailPayload) {
   });
 }
 
+export async function sendSmtpEmail(payload: EmailPayload) {
+  await sendViaSmtp(payload);
+}
+
 export async function sendEmail(payload: EmailPayload) {
   if (process.env.RESEND_API_KEY?.trim()) {
     await sendViaResend(payload);

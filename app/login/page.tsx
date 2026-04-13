@@ -2,7 +2,6 @@
 
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { normalizeRole, resolvePostLoginPath } from "@/lib/auth/roles";
 
 export default function LoginPage() {
   return (
@@ -47,13 +46,9 @@ function LoginContent() {
       return;
     }
 
-    const sessionRes = await fetch("/api/auth/session");
-    const sessionData = (await sessionRes.json()) as { role?: string };
-    const userRole = normalizeRole(sessionData.role);
     const from = searchParams.get("redirectedFrom");
-    const nextPath = resolvePostLoginPath(userRole, from);
-
-    router.push(nextPath);
+    const next = from ? `/verify-otp?redirectedFrom=${encodeURIComponent(from)}` : "/verify-otp";
+    router.push(next);
     router.refresh();
   }
 

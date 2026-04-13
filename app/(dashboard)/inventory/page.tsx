@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -205,6 +206,12 @@ export default function InventoryPage() {
         >
           {simulating ? "Simulating..." : "Sensor Simulation"}
         </button>
+        <Link
+          href="/inventory/scanning"
+          className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+        >
+          Open Mobile Scanner
+        </Link>
       </div>
 
       {message ? (

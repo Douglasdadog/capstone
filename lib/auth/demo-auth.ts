@@ -4,6 +4,8 @@ export type DemoSession = {
   email: string;
   role: UserRole;
   source: "sample" | "registered";
+  mfaVerified: boolean;
+  supabaseUserId?: string | null;
 };
 
 export type DemoUser = {
@@ -14,11 +16,14 @@ export type DemoUser = {
 
 type UserPermissionsMap = Record<string, string[]>;
 type UserProfilesMap = Record<string, { fullName: string; phone: string }>;
+type UserMfaMap = Record<string, string>;
 
 export const DEMO_SESSION_COOKIE = "wis_demo_session";
 export const DEMO_USERS_COOKIE = "wis_demo_users";
 export const DEMO_PERMISSIONS_COOKIE = "wis_demo_permissions";
 export const DEMO_PROFILE_COOKIE = "wis_demo_profile";
+export const DEMO_MFA_COOKIE = "wis_demo_mfa";
+export const DEMO_MFA_PENDING_COOKIE = "wis_demo_mfa_pending";
 
 const SAMPLE_USERS: DemoUser[] = [
   { email: "admin@wis.local", password: "admin123", role: "Admin" },
@@ -42,7 +47,9 @@ export function readSession(rawCookie: string | undefined): DemoSession | null {
   return {
     email: session.email,
     role: normalizeRole(session.role),
-    source: session.source === "registered" ? "registered" : "sample"
+    source: session.source === "registered" ? "registered" : "sample",
+    mfaVerified: Boolean(session.mfaVerified),
+    supabaseUserId: typeof session.supabaseUserId === "string" ? session.supabaseUserId : null
   };
 }
 
@@ -117,5 +124,18 @@ export function readProfiles(rawCookie: string | undefined): UserProfilesMap {
 }
 
 export function serializeProfiles(data: UserProfilesMap): string {
+  return JSON.stringify(data);
+}
+
+export function readMfaSecrets(rawCookie: string | undefined): UserMfaMap {
+  const data = safeJsonParse<UserMfaMap>(rawCookie, {});
+  return Object.fromEntries(
+    Object.entries(data).filter(
+      ([email, secret]) => typeof email === "string" && typeof secret === "string" && secret.length > 0
+    )
+  );
+}
+
+export function serializeMfaSecrets(data: UserMfaMap): string {
   return JSON.stringify(data);
 }

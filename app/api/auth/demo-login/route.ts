@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { normalizeRole } from "@/lib/auth/roles";
 import {
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE,
@@ -21,7 +23,46 @@ export async function POST(request: NextRequest) {
   );
 
   if (!user) {
-    return NextResponse.json({ error: "Invalid credentials for demo account." }, { status: 401 });
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!url || !anonKey) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+
+    const supabase = createClient(url, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    });
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password
+    });
+
+    if (error || !data.user) {
+      return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
+    }
+
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set(
+      DEMO_SESSION_COOKIE,
+      serializeSession({
+        email: normalizedEmail,
+        role: normalizeRole(data.user.user_metadata?.role),
+        source: "registered",
+        mfaVerified: false,
+        supabaseUserId: data.user.id
+      }),
+      {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/"
+      }
+    );
+    return response;
   }
 
   const response = NextResponse.json({ ok: true });
@@ -30,7 +71,9 @@ export async function POST(request: NextRequest) {
     serializeSession({
       email: user.email,
       role: user.role,
-      source: isRegisteredUser ? "registered" : "sample"
+      source: isRegisteredUser ? "registered" : "sample",
+      mfaVerified: false,
+      supabaseUserId: null
     }),
     {
       httpOnly: true,

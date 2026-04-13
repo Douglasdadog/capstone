@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   DEMO_PERMISSIONS_COOKIE,
+  DEMO_MFA_COOKIE,
+  DEMO_MFA_PENDING_COOKIE,
   DEMO_PROFILE_COOKIE,
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE
@@ -18,7 +20,9 @@ function clearAllDemoState(response: NextResponse) {
     DEMO_SESSION_COOKIE,
     DEMO_USERS_COOKIE,
     DEMO_PERMISSIONS_COOKIE,
-    DEMO_PROFILE_COOKIE
+    DEMO_PROFILE_COOKIE,
+    DEMO_MFA_COOKIE,
+    DEMO_MFA_PENDING_COOKIE
   ]) {
     response.cookies.set(name, "", COOKIE_CLEAR);
   }
