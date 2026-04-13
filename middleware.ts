@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/demo-auth";
 
 const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh"];
+const mfaExemptRoutes = ["/logistics"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -32,7 +33,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = normalizeRole(session.role);
-  if (!session.mfaVerified && pathname !== "/verify-otp") {
+  const isMfaExempt = mfaExemptRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  if (!session.mfaVerified && pathname !== "/verify-otp" && !isMfaExempt) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/verify-otp";
     redirectUrl.searchParams.set("redirectedFrom", pathname);
