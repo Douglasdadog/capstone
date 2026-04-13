@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UserRole, normalizeRole } from "@/lib/auth/roles";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE,
@@ -11,6 +12,9 @@ import {
 } from "@/lib/auth/demo-auth";
 
 export async function POST(request: NextRequest) {
+  const rateLimited = enforceRateLimit(request, "auth-register", 5, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { email, password, role } = (await request.json()) as {
     email?: string;
     password?: string;
@@ -19,6 +23,10 @@ export async function POST(request: NextRequest) {
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+  }
+
+  if (email.length > 190 || password.length > 128) {
+    return NextResponse.json({ error: "Input exceeds allowed length." }, { status: 400 });
   }
 
   if (password.length < 6) {

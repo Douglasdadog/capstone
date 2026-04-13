@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const issueTypes = new Set(["Delayed Shipment", "Incorrect Status", "Order Inquiry"]);
 
@@ -7,6 +8,9 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
+  const rateLimited = enforceRateLimit(request, "public-tracking-issue", 6, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { token } = await context.params;
   if (!token) return NextResponse.json({ error: "Token is required." }, { status: 400 });
 
@@ -17,8 +21,13 @@ export async function POST(
   };
 
   const issueType = String(body.issueType ?? "").trim();
+  const message = String(body.message ?? "").trim();
+  const contactEmail = String(body.contactEmail ?? "").trim();
   if (!issueTypes.has(issueType)) {
     return NextResponse.json({ error: "Invalid issue type." }, { status: 400 });
+  }
+  if (message.length > 1000 || contactEmail.length > 190) {
+    return NextResponse.json({ error: "Input exceeds allowed length." }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -36,8 +45,8 @@ export async function POST(
     .insert({
       shipment_id: shipment.id,
       issue_type: issueType,
-      message: body.message?.trim() || null,
-      contact_email: body.contactEmail?.trim() || null
+      message: message || null,
+      contact_email: contactEmail || null
     })
     .select("id")
     .single();

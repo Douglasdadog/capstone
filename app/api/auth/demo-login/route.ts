@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeRole } from "@/lib/auth/roles";
+import { delayOnFailure, enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE,
@@ -10,8 +11,12 @@ import {
 } from "@/lib/auth/demo-auth";
 
 export async function POST(request: NextRequest) {
+  const rateLimited = enforceRateLimit(request, "auth-login", 8, 60_000);
+  if (rateLimited) return rateLimited;
+
   const { email, password } = (await request.json()) as { email?: string; password?: string };
   if (!email || !password) {
+    await delayOnFailure();
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
   }
 
@@ -27,6 +32,7 @@ export async function POST(request: NextRequest) {
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || !anonKey) {
+      await delayOnFailure();
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 
@@ -43,6 +49,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error || !data.user) {
+      await delayOnFailure();
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 

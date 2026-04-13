@@ -10,6 +10,19 @@ import {
 const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh"];
 const mfaExemptRoutes = ["/logistics"];
 
+function applySecurityHeaders(response: NextResponse) {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -20,7 +33,7 @@ export async function middleware(request: NextRequest) {
     pathname.includes(".") ||
     publicRoutes.includes(pathname)
   ) {
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 
   const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
@@ -29,7 +42,7 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
   const role = normalizeRole(session.role);
@@ -40,23 +53,23 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/verify-otp";
     redirectUrl.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
   if (session.mfaVerified && pathname === "/verify-otp") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = getPostLoginRedirect(role);
-    return NextResponse.redirect(redirectUrl);
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
   const extraRoutes = getUserExtraRoutes(session.email, request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
   if (!canAccessWithExtras(role, pathname, extraRoutes)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/forbidden";
-    return NextResponse.redirect(redirectUrl);
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
   }
 
-  return NextResponse.next();
+  return applySecurityHeaders(NextResponse.next());
 }
 
 export const config = {

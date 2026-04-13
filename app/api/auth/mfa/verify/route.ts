@@ -9,8 +9,12 @@ import {
   serializeSession
 } from "@/lib/auth/demo-auth";
 import { getSupabaseMfaMeta, saveSupabaseMfaSecret, verifyTotpToken } from "@/lib/auth/mfa";
+import { delayOnFailure, enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: NextRequest) {
+  const rateLimited = enforceRateLimit(request, "auth-mfa-verify", 10, 60_000);
+  if (rateLimited) return rateLimited;
+
   const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -18,7 +22,8 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as { token?: string };
   const token = (body.token ?? "").trim();
-  if (!token) {
+  if (!/^\d{6}$/.test(token)) {
+    await delayOnFailure(400);
     return NextResponse.json({ error: "OTP code is required." }, { status: 400 });
   }
 
@@ -51,6 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!(await verifyTotpToken(token, secret))) {
+    await delayOnFailure(450);
     return NextResponse.json({ error: "Invalid OTP code." }, { status: 401 });
   }
 
