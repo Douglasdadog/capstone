@@ -24,6 +24,13 @@ function applySecurityHeaders(response: NextResponse) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
+
+  if (session && (pathname === "/" || pathname === "/login")) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = session.mfaVerified ? getPostLoginRedirect(normalizeRole(session.role)) : "/verify-otp";
+    return applySecurityHeaders(NextResponse.redirect(redirectUrl));
+  }
 
   if (
     pathname.startsWith("/_next") ||
@@ -34,8 +41,6 @@ export async function middleware(request: NextRequest) {
   ) {
     return applySecurityHeaders(NextResponse.next());
   }
-
-  const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
 
   if (!session) {
     const redirectUrl = request.nextUrl.clone();

@@ -59,7 +59,7 @@ export function canAccessWithExtras(role: UserRole, pathname: string, extraRoute
 
 /** Default landing path after sign-in when no valid deep link is provided. */
 export function getPostLoginRedirect(role: UserRole): string {
-  return role === "Client" ? "/client" : "/dashboard";
+  return DASHBOARD_ROUTES[role];
 }
 
 /**
