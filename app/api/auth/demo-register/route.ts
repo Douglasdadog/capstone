@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { UserRole, normalizeRole } from "@/lib/auth/roles";
+import { UserRole } from "@/lib/auth/roles";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   DEMO_SESSION_COOKIE,
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
   }
 
-  const normalizedRole = normalizeRole(role);
+  const normalizedRole = "Client";
   const registeredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
   const normalizedEmail = email.toLowerCase();
   let supabaseUserId: string | null = null;

@@ -29,6 +29,7 @@ function VerifyOtpContent() {
   const [enrolled, setEnrolled] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [setupKey, setSetupKey] = useState<string | null>(null);
+  const [resetRequested, setResetRequested] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -109,6 +110,20 @@ function VerifyOtpContent() {
     router.refresh();
   }
 
+  async function handleMfaResetRequest() {
+    setError(null);
+    setSubmitting(true);
+    const res = await fetch("/api/auth/mfa/request-reset", { method: "POST" });
+    const data = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Unable to submit reset request.");
+      setSubmitting(false);
+      return;
+    }
+    setResetRequested(true);
+    setSubmitting(false);
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-10">
       <section className="w-full max-w-md rounded-2xl border border-white/15 bg-white/95 p-7 shadow-2xl">
@@ -176,6 +191,22 @@ function VerifyOtpContent() {
           >
             {submitting ? "Verifying..." : "Verify and continue"}
           </button>
+
+          {!resetRequested ? (
+            <button
+              type="button"
+              onClick={() => void handleMfaResetRequest()}
+              disabled={submitting}
+              className="w-full text-center text-xs font-medium text-slate-600 underline-offset-2 hover:text-red-600 hover:underline disabled:opacity-60"
+            >
+              Lost your device? Request an MFA Reset from Admin.
+            </button>
+          ) : (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Request Sent. Please contact your supervisor or wait for an email confirmation once the Admin has
+              processed your reset.
+            </p>
+          )}
         </form>
       </section>
     </main>

@@ -121,6 +121,7 @@ Main capability groups:
 - Input length and format constraints on exposed auth/public routes.
 - Security response headers applied via middleware.
 - Public tracking token validation with controlled error responses.
+- MFA reset request logging for lost-device scenarios from OTP verification page.
 
 10. Feature Matrix
 

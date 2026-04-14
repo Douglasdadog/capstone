@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import AdminUserPermissions from "@/components/admin-user-permissions";
 import AdminManifestManager from "@/components/admin-manifest-manager";
+import AdminCreateUserForm from "@/components/admin-create-user-form";
 
 export default function AdminPage() {
   return (
@@ -19,6 +20,7 @@ export default function AdminPage() {
       </div>
 
       <AdminUserPermissions />
+      <AdminCreateUserForm />
       <AdminManifestManager />
     </section>
   );

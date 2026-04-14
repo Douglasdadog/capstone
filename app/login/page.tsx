@@ -19,7 +19,6 @@ function LoginContent() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Client");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,8 +33,7 @@ function LoginContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        password,
-        role
+        password
       })
     });
 
@@ -136,22 +134,9 @@ function LoginContent() {
           </div>
 
           {mode === "register" ? (
-            <div>
-              <label htmlFor="role" className="mb-1 block text-sm font-medium text-slate-700">
-                Role
-              </label>
-              <select
-                id="role"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-amber-500 transition focus:ring-2"
-              >
-                <option value="Admin">Admin</option>
-                <option value="Inventory">Inventory</option>
-                <option value="Sales">Sales</option>
-                <option value="Client">Client</option>
-              </select>
-            </div>
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Self-registration creates a <span className="font-semibold">Client</span> account only.
+            </p>
           ) : null}
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
