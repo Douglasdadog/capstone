@@ -1,117 +1,174 @@
-# Warehouse Information System (WIS) - Features and Capabilities
+Warehouse Information System (WIS)
+Features and Capabilities Documentation
 
-## Core Functions
+1. Platform Summary
 
-- Role-based warehouse operations platform for Admin, Inventory, Sales, and Client users.
-- Real-time inventory and shipment visibility with dashboard modules.
-- Public tracking support through secure tokenized links (no login required).
+The Warehouse Information System (WIS) is a role-based operations platform that combines inventory management, manifest verification, shipment lifecycle tracking, logistics communication, public shipment tracking, and baseline security hardening.
 
-## User Roles and Capabilities
+Main capability groups:
+- Identity and access control
+- Admin governance and monitoring
+- Inventory operations and scanning verification
+- Sales logistics and shipment communication
+- Public self-service tracking and issue reporting
+- Application-level security protections
 
-### Admin
-- Manage system users and permission access.
-- Upload battery shipment manifests via `.xlsx` or `.csv`.
-- Monitor and update manifest lifecycle:
-  - Pending Verification
-  - Completed
-  - Discrepancies
-- Access system-wide monitoring, logs, and IoT-related dashboard panels.
+2. Role-Based Functional Capabilities
 
-### Inventory
-- View inventory levels, thresholds, and replenishment alerts.
-- Use manual quantity/threshold override controls.
-- Perform mobile-friendly manifest scanning workflow with camera barcode scanner.
-- Track scan counters per battery part against expected manifest quantities.
-- Complete verification when counts match.
-- Create discrepancy reports when counts do not match.
-
-### Sales
-- Manage logistics status updates for shipments.
-- Edit logistics metadata:
-  - 3PL Provider Name
-  - Waybill/Trucker Number
-  - ETA
-- Trigger automatic SMTP shipment notifications when status changes to In Transit.
-- Generate secure UUID-based client tracking links.
-
-### Client
-- Track shipment progress within client portal workflows.
-- View shipment details and status progression.
-
-## Authentication and Access Control
-
-- Login and registration workflow integrated with Supabase user accounts.
-- Multi-Factor Authentication (TOTP) with QR setup and OTP verification.
-- Route-level access control enforced through middleware by role and session.
-- Logistics route configured as MFA-exempt while still requiring authenticated access.
-
-## Manifest Management Capabilities
-
-- Accept and parse Excel/CSV manifest files with required fields:
+2.1 Admin Capabilities
+- Access full system dashboard and cross-module visibility.
+- Manage user access permissions and route grants.
+- Upload manifest files in Excel or CSV format.
+- Parse and store manifest rows with required fields:
   - Part Number
   - Quantity
   - Batch ID
-- Store manifest header and itemized rows in database.
-- Provide admin status tracking view with visual status indicators.
+- Manage manifest lifecycle statuses:
+  - Pending Verification
+  - Completed
+  - Discrepancies
+- Review audit and monitoring sections for operational oversight.
 
-## Inventory Scanning Capabilities
+2.2 Inventory Capabilities
+- Monitor stock levels, threshold limits, and replenishment alerts.
+- Apply manual quantity and threshold overrides.
+- Use mobile-ready barcode scanning for manifest verification.
+- Track scanned count against expected count per part number.
+- Complete verification when all scanned counts match expected values.
+- Submit discrepancy reports with category and comments when mismatches occur.
 
-- Pending manifest fetch for verification workflow.
-- Camera-based barcode capture using `html5-qrcode`.
-- Live scan counting per part number.
-- Mismatch handling with issue classification options:
+2.3 Sales Capabilities
+- Manage shipment status transitions.
+- Update logistics metadata per shipment:
+  - 3PL Provider Name
+  - Waybill/Trucker Number
+  - ETA
+- Trigger SMTP shipment notification emails automatically when status changes to In Transit.
+- Generate secure UUID-based tracking links for no-login client tracking.
+
+2.4 Client Capabilities
+- Track shipment progress and status through client-facing tracking interfaces.
+- View shipment route and fulfillment progression details.
+
+2.5 Public (No-Login) Capabilities
+- Access shipment tracking without login via:
+  - Token URL tracking page
+  - Tracking-number search page
+- View itemized battery shipment details.
+- Download digital packing list PDF.
+- Submit shipment issues and receive ticket IDs.
+
+3. Authentication and Access Control
+
+- Supabase-backed user registration and login.
+- Role-based route authorization enforced in middleware.
+- TOTP-based MFA support with QR setup and OTP verification.
+- MFA gate applied before protected routes are accessible.
+- Public tracking routes are separated from protected internal modules.
+
+4. MFA Capability Details
+
+- After successful password login, users are redirected to OTP verification.
+- MFA setup supports first-time QR enrollment.
+- OTP verification enables protected route access for authenticated sessions.
+- Session state stores MFA verification result per login session.
+
+5. Manifest Management Capabilities
+
+- Accept and process Excel/CSV uploads for manifests.
+- Normalize and validate incoming row data.
+- Persist manifest headers and manifest line items in relational tables.
+- Provide admin-facing status tracking and updates for verification workflows.
+
+6. Inventory Scanning Capabilities
+
+- Retrieve pending manifest for verification.
+- Enable camera barcode scanning for item capture.
+- Increment and validate scan counters per part number.
+- Support mismatch handling with discrepancy categories:
   - Short Shipment
   - Damaged on Arrival
   - Mismatched Part
   - Over-shipment
-- Comment capture for discrepancy context.
+- Collect additional discrepancy comments for audit context.
 
-## Logistics and Communication Capabilities
+7. Logistics and Shipment Communication Capabilities
 
-- Shipment status updates with communication hooks.
-- Automatic outbound email notification on In Transit transition.
-- Tracking-link generation for client self-service shipment monitoring.
+- Manage shipment status lifecycle and logistics metadata.
+- Trigger outbound SMTP email to client on In Transit transition.
+- Include shipment context in communication (route, status, tracking details).
+- Support secure no-login tracking link generation for each shipment.
 
-## Public Client Tracking Portal Capabilities
+8. Public Tracking Portal Capabilities
 
-- Public access only through unique UUID token URL.
-- Displays:
-  - Order summary
-  - Itemized battery list
-  - ETA
-  - Logistics references (provider/waybill where available)
-- Digital packing list PDF download.
-- Issue reporting form with ticket generation (e.g. `#552`).
-- Thank-you confirmation page with 24-hour expected response notice.
+8.1 Token-Based Tracking
+- Access shipment by unique UUID token URL.
+- Display shipment summary, ETA, provider and waybill references, and itemized battery rows.
+- Provide digital packing list PDF download.
+- Allow issue report submission and ticket generation.
+- Show thank-you confirmation page with expected response time.
 
-## Security Capabilities Implemented
+8.2 Tracking Number Search Page
+- Public page dedicated to shipment tracking only.
+- Search by tracking number.
+- Display current status, route, ETA, and itemized shipment details.
+- Kept separate from internal logistics dashboard functionality.
 
-- Baseline API request throttling for sensitive endpoints.
-- Anti-bruteforce delay controls on failed auth/MFA attempts.
-- Input constraints for abuse reduction on sensitive public/auth routes.
+9. Security Capabilities Implemented
+
+- API rate limiting for sensitive endpoints.
+- Anti-bruteforce delay on failed login and MFA verification attempts.
+- Input length and format constraints on exposed auth/public routes.
 - Security response headers applied via middleware.
-- Public token validation checks on tracking APIs.
+- Public tracking token validation with controlled error responses.
 
-## Current Capability Status
+10. Feature Matrix
 
-- Authentication, MFA, manifests, scanning, logistics, communication, public tracking, issue ticketing, and baseline hardening are implemented and operational.
+- Authentication
+  - Capability: Supabase login/register and role session handling
+  - Primary users: All roles
+  - Status: Implemented
 
-## Feature Matrix (Presentation Format)
+- MFA (TOTP)
+  - Capability: QR enrollment and OTP-gated protected access
+  - Primary users: Admin, Inventory, Sales, Client
+  - Status: Implemented
 
-| Module | Key Features | Primary User Role | Status |
-|---|---|---|---|
-| Authentication | Login, Register, Role-based session handling | All roles | Implemented |
-| MFA (TOTP) | QR setup, OTP verification, protected route gating | Admin, Inventory, Sales, Client | Implemented |
-| Admin Permissions | User permissions management and route grants | Admin | Implemented |
-| Manifest Upload | Upload `.xlsx/.csv`, parse and save manifest rows | Admin | Implemented |
-| Manifest Tracking | Pending/Completed/Discrepancies status management | Admin | Implemented |
-| Inventory Monitoring | Inventory table, thresholds, alerts, manual override | Inventory, Admin | Implemented |
-| Mobile Scanning | Camera barcode scan, part counters, completion checks | Inventory | Implemented |
-| Discrepancy Reporting | Quick-select issue types and comments | Inventory | Implemented |
-| Logistics Management | 3PL provider, waybill/trucker number, ETA updates | Sales, Admin | Implemented |
-| Shipment Communication | SMTP trigger on In Transit status updates | Sales, Admin | Implemented |
-| Tracking Link Generator | Secure UUID no-login client tracking links | Sales, Admin | Implemented |
-| Public Tracking Portal | Itemized order summary, ETA, status display | Public/Client | Implemented |
-| Packing List Export | Digital packing list PDF download | Public/Client | Implemented |
-| Public Issue Ticketing | Delayed/Incorrect/Inquiry issue form + ticket ID | Public/Client | Implemented |
-| Security Hardening | Rate limiting, anti-bruteforce delay, security headers | System-wide | Implemented |
+- Admin Permissions
+  - Capability: User route grant management
+  - Primary users: Admin
+  - Status: Implemented
+
+- Manifest Upload and Tracking
+  - Capability: Excel/CSV import and verification status lifecycle
+  - Primary users: Admin
+  - Status: Implemented
+
+- Inventory Operations and Scanning
+  - Capability: Stock controls, barcode verification, discrepancy reporting
+  - Primary users: Inventory
+  - Status: Implemented
+
+- Logistics Management
+  - Capability: Shipment metadata, status updates, SMTP notifications
+  - Primary users: Sales, Admin
+  - Status: Implemented
+
+- Public Tracking
+  - Capability: Token tracking, tracking-number search, PDF packing list
+  - Primary users: Public, Client
+  - Status: Implemented
+
+- Public Issue Ticketing
+  - Capability: Issue submission with generated ticket ID and thank-you response page
+  - Primary users: Public, Client
+  - Status: Implemented
+
+- Security Hardening
+  - Capability: Rate limiting, anti-bruteforce controls, security headers
+  - Primary users: System-wide
+  - Status: Implemented
+
+11. Current Capability Status
+
+All major workflow capabilities for authentication, MFA, manifests, inventory scanning, logistics operations, public tracking, communication triggers, issue ticketing, and baseline hardening are implemented and operational.
