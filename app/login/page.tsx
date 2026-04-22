@@ -73,14 +73,11 @@ function LoginContent() {
 
         <div className="mt-5 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-amber-50 p-4 text-xs text-slate-700">
           <p className="font-semibold uppercase tracking-wide text-slate-800">Sample test accounts</p>
-          <p className="mb-1 text-[11px] text-slate-500">
-            Gmail aliases route to <span className="font-semibold">bunuan.arthur@gmail.com</span>
-          </p>
-          <p>Super Admin: bunuan.arthur+superadmin@gmail.com / superadmin123</p>
-          <p>Admin: bunuan.arthur+admin@gmail.com / admin123</p>
-          <p>Inventory: bunuan.arthur+inventory@gmail.com / inventory123</p>
-          <p>Sales: bunuan.arthur+sales@gmail.com / sales123</p>
-          <p>Client: bunuan.arthur+client@gmail.com / client123</p>
+          <p>Super Admin: superadmin@wis.local / superadmin123</p>
+          <p>Admin: admin@wis.local / admin123</p>
+          <p>Inventory: inventory@wis.local / inventory123</p>
+          <p>Sales: sales@wis.local / sales123</p>
+          <p>Client: client@wis.local / client123</p>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">

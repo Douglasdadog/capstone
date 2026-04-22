@@ -28,11 +28,11 @@ export const DEMO_MFA_PENDING_COOKIE = "wis_demo_mfa_pending";
 export const DEMO_EMAIL_VERIFY_COOKIE = "wis_demo_email_verify";
 
 const SAMPLE_USERS: DemoUser[] = [
-  { email: "bunuan.arthur+superadmin@gmail.com", password: "superadmin123", role: "SuperAdmin" },
-  { email: "bunuan.arthur+admin@gmail.com", password: "admin123", role: "Admin" },
-  { email: "bunuan.arthur+inventory@gmail.com", password: "inventory123", role: "Inventory" },
-  { email: "bunuan.arthur+sales@gmail.com", password: "sales123", role: "Sales" },
-  { email: "bunuan.arthur+client@gmail.com", password: "client123", role: "Client" }
+  { email: "superadmin@wis.local", password: "superadmin123", role: "SuperAdmin" },
+  { email: "admin@wis.local", password: "admin123", role: "Admin" },
+  { email: "inventory@wis.local", password: "inventory123", role: "Inventory" },
+  { email: "sales@wis.local", password: "sales123", role: "Sales" },
+  { email: "client@wis.local", password: "client123", role: "Client" }
 ];
 
 function safeJsonParse<T>(value: string | undefined, fallback: T): T {
