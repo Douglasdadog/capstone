@@ -197,12 +197,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: deleteError } = await supabase
+    const { error: approveError } = await supabase
       .from("mfa_reset_requests")
-      .delete()
+      .update({ status: "Approved" })
       .eq("id", requestId);
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    if (approveError) {
+      return NextResponse.json({ error: approveError.message }, { status: 500 });
     }
 
     const response = NextResponse.json({ ok: true, emailWarning });

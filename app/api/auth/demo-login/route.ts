@@ -10,6 +10,18 @@ import {
   serializeSession
 } from "@/lib/auth/demo-auth";
 
+function createSupabaseAuthClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  });
+}
+
 export async function POST(request: NextRequest) {
   const rateLimited = enforceRateLimit(request, "auth-login", 8, 60_000);
   if (rateLimited) return rateLimited;
@@ -26,24 +38,15 @@ export async function POST(request: NextRequest) {
   const isRegisteredUser = registeredUsers.some(
     (registered) => registered.email === normalizedEmail && registered.password === password
   );
+  const supabaseAuth = createSupabaseAuthClient();
 
   if (!user) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!url || !anonKey) {
+    if (!supabaseAuth) {
       await delayOnFailure();
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 
-    const supabase = createClient(url, anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false
-      }
-    });
-
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabaseAuth.auth.signInWithPassword({
       email: normalizedEmail,
       password
     });
@@ -72,6 +75,15 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
+  let supabaseUserId: string | null = null;
+  if (isRegisteredUser && supabaseAuth) {
+    const { data } = await supabaseAuth.auth.signInWithPassword({
+      email: normalizedEmail,
+      password
+    });
+    supabaseUserId = data.user?.id ?? null;
+  }
+
   const response = NextResponse.json({ ok: true });
   response.cookies.set(
     DEMO_SESSION_COOKIE,
@@ -80,7 +92,7 @@ export async function POST(request: NextRequest) {
       role: user.role,
       source: isRegisteredUser ? "registered" : "sample",
       mfaVerified: false,
-      supabaseUserId: null
+      supabaseUserId
     }),
     {
       httpOnly: true,

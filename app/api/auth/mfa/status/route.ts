@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DEMO_MFA_COOKIE, DEMO_SESSION_COOKIE, readMfaSecrets, readSession } from "@/lib/auth/demo-auth";
 import { getSupabaseMfaMeta } from "@/lib/auth/mfa";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   const session = readSession(request.cookies.get(DEMO_SESSION_COOKIE)?.value);
@@ -17,8 +18,23 @@ export async function GET(request: NextRequest) {
     enrolled = Boolean(mfaMap[session.email.toLowerCase()]);
   }
 
+  let recentlyReset = false;
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("mfa_reset_requests")
+      .select("id")
+      .eq("email", session.email)
+      .eq("status", "Approved")
+      .limit(1);
+    recentlyReset = Boolean(data && data.length > 0);
+  } catch {
+    recentlyReset = false;
+  }
+
   return NextResponse.json({
     enrolled,
-    mfaVerified: session.mfaVerified
+    mfaVerified: session.mfaVerified,
+    recentlyReset
   });
 }

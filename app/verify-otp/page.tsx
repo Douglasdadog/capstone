@@ -11,6 +11,11 @@ type SessionPayload = {
   mfaVerified?: boolean;
 };
 
+type MfaStatusPayload = {
+  enrolled?: boolean;
+  recentlyReset?: boolean;
+};
+
 export default function VerifyOtpPage() {
   return (
     <Suspense fallback={<main className="mx-auto flex min-h-screen max-w-md items-center px-6">Loading...</main>}>
@@ -30,6 +35,7 @@ function VerifyOtpContent() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [setupKey, setSetupKey] = useState<string | null>(null);
   const [resetRequested, setResetRequested] = useState(false);
+  const [recentlyReset, setRecentlyReset] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -49,9 +55,10 @@ function VerifyOtpContent() {
         }
 
         const statusRes = await fetch("/api/auth/mfa/status");
-        const statusData = (await statusRes.json()) as { enrolled?: boolean };
+        const statusData = (await statusRes.json()) as MfaStatusPayload;
         if (alive) {
           setEnrolled(Boolean(statusData.enrolled));
+          setRecentlyReset(Boolean(statusData.recentlyReset));
         }
       } catch {
         if (alive) {
@@ -145,9 +152,13 @@ function VerifyOtpContent() {
 
         {!loading && !enrolled ? (
           <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-semibold text-amber-900">MFA Setup Required</p>
+            <p className="text-sm font-semibold text-amber-900">
+              {recentlyReset ? "MFA Reset Approved - Setup Required" : "MFA Setup Required"}
+            </p>
             <p className="mt-1 text-xs text-amber-800">
-              Generate a QR code, scan it with Google Authenticator, then enter the 6-digit code below.
+              {recentlyReset
+                ? "Your Super Admin approved an MFA reset. Generate a new QR code, scan it with Google Authenticator, then enter the 6-digit code below."
+                : "Generate a QR code, scan it with Google Authenticator, then enter the 6-digit code below."}
             </p>
             <button
               type="button"

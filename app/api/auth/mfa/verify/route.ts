@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/demo-auth";
 import { getSupabaseMfaMeta, saveSupabaseMfaSecret, verifyTotpToken } from "@/lib/auth/mfa";
 import { delayOnFailure, enforceRateLimit } from "@/lib/security/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
   const rateLimited = enforceRateLimit(request, "auth-mfa-verify", 10, 60_000);
@@ -71,6 +72,17 @@ export async function POST(request: NextRequest) {
     } else {
       persistedMap[normalizedEmail] = secret;
     }
+  }
+
+  try {
+    const supabase = createAdminClient();
+    await supabase
+      .from("mfa_reset_requests")
+      .update({ status: "Completed" })
+      .eq("email", normalizedEmail)
+      .eq("status", "Approved");
+  } catch {
+    // Non-blocking: verification succeeds even if status bookkeeping fails.
   }
 
   delete pendingMap[normalizedEmail];
