@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { normalizeRole, resolvePostLoginPath } from "@/lib/auth/roles";
@@ -125,6 +124,14 @@ function VerifyOtpContent() {
     setSubmitting(false);
   }
 
+  async function handleBackToHome() {
+    try {
+      await fetch("/api/auth/demo-logout", { method: "POST" });
+    } finally {
+      window.location.href = "/";
+    }
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 py-10">
       <section className="w-full max-w-md rounded-2xl border border-white/15 bg-white/95 p-7 shadow-2xl">
@@ -209,12 +216,15 @@ function VerifyOtpContent() {
             </p>
           )}
 
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={() => {
+              void handleBackToHome();
+            }}
             className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Back to Home Page
-          </Link>
+          </button>
         </form>
       </section>
     </main>

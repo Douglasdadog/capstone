@@ -17,6 +17,7 @@ export type DemoUser = {
 type UserPermissionsMap = Record<string, string[]>;
 type UserProfilesMap = Record<string, { fullName: string; phone: string }>;
 type UserMfaMap = Record<string, string>;
+type VerificationCodeMap = Record<string, { code: string; expiresAt: number }>;
 
 export const DEMO_SESSION_COOKIE = "wis_demo_session";
 export const DEMO_USERS_COOKIE = "wis_demo_users";
@@ -24,13 +25,14 @@ export const DEMO_PERMISSIONS_COOKIE = "wis_demo_permissions";
 export const DEMO_PROFILE_COOKIE = "wis_demo_profile";
 export const DEMO_MFA_COOKIE = "wis_demo_mfa";
 export const DEMO_MFA_PENDING_COOKIE = "wis_demo_mfa_pending";
+export const DEMO_EMAIL_VERIFY_COOKIE = "wis_demo_email_verify";
 
 const SAMPLE_USERS: DemoUser[] = [
-  { email: "superadmin@wis.local", password: "superadmin123", role: "SuperAdmin" },
-  { email: "admin@wis.local", password: "admin123", role: "Admin" },
-  { email: "inventory@wis.local", password: "inventory123", role: "Inventory" },
-  { email: "sales@wis.local", password: "sales123", role: "Sales" },
-  { email: "client@wis.local", password: "client123", role: "Client" }
+  { email: "bunuan.arthur+superadmin@gmail.com", password: "superadmin123", role: "SuperAdmin" },
+  { email: "bunuan.arthur+admin@gmail.com", password: "admin123", role: "Admin" },
+  { email: "bunuan.arthur+inventory@gmail.com", password: "inventory123", role: "Inventory" },
+  { email: "bunuan.arthur+sales@gmail.com", password: "sales123", role: "Sales" },
+  { email: "bunuan.arthur+client@gmail.com", password: "client123", role: "Client" }
 ];
 
 function safeJsonParse<T>(value: string | undefined, fallback: T): T {
@@ -138,5 +140,23 @@ export function readMfaSecrets(rawCookie: string | undefined): UserMfaMap {
 }
 
 export function serializeMfaSecrets(data: UserMfaMap): string {
+  return JSON.stringify(data);
+}
+
+export function readEmailVerificationCodes(rawCookie: string | undefined): VerificationCodeMap {
+  const data = safeJsonParse<VerificationCodeMap>(rawCookie, {});
+  return Object.fromEntries(
+    Object.entries(data).filter(([email, entry]) => {
+      return (
+        typeof email === "string" &&
+        entry &&
+        typeof entry.code === "string" &&
+        typeof entry.expiresAt === "number"
+      );
+    })
+  );
+}
+
+export function serializeEmailVerificationCodes(data: VerificationCodeMap): string {
   return JSON.stringify(data);
 }

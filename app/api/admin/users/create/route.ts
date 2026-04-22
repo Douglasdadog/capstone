@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import {
+  DEMO_EMAIL_VERIFY_COOKIE,
   DEMO_USERS_COOKIE,
   buildRegisteredUser,
+  readEmailVerificationCodes,
   readRegisteredUsers,
+  serializeEmailVerificationCodes,
   serializeRegisteredUsers
 } from "@/lib/auth/demo-auth";
 import { UserRole, normalizeRole } from "@/lib/auth/roles";
@@ -24,10 +27,12 @@ export async function POST(request: NextRequest) {
     email?: string;
     password?: string;
     role?: UserRole;
+    verificationCode?: string;
   };
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const role = normalizeRole(body.role);
+  const verificationCode = String(body.verificationCode ?? "").trim();
 
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
@@ -37,6 +42,23 @@ export async function POST(request: NextRequest) {
   }
   if (password.length < 6) {
     return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+  }
+  if (!verificationCode) {
+    return NextResponse.json({ error: "Verification code is required." }, { status: 400 });
+  }
+
+  const verificationCodes = readEmailVerificationCodes(
+    request.cookies.get(DEMO_EMAIL_VERIFY_COOKIE)?.value
+  );
+  const verificationEntry = verificationCodes[email];
+  if (!verificationEntry) {
+    return NextResponse.json({ error: "No verification code found for this email." }, { status: 400 });
+  }
+  if (Date.now() > verificationEntry.expiresAt) {
+    return NextResponse.json({ error: "Verification code expired. Send a new code." }, { status: 400 });
+  }
+  if (verificationEntry.code !== verificationCode) {
+    return NextResponse.json({ error: "Invalid verification code." }, { status: 400 });
   }
 
   const existing = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
@@ -61,8 +83,14 @@ export async function POST(request: NextRequest) {
     }
 
     const updatedUsers = [...existing, buildRegisteredUser(email, password, role)];
+    delete verificationCodes[email];
     const response = NextResponse.json({ ok: true });
     response.cookies.set(DEMO_USERS_COOKIE, serializeRegisteredUsers(updatedUsers), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/"
+    });
+    response.cookies.set(DEMO_EMAIL_VERIFY_COOKIE, serializeEmailVerificationCodes(verificationCodes), {
       httpOnly: true,
       sameSite: "lax",
       path: "/"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
-import { sendSmtpEmail } from "@/lib/communication/mailer";
+import { sendEmail } from "@/lib/communication/mailer";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 type SecurityRequestRow = {
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const requestRow = resetRequest as SecurityRequestRow;
+    let emailWarning: string | null = null;
 
     const supabaseUserId = await resolveSupabaseUserId(supabase, requestRow);
     let resetMode: "supabase-user" | "demo-local" = "demo-local";
@@ -95,18 +96,22 @@ export async function POST(request: NextRequest) {
       resetMode = "supabase-user";
     }
 
-    await sendSmtpEmail({
-      to: requestRow.email,
-      subject: "Your MFA Has Been Reset",
-      text: "Your MFA has been reset by the Super Admin. You will be prompted to set up a new MFA device upon your next login.",
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-          <h2 style="margin-bottom: 8px;">MFA Reset Processed</h2>
-          <p>Your MFA has been reset by the Super Admin.</p>
-          <p>You will be prompted to set up a new MFA device upon your next login.</p>
-        </div>
-      `
-    });
+    try {
+      await sendEmail({
+        to: requestRow.email,
+        subject: "Your MFA Has Been Reset",
+        text: "Your MFA has been reset by the Super Admin. You will be prompted to set up a new MFA device upon your next login.",
+        html: `
+          <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+            <h2 style="margin-bottom: 8px;">MFA Reset Processed</h2>
+            <p>Your MFA has been reset by the Super Admin.</p>
+            <p>You will be prompted to set up a new MFA device upon your next login.</p>
+          </div>
+        `
+      });
+    } catch (err) {
+      emailWarning = err instanceof Error ? err.message : "Unable to send email notification.";
+    }
 
     const { data: inventoryRef, error: inventoryError } = await supabase
       .from("inventory")
@@ -125,13 +130,16 @@ export async function POST(request: NextRequest) {
       resetMode === "supabase-user"
         ? `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason}`
         : `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason} (Demo/local account: no Supabase user record found.)`;
+    const auditMessageWithEmail = emailWarning
+      ? `${auditMessage} Email warning: ${emailWarning}`
+      : auditMessage;
     const { error: auditError } = await supabase.from("auto_replenishment_alerts").insert({
       inventory_id: inventoryRef.id,
       item_name: inventoryRef.name,
       reading_quantity: Number(inventoryRef.quantity ?? 0),
       threshold_limit: Number(inventoryRef.threshold_limit ?? 0),
       status: "Success",
-      message: auditMessage
+      message: auditMessageWithEmail
     });
     if (auditError) {
       return NextResponse.json(
@@ -148,7 +156,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, emailWarning });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to process MFA reset request." },

@@ -15,9 +15,38 @@ export default function AdminCreateUserForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<(typeof roles)[number]>("Client");
+  const [verificationCode, setVerificationCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [emailVerifiedFor, setEmailVerifiedFor] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleSendCode() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError("Enter an email first.");
+      return;
+    }
+    setSendingCode(true);
+    setError(null);
+    setMessage(null);
+    const response = await fetch("/api/admin/users/send-verification-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalizedEmail })
+    });
+    const payload = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(payload.error ?? "Unable to send code.");
+      setSendingCode(false);
+      return;
+    }
+    setEmailVerifiedFor(normalizedEmail);
+    setVerificationCode("");
+    setMessage(`Verification code sent to ${normalizedEmail}`);
+    setSendingCode(false);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,10 +56,15 @@ export default function AdminCreateUserForm() {
     setMessage(null);
 
     const normalizedEmail = email.trim().toLowerCase();
+    if (emailVerifiedFor !== normalizedEmail) {
+      setError("Send a verification code for this email first.");
+      setLoading(false);
+      return;
+    }
     const response = await fetch("/api/admin/users/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalizedEmail, password, role })
+      body: JSON.stringify({ email: normalizedEmail, password, role, verificationCode })
     });
     const payload = (await response.json()) as { error?: string };
     if (!response.ok) {
@@ -42,6 +76,8 @@ export default function AdminCreateUserForm() {
     setMessage(`Created ${roleLabels[role]} account: ${normalizedEmail}`);
     setEmail("");
     setPassword("");
+    setVerificationCode("");
+    setEmailVerifiedFor(null);
     setLoading(false);
   }
 
@@ -62,7 +98,13 @@ export default function AdminCreateUserForm() {
           id="create-user-email"
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setEmail(value);
+            if (emailVerifiedFor && emailVerifiedFor !== value.trim().toLowerCase()) {
+              setEmailVerifiedFor(null);
+            }
+          }}
           required
           autoComplete="email"
           placeholder="user@company.com"
@@ -99,6 +141,30 @@ export default function AdminCreateUserForm() {
         </select>
 
         <button
+          type="button"
+          onClick={() => {
+            void handleSendCode();
+          }}
+          disabled={sendingCode}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-60 md:col-span-4 md:w-fit"
+        >
+          {sendingCode ? "Sending code..." : "Send verification code"}
+        </button>
+
+        <label className="sr-only" htmlFor="create-user-email-code">
+          Email verification code
+        </label>
+        <input
+          id="create-user-email-code"
+          type="text"
+          value={verificationCode}
+          onChange={(event) => setVerificationCode(event.target.value)}
+          required
+          placeholder="Enter 6-digit code"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm md:col-span-2"
+        />
+
+        <button
           type="submit"
           disabled={loading}
           className="rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:from-amber-800 hover:to-red-700 disabled:opacity-60 md:col-span-4 md:w-fit"
@@ -107,7 +173,7 @@ export default function AdminCreateUserForm() {
         </button>
       </form>
       <p className="text-xs text-slate-500">
-        Tip: use a temporary password and ask the user to change it after first login.
+        Tip: use a temporary password and ask the user to change it after first login. Verification codes expire in 10 minutes.
       </p>
 
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
