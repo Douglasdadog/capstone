@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { UserRole } from "@/lib/auth/roles";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import {
   DEMO_SESSION_COOKIE,
@@ -15,10 +14,9 @@ export async function POST(request: NextRequest) {
   const rateLimited = enforceRateLimit(request, "auth-register", 5, 60_000);
   if (rateLimited) return rateLimited;
 
-  const { email, password, role } = (await request.json()) as {
+  const { email, password } = (await request.json()) as {
     email?: string;
     password?: string;
-    role?: UserRole;
   };
 
   if (!email || !password) {

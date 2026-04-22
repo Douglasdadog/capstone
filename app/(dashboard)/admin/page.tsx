@@ -1,7 +1,5 @@
 ﻿import Link from "next/link";
-import AdminUserPermissions from "@/components/admin-user-permissions";
 import AdminManifestManager from "@/components/admin-manifest-manager";
-import AdminCreateUserForm from "@/components/admin-create-user-form";
 
 export default function AdminPage() {
   return (
@@ -10,7 +8,9 @@ export default function AdminPage() {
         <h1 className="bg-gradient-to-r from-slate-900 via-amber-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Admin Module
         </h1>
-        <p className="mt-2 text-slate-600">Manage users, permissions, and system-wide settings.</p>
+        <p className="mt-2 text-slate-600">
+          Manage day-to-day operations. Super Admin features are handled in the Super Admin module.
+        </p>
         <Link
           href="/admin/settings"
           className="mt-4 inline-block rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-amber-400/30 transition-all hover:from-amber-800 hover:to-red-700"
@@ -19,8 +19,6 @@ export default function AdminPage() {
         </Link>
       </div>
 
-      <AdminUserPermissions />
-      <AdminCreateUserForm />
       <AdminManifestManager />
     </section>
   );

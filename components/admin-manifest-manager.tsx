@@ -41,7 +41,10 @@ export default function AdminManifestManager() {
   }, []);
 
   useEffect(() => {
-    void loadManifests();
+    const timer = window.setTimeout(() => {
+      void loadManifests();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [loadManifests]);
 
   async function uploadFile(file: File) {

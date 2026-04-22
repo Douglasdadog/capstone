@@ -13,7 +13,9 @@ import { enforceRateLimit } from "@/lib/security/rate-limit";
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
+  }
 
   const rateLimited = enforceRateLimit(request, "admin-create-user", 20, 60_000);
   if (rateLimited) return rateLimited;

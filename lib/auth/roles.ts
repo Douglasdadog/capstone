@@ -1,4 +1,4 @@
-export type UserRole = "Admin" | "Inventory" | "Sales" | "Client";
+export type UserRole = "SuperAdmin" | "Admin" | "Inventory" | "Sales" | "Client";
 
 export type NavLink = {
   href: string;
@@ -7,6 +7,7 @@ export type NavLink = {
 };
 
 export const DASHBOARD_ROUTES = {
+  SuperAdmin: "/super-admin",
   Admin: "/dashboard",
   Inventory: "/inventory",
   Sales: "/sales",
@@ -14,11 +15,21 @@ export const DASHBOARD_ROUTES = {
 } as const;
 
 export const ROLE_ACCESS: Record<UserRole, string[]> = {
+  SuperAdmin: [
+    "/dashboard",
+    "/logs",
+    "/super-admin",
+    "/admin",
+    "/admin/settings",
+    "/inventory",
+    "/sales",
+    "/client",
+    "/logistics"
+  ],
   Admin: [
     "/dashboard",
     "/logs",
     "/admin",
-    "/admin/settings",
     "/inventory",
     "/sales",
     "/client",
@@ -31,6 +42,7 @@ export const ROLE_ACCESS: Record<UserRole, string[]> = {
 
 export const SIDEBAR_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/super-admin", label: "Super Admin" },
   { href: "/admin", label: "Admin", grantable: true },
   { href: "/admin/settings", label: "Settings" },
   { href: "/inventory", label: "Inventory", grantable: true },
@@ -41,7 +53,13 @@ export const SIDEBAR_LINKS: NavLink[] = [
 ];
 
 export function normalizeRole(role: unknown): UserRole {
-  if (role === "Admin" || role === "Inventory" || role === "Sales" || role === "Client") {
+  if (
+    role === "SuperAdmin" ||
+    role === "Admin" ||
+    role === "Inventory" ||
+    role === "Sales" ||
+    role === "Client"
+  ) {
     return role;
   }
   return "Client";

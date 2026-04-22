@@ -73,6 +73,7 @@ function LoginContent() {
 
         <div className="mt-5 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-amber-50 p-4 text-xs text-slate-700">
           <p className="font-semibold uppercase tracking-wide text-slate-800">Sample test accounts</p>
+          <p>Super Admin: superadmin@wis.local / superadmin123</p>
           <p>Admin: admin@wis.local / admin123</p>
           <p>Inventory: inventory@wis.local / inventory123</p>
           <p>Sales: sales@wis.local / sales123</p>

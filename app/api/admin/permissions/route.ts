@@ -16,7 +16,9 @@ const grantableRoutes = SIDEBAR_LINKS.filter((link) => link.grantable).map((link
 export async function GET(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
+  }
 
   const users = [...getSampleUsers(), ...readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value)];
   const permissions = readPermissions(request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
+  }
 
   const body = (await request.json()) as { email?: string; extraRoutes?: string[] };
   const email = body.email?.toLowerCase().trim();
@@ -62,7 +66,9 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
+  }
 
   const response = NextResponse.json({ ok: true });
   response.cookies.set(DEMO_PERMISSIONS_COOKIE, serializePermissions({}), {

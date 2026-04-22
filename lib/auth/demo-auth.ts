@@ -26,6 +26,7 @@ export const DEMO_MFA_COOKIE = "wis_demo_mfa";
 export const DEMO_MFA_PENDING_COOKIE = "wis_demo_mfa_pending";
 
 const SAMPLE_USERS: DemoUser[] = [
+  { email: "superadmin@wis.local", password: "superadmin123", role: "SuperAdmin" },
   { email: "admin@wis.local", password: "admin123", role: "Admin" },
   { email: "inventory@wis.local", password: "inventory123", role: "Inventory" },
   { email: "sales@wis.local", password: "sales123", role: "Sales" },

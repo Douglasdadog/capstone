@@ -74,15 +74,6 @@ type SensorLogRow = {
   humidity?: number;
 };
 
-type SecurityRequestRow = {
-  id: number;
-  user_name?: string | null;
-  email: string;
-  role: string;
-  status: string;
-  created_at: string;
-};
-
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-lg bg-slate-200 ${className}`} />;
 }
@@ -138,9 +129,6 @@ export default function DashboardSwitch() {
   const [iotEnv, setIotEnv] = useState<IotEnvironmentPayload | null>(null);
   const [iotEnvLoading, setIotEnvLoading] = useState(false);
   const [iotCheckLoading, setIotCheckLoading] = useState(false);
-  const [securityRequests, setSecurityRequests] = useState<SecurityRequestRow[]>([]);
-  const [securityLoading, setSecurityLoading] = useState(false);
-  const [securityActionId, setSecurityActionId] = useState<number | null>(null);
 
   async function loadDashboardData() {
     const response = await fetch("/api/dashboard/data");
@@ -309,51 +297,6 @@ export default function DashboardSwitch() {
       setIotCheckLoading(false);
     }
   }
-
-  async function loadSecurityRequests() {
-    if (data?.role !== "Admin") return;
-    setSecurityLoading(true);
-    try {
-      const response = await fetch("/api/admin/security-requests");
-      const payload = (await response.json()) as { error?: string; requests?: SecurityRequestRow[] };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Unable to load security requests.");
-        return;
-      }
-      setSecurityRequests(payload.requests ?? []);
-    } finally {
-      setSecurityLoading(false);
-    }
-  }
-
-  async function approveSecurityRequest(requestId: number) {
-    setSecurityActionId(requestId);
-    try {
-      const response = await fetch("/api/admin/security-requests/approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId })
-      });
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        toast.error(payload.error ?? "Unable to approve reset request.");
-        return;
-      }
-      toast.success("MFA reset approved and processed.");
-      setSecurityRequests((prev) => prev.filter((row) => row.id !== requestId));
-      await loadDashboardData();
-    } finally {
-      setSecurityActionId(null);
-    }
-  }
-
-  useEffect(() => {
-    if (data?.role !== "Admin") {
-      setSecurityRequests([]);
-      return;
-    }
-    void loadSecurityRequests();
-  }, [data?.role, data?.session?.email]);
 
   if (loading) {
     return (
@@ -630,54 +573,6 @@ export default function DashboardSwitch() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Security Requests</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-3 py-2">User Name</th>
-                  <th className="px-3 py-2">Role</th>
-                  <th className="px-3 py-2">Request Timestamp</th>
-                  <th className="px-3 py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {securityRequests.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-slate-800">{row.user_name || row.email.split("@")[0]}</td>
-                    <td className="px-3 py-2 text-slate-700">{row.role}</td>
-                    <td className="px-3 py-2 text-slate-600">{new Date(row.created_at).toLocaleString()}</td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => void approveSecurityRequest(row.id)}
-                        disabled={securityActionId === row.id}
-                        className="rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:from-amber-800 hover:to-red-700 disabled:opacity-60"
-                      >
-                        {securityActionId === row.id ? "Processing..." : "Approve & Reset"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!securityLoading && securityRequests.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-5 text-slate-500" colSpan={4}>
-                      No pending MFA reset requests.
-                    </td>
-                  </tr>
-                ) : null}
-                {securityLoading ? (
-                  <tr>
-                    <td className="px-3 py-5 text-slate-500" colSpan={4}>
-                      Loading security requests...
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
     );
   }

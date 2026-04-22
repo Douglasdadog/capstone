@@ -33,15 +33,28 @@ async function resolveSupabaseUserId(supabase: ReturnType<typeof createAdminClie
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
+  }
 
-  const rateLimited = enforceRateLimit(request, "admin-approve-mfa-reset", 20, 60_000);
+  const rateLimited = enforceRateLimit(request, "super-admin-approve-mfa-reset", 20, 60_000);
   if (rateLimited) return rateLimited;
 
-  const body = (await request.json()) as { requestId?: number };
+  const body = (await request.json()) as { requestId?: number; reason?: string; confirmationText?: string };
   const requestId = Number(body.requestId);
+  const reason = String(body.reason ?? "").trim();
+  const confirmationText = String(body.confirmationText ?? "").trim();
   if (!Number.isInteger(requestId) || requestId <= 0) {
     return NextResponse.json({ error: "Valid requestId is required." }, { status: 400 });
+  }
+  if (confirmationText !== "APPROVE") {
+    return NextResponse.json({ error: "Confirmation text must be APPROVE." }, { status: 400 });
+  }
+  if (reason.length < 8 || reason.length > 240) {
+    return NextResponse.json(
+      { error: "Reason is required (8-240 characters)." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -84,11 +97,11 @@ export async function POST(request: NextRequest) {
     await sendSmtpEmail({
       to: requestRow.email,
       subject: "Your MFA Has Been Reset",
-      text: "Your MFA has been reset by the Admin. You will be prompted to set up a new MFA device upon your next login.",
+      text: "Your MFA has been reset by the Super Admin. You will be prompted to set up a new MFA device upon your next login.",
       html: `
         <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
           <h2 style="margin-bottom: 8px;">MFA Reset Processed</h2>
-          <p>Your MFA has been reset by the Admin.</p>
+          <p>Your MFA has been reset by the Super Admin.</p>
           <p>You will be prompted to set up a new MFA device upon your next login.</p>
         </div>
       `
@@ -107,7 +120,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const auditMessage = `MFA reset approved for ${requestRow.email} by ${auth.session.email}.`;
+    const auditMessage = `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason}`;
     const { error: auditError } = await supabase.from("auto_replenishment_alerts").insert({
       inventory_id: inventoryRef.id,
       item_name: inventoryRef.name,

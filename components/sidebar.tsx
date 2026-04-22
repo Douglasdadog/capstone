@@ -17,6 +17,7 @@ import { type NavLink, type UserRole } from "@/lib/auth/roles";
 
 const LINK_ICONS: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
+  "/super-admin": ShieldCheck,
   "/admin": ShieldCheck,
   "/admin/settings": Settings,
   "/inventory": Package,
@@ -32,6 +33,10 @@ function resolveActiveHref(pathname: string, links: NavLink[]): string | null {
   );
   if (matches.length === 0) return null;
   return matches.reduce((best, cur) => (cur.href.length > best.href.length ? cur : best)).href;
+}
+
+function formatRoleLabel(role: UserRole): string {
+  return role === "SuperAdmin" ? "Super Admin" : role;
 }
 
 export default function Sidebar() {
@@ -83,7 +88,7 @@ export default function Sidebar() {
           {email}
           {role ? (
             <span className="ml-2 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-medium text-slate-700 shadow-sm">
-              {role}
+              {formatRoleLabel(role)}
             </span>
           ) : null}
         </p>
