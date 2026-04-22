@@ -20,6 +20,54 @@ type SecurityRequestRow = {
   supabase_user_id?: string | null;
 };
 
+function buildMfaResetEmailTemplate(userEmail: string) {
+  return {
+    subject: "MFA Reset Confirmation - WIS Security",
+    text: [
+      "MFA Reset Processed",
+      "",
+      `Hello ${userEmail},`,
+      "",
+      "Your multi-factor authentication (MFA) was reset by a Super Admin.",
+      "For security, you must configure a new authenticator device at your next login.",
+      "",
+      "If you did not request this action, contact your administrator immediately.",
+      "",
+      "WIS Security Team"
+    ].join("\n"),
+    html: `
+      <div style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;color:#0f172a;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="padding:16px 24px;background:linear-gradient(90deg,#b91c1c,#f59e0b);color:#ffffff;">
+              <div style="font-size:22px;font-weight:800;letter-spacing:0.2px;">imarflex.</div>
+              <div style="font-size:12px;opacity:0.95;margin-top:2px;">WIS Security Notification</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;">
+              <h2 style="margin:0 0 12px 0;font-size:24px;line-height:1.3;color:#111827;">MFA Reset Processed</h2>
+              <p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#334155;">Hello <strong>${userEmail}</strong>,</p>
+              <p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#334155;">
+                Your multi-factor authentication (MFA) has been reset by a Super Admin.
+              </p>
+              <div style="margin:16px 0;padding:14px;border:1px solid #fde68a;background:#fffbeb;border-radius:10px;">
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#92400e;">
+                  For security, you will be prompted to set up a new authenticator device on your next login.
+                </p>
+              </div>
+              <p style="margin:0 0 8px 0;font-size:13px;line-height:1.6;color:#475569;">
+                If you did not request this action, contact your administrator immediately.
+              </p>
+              <p style="margin:18px 0 0 0;font-size:12px;color:#64748b;">WIS Security Team</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
 async function resolveSupabaseUserId(supabase: ReturnType<typeof createAdminClient>, request: SecurityRequestRow) {
   if (request.supabase_user_id) return request.supabase_user_id;
 
@@ -78,6 +126,7 @@ export async function POST(request: NextRequest) {
 
     const requestRow = resetRequest as SecurityRequestRow;
     let emailWarning: string | null = null;
+    const emailTemplate = buildMfaResetEmailTemplate(requestRow.email);
 
     const supabaseUserId = await resolveSupabaseUserId(supabase, requestRow);
     let resetMode: "supabase-user" | "demo-local" = "demo-local";
@@ -105,15 +154,9 @@ export async function POST(request: NextRequest) {
     try {
       await sendEmail({
         to: requestRow.email,
-        subject: "Your MFA Has Been Reset",
-        text: "Your MFA has been reset by the Super Admin. You will be prompted to set up a new MFA device upon your next login.",
-        html: `
-          <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-            <h2 style="margin-bottom: 8px;">MFA Reset Processed</h2>
-            <p>Your MFA has been reset by the Super Admin.</p>
-            <p>You will be prompted to set up a new MFA device upon your next login.</p>
-          </div>
-        `
+        subject: emailTemplate.subject,
+        text: emailTemplate.text,
+        html: emailTemplate.html
       });
     } catch (err) {
       emailWarning = err instanceof Error ? err.message : "Unable to send email notification.";
