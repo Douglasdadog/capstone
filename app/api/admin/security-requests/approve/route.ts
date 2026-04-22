@@ -3,6 +3,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/communication/mailer";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import {
+  DEMO_MFA_COOKIE,
+  DEMO_MFA_PENDING_COOKIE,
+  readMfaSecrets,
+  serializeMfaSecrets
+} from "@/lib/auth/demo-auth";
 
 type SecurityRequestRow = {
   id: number;
@@ -156,7 +162,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, emailWarning });
+    const response = NextResponse.json({ ok: true, emailWarning });
+    if (resetMode === "demo-local") {
+      const normalizedEmail = requestRow.email.toLowerCase();
+      const persistedMfa = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
+      const pendingMfa = readMfaSecrets(request.cookies.get(DEMO_MFA_PENDING_COOKIE)?.value);
+
+      delete persistedMfa[normalizedEmail];
+      delete pendingMfa[normalizedEmail];
+
+      response.cookies.set(DEMO_MFA_COOKIE, serializeMfaSecrets(persistedMfa), {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/"
+      });
+      response.cookies.set(DEMO_MFA_PENDING_COOKIE, serializeMfaSecrets(pendingMfa), {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/"
+      });
+    }
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to process MFA reset request." },
