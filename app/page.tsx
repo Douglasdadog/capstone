@@ -31,12 +31,6 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/dashboard"
-              className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-red-700"
-            >
-              Launch Dashboard
-            </Link>
-            <Link
               href="/login"
               className="rounded-md bg-amber-400 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-300"
             >

@@ -73,25 +73,26 @@ export async function POST(request: NextRequest) {
     const requestRow = resetRequest as SecurityRequestRow;
 
     const supabaseUserId = await resolveSupabaseUserId(supabase, requestRow);
-    if (!supabaseUserId) {
-      return NextResponse.json({ error: "Unable to locate Supabase user for this request." }, { status: 404 });
-    }
+    let resetMode: "supabase-user" | "demo-local" = "demo-local";
 
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(supabaseUserId);
-    if (userError || !userData.user) {
-      return NextResponse.json({ error: userError?.message ?? "User not found." }, { status: 404 });
-    }
-
-    const currentMetadata = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
-    const { error: updateUserError } = await supabase.auth.admin.updateUserById(supabaseUserId, {
-      user_metadata: {
-        ...currentMetadata,
-        mfa_enabled: false,
-        mfa_secret: null
+    if (supabaseUserId) {
+      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(supabaseUserId);
+      if (userError || !userData.user) {
+        return NextResponse.json({ error: userError?.message ?? "User not found." }, { status: 404 });
       }
-    });
-    if (updateUserError) {
-      return NextResponse.json({ error: updateUserError.message }, { status: 500 });
+
+      const currentMetadata = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
+      const { error: updateUserError } = await supabase.auth.admin.updateUserById(supabaseUserId, {
+        user_metadata: {
+          ...currentMetadata,
+          mfa_enabled: false,
+          mfa_secret: null
+        }
+      });
+      if (updateUserError) {
+        return NextResponse.json({ error: updateUserError.message }, { status: 500 });
+      }
+      resetMode = "supabase-user";
     }
 
     await sendSmtpEmail({
@@ -120,7 +121,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const auditMessage = `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason}`;
+    const auditMessage =
+      resetMode === "supabase-user"
+        ? `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason}`
+        : `MFA reset approved for ${requestRow.email} by ${auth.session.email}. Reason: ${reason} (Demo/local account: no Supabase user record found.)`;
     const { error: auditError } = await supabase.from("auto_replenishment_alerts").insert({
       inventory_id: inventoryRef.id,
       item_name: inventoryRef.name,
