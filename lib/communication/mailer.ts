@@ -8,6 +8,14 @@ type EmailPayload = {
   html: string;
 };
 
+function resolveRecipientAddress(to: string) {
+  const normalized = to.trim().toLowerCase();
+  if (normalized.endsWith("@wis.local")) {
+    return "bunuan.arthur@gmail.com";
+  }
+  return to;
+}
+
 async function sendViaResend(payload: EmailPayload) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -16,10 +24,11 @@ async function sendViaResend(payload: EmailPayload) {
 
   const resend = new Resend(apiKey);
   const from = process.env.MAIL_FROM ?? "WIS <onboarding@resend.dev>";
+  const recipient = resolveRecipientAddress(payload.to);
 
   const { error } = await resend.emails.send({
     from,
-    to: payload.to,
+    to: recipient,
     subject: payload.subject,
     text: payload.text,
     html: payload.html
@@ -36,6 +45,7 @@ async function sendViaSmtp(payload: EmailPayload) {
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const from = process.env.MAIL_FROM ?? "WIS <no-reply@wis.local>";
+  const recipient = resolveRecipientAddress(payload.to);
 
   if (!host || !user || !pass) {
     throw new Error("Missing SMTP config: SMTP_HOST, SMTP_USER, SMTP_PASS.");
@@ -50,7 +60,7 @@ async function sendViaSmtp(payload: EmailPayload) {
 
   await transporter.sendMail({
     from,
-    to: payload.to,
+    to: recipient,
     subject: payload.subject,
     text: payload.text,
     html: payload.html
