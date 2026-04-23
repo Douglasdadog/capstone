@@ -33,13 +33,16 @@ function pickValue(row: Record<string, unknown>, keys: string[]): unknown {
 function parseWorksheetRows(rows: Record<string, unknown>[]): ParsedRow[] {
   const parsed: ParsedRow[] = [];
   for (const row of rows) {
-    const partRaw = pickValue(row, ["part number", "part no", "part", "partnumber"]);
+    const partRaw = pickValue(row, ["part number", "part no", "part", "partnumber", "product"]);
     const qtyRaw = pickValue(row, ["quantity", "qty"]);
-    const batchRaw = pickValue(row, ["batch id", "batch", "batchid"]);
+    const batchRaw = pickValue(row, ["batch id", "batch", "batchid", "product serial id", "serial id"]);
 
     const partNumber = String(partRaw ?? "").trim();
-    const batchId = String(batchRaw ?? "").trim();
-    const quantity = toPositiveInt(qtyRaw);
+    const serialOrBatch = String(batchRaw ?? "").trim();
+    const explicitQuantity = toPositiveInt(qtyRaw);
+    // Support per-unit serial format: Product + Product Serial ID, with implied qty=1.
+    const quantity = explicitQuantity ?? (partNumber && serialOrBatch ? 1 : null);
+    const batchId = serialOrBatch;
 
     if (!partNumber || !batchId || quantity === null) continue;
     parsed.push({ partNumber, quantity, batchId });
@@ -114,7 +117,10 @@ export async function POST(request: NextRequest) {
   const parsedRows = await parseManifestFile(file);
   if (parsedRows.length === 0) {
     return NextResponse.json(
-      { error: "No valid rows found. Required columns: Part Number, Quantity, Batch ID." },
+      {
+        error:
+          "No valid rows found. Use either (Part Number, Quantity, Batch ID) or (Product, Product Serial ID)."
+      },
       { status: 400 }
     );
   }
