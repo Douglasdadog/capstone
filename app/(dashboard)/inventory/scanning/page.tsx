@@ -331,7 +331,7 @@ export default function InventoryScanningPage() {
         </div>
         <div
           ref={scannerViewportRef}
-          className="relative mt-3 h-[38vh] min-h-[220px] max-h-[420px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+          className="relative mt-3 h-[48vh] min-h-[260px] max-h-[560px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
         >
           <div id="manifest-scanner" className="h-full w-full" />
           {highlightBox ? (
