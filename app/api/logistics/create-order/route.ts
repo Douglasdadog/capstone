@@ -13,6 +13,8 @@ function normalizeText(value: unknown, max = 160): string {
   return value.trim().slice(0, max);
 }
 
+const DEFAULT_ORIGIN = "Imarflex Battery Mfg. Corp. F10, 118 Mercedes Ave, Pasig, Metro Manila";
+
 function generateTrackingCandidate(): string {
   const code = 1000 + Math.floor(Math.random() * 9000);
   return `WIS-${code}`;
@@ -49,7 +51,8 @@ export async function POST(request: NextRequest) {
 
   const client_name = normalizeText(body.client_name, 120);
   const client_email = normalizeText(body.client_email, 160).toLowerCase();
-  const origin = normalizeText(body.origin, 120);
+  const providedOrigin = normalizeText(body.origin, 120);
+  const origin = providedOrigin || DEFAULT_ORIGIN;
   const destination = normalizeText(body.destination, 120);
   const provider_name = normalizeText(body.provider_name, 80);
   const waybill_number = normalizeText(body.waybill_number, 80);
@@ -59,11 +62,14 @@ export async function POST(request: NextRequest) {
   const eta = typeof body.eta === "string" && body.eta.trim().length > 0 ? body.eta : null;
   const requestedTracking = normalizeText(body.tracking_number, 40).toUpperCase();
 
-  if (!client_name || !client_email || !origin || !destination) {
+  if (!client_name || !client_email || !destination) {
     return NextResponse.json(
-      { error: "client_name, client_email, origin, and destination are required." },
+      { error: "client_name, client_email, and destination are required." },
       { status: 400 }
     );
+  }
+  if (!provider_name) {
+    return NextResponse.json({ error: "provider_name is required." }, { status: 400 });
   }
   if (destination.length < 20) {
     return NextResponse.json(

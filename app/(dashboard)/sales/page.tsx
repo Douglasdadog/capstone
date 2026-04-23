@@ -53,7 +53,6 @@ export default function SalesPage() {
   const [orderLines, setOrderLines] = useState<OrderLine[]>([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
   const [newClientName, setNewClientName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
-  const [newOrigin, setNewOrigin] = useState(DEFAULT_ORIGIN);
   const [newDestination, setNewDestination] = useState("");
   const [newProviderName, setNewProviderName] = useState<(typeof PROVIDER_OPTIONS)[number] | "">("");
   const [newWaybillNumber, setNewWaybillNumber] = useState("");
@@ -135,8 +134,12 @@ export default function SalesPage() {
   }
 
   async function createOrder() {
-    if (!newClientName.trim() || !newClientEmail.trim() || !newOrigin.trim() || !newDestination.trim()) {
-      setError("Client name, email, origin, and destination are required.");
+    if (!newClientName.trim() || !newClientEmail.trim() || !newDestination.trim()) {
+      setError("Client name, email, and destination are required.");
+      return;
+    }
+    if (!newProviderName) {
+      setError("3PL Provider is required.");
       return;
     }
     if (newDestination.trim().length < 20) {
@@ -182,9 +185,9 @@ export default function SalesPage() {
         body: JSON.stringify({
           client_name: newClientName,
           client_email: newClientEmail,
-          origin: newOrigin,
+          origin: DEFAULT_ORIGIN,
           destination: newDestination,
-          provider_name: newProviderName || null,
+          provider_name: newProviderName,
           waybill_number: newWaybillNumber.trim() || null,
           items: normalizedLines.map((line) => ({
             item_name: line.item_name,
@@ -208,7 +211,6 @@ export default function SalesPage() {
       setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.${emailNote}`);
       setNewClientName("");
       setNewClientEmail("");
-      setNewOrigin(DEFAULT_ORIGIN);
       setNewDestination("");
       setNewProviderName("");
       setNewWaybillNumber("");
@@ -301,7 +303,7 @@ export default function SalesPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Create Order</h2>
           <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
         </div>
-        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Client Name</span>
             <input
@@ -318,15 +320,6 @@ export default function SalesPage() {
               value={newClientEmail}
               onChange={(event) => setNewClientEmail(event.target.value)}
               placeholder="Client Email"
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origin</span>
-            <input
-              value={newOrigin}
-              readOnly
-              title="Default origin route for all orders"
               className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
@@ -370,7 +363,7 @@ export default function SalesPage() {
               onChange={(event) => setNewProviderName(event.target.value as (typeof PROVIDER_OPTIONS)[number] | "")}
               className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
             >
-              <option value="">Select provider (optional)</option>
+              <option value="">Select provider</option>
               {PROVIDER_OPTIONS.map((provider) => (
                 <option key={provider} value={provider}>
                   {provider}
@@ -391,7 +384,7 @@ export default function SalesPage() {
           </label>
         </div>
         <p className="mt-1 text-[11px] text-slate-500">
-          Route default: origin is fixed to Imarflex. Destination should be the client&apos;s complete delivery address.
+          Origin is fixed to Imarflex. Destination should be the client&apos;s complete delivery address.
         </p>
         <p className="mt-1 text-[11px] text-slate-500">
           Orders are linked by email. If client email matches an existing account, that shipment appears in that
