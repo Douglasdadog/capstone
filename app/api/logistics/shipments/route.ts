@@ -17,6 +17,13 @@ type ShipmentRow = {
   tracking_token?: string | null;
 };
 
+function parseYmd(value: string | null): string | null {
+  if (!value) return null;
+  const t = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  return t;
+}
+
 export async function GET(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) {
@@ -27,6 +34,11 @@ export async function GET(request: NextRequest) {
   if (!canViewShipments) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const url = new URL(request.url);
+  const dateFrom = parseYmd(url.searchParams.get("dateFrom"));
+  const dateTo = parseYmd(url.searchParams.get("dateTo"));
+  const sortAsc = url.searchParams.get("sort") === "asc";
 
   const supabase = createAdminClient();
   const attachOrderItems = async (rows: ShipmentRow[]) => {
@@ -58,13 +70,21 @@ export async function GET(request: NextRequest) {
     }));
   };
 
-  const query = () =>
-    supabase
+  const query = () => {
+    let q = supabase
       .from("shipments")
       .select(
         "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
-      )
-      .order("updated_at", { ascending: false });
+      );
+    if (dateFrom) {
+      q = q.gte("updated_at", `${dateFrom}T00:00:00.000Z`);
+    }
+    if (dateTo) {
+      q = q.lte("updated_at", `${dateTo}T23:59:59.999Z`);
+    }
+    q = q.order("updated_at", { ascending: sortAsc });
+    return q;
+  };
 
   const { data, error } = await query();
 

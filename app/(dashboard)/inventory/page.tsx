@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import ManifestUploadPanel from "@/components/manifest-upload-panel";
 
 type InventoryItem = {
   id: string;
@@ -85,6 +86,8 @@ export default function InventoryPage() {
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
+  const canOverrideInventory = role === "SuperAdmin" || role === "Admin";
+  const canDeleteInventory = role === "SuperAdmin";
   const lowStockCount = useMemo(
     () => items.filter((item) => item.quantity < item.threshold_limit).length,
     [items]
@@ -328,6 +331,7 @@ export default function InventoryPage() {
   }, [fetchAlerts, fetchInventory, fetchMonitoring, supabase]);
 
   function startOverride(item: InventoryItem) {
+    if (!canOverrideInventory) return;
     setMessage(null);
     setError(null);
     setEditingId(item.id);
@@ -342,6 +346,7 @@ export default function InventoryPage() {
   }
 
   async function deleteItem(item: InventoryItem) {
+    if (!canDeleteInventory) return;
     if (
       !window.confirm(
         `Remove "${item.name}" from inventory? This cannot be undone. Related replenishment alert rows may be removed automatically.`
@@ -664,7 +669,9 @@ export default function InventoryPage() {
                           {new Date(item.updated_at).toLocaleString()}
                         </td>
                         <td className="px-4 py-3">
-                          {isEditing ? (
+                          {!canOverrideInventory ? (
+                            <span className="text-xs text-slate-400">—</span>
+                          ) : isEditing ? (
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
@@ -693,7 +700,7 @@ export default function InventoryPage() {
                               >
                                 Override
                               </button>
-                              {canManageProducts ? (
+                              {canDeleteInventory ? (
                                 <button
                                   type="button"
                                   disabled={(editingId !== null && editingId !== item.id) || rowDeleting}
@@ -821,6 +828,15 @@ export default function InventoryPage() {
                 </button>
               </div>
             </div>
+          ) : null}
+
+          {canManageProducts ? (
+            <ManifestUploadPanel
+              compact
+              onUploadSuccess={() => {
+                void fetchInventory();
+              }}
+            />
           ) : null}
 
           <div className="rounded-lg border border-slate-200 bg-white">

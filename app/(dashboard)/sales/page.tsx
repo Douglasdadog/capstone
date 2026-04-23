@@ -35,7 +35,7 @@ const DEFAULT_ORIGIN = "Imarflex Battery Mfg. Corp. F10, 118 Mercedes Ave, Pasig
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80">
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
     </article>
@@ -284,7 +284,7 @@ export default function SalesPage() {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+      <div className="rounded-2xl border-2 border-slate-300/90 bg-white p-6 shadow-md shadow-slate-300/50 ring-1 ring-slate-200/90 backdrop-blur">
         <h1 className="bg-gradient-to-r from-slate-900 via-amber-900 to-red-700 bg-clip-text text-3xl font-black text-transparent">
           Sales Module
         </h1>
@@ -294,13 +294,17 @@ export default function SalesPage() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">{message}</div>
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+          {message}
+        </div>
       ) : null}
-      {error ? <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+      {error ? (
+        <div className="rounded-lg border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">{error}</div>
+      ) : null}
 
-      <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Create Order</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Create Order</h2>
           <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
         </div>
         <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
@@ -310,7 +314,7 @@ export default function SalesPage() {
               value={newClientName}
               onChange={(event) => setNewClientName(event.target.value)}
               placeholder="Client Name"
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="space-y-1">
@@ -320,7 +324,7 @@ export default function SalesPage() {
               value={newClientEmail}
               onChange={(event) => setNewClientEmail(event.target.value)}
               placeholder="Client Email"
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="space-y-1">
@@ -332,7 +336,7 @@ export default function SalesPage() {
               onChange={(event) => setNewDestination(event.target.value)}
               placeholder="House/Building, Street, Barangay, City, Province, ZIP"
               rows={2}
-              className="w-full resize-y rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full resize-y rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="space-y-1">
@@ -343,7 +347,7 @@ export default function SalesPage() {
               type="datetime-local"
               value={newEta}
               onChange={(event) => setNewEta(event.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <button
@@ -361,7 +365,7 @@ export default function SalesPage() {
             <select
               value={newProviderName}
               onChange={(event) => setNewProviderName(event.target.value as (typeof PROVIDER_OPTIONS)[number] | "")}
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             >
               <option value="">Select provider</option>
               {PROVIDER_OPTIONS.map((provider) => (
@@ -379,7 +383,7 @@ export default function SalesPage() {
               value={newWaybillNumber}
               onChange={(event) => setNewWaybillNumber(event.target.value)}
               placeholder="Enter waybill or trucker reference (optional)"
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
         </div>
@@ -396,7 +400,7 @@ export default function SalesPage() {
               (item) => item.name === line.item_name || !selectedElsewhere.has(item.name)
             );
             return (
-              <div key={line.id} className="grid gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-1.5 md:grid-cols-[1fr,120px,auto]">
+              <div key={line.id} className="grid gap-1.5 rounded-lg border-2 border-slate-300 bg-slate-50/90 p-2 shadow-sm md:grid-cols-[1fr,120px,auto]">
                 <select
                   value={line.item_name}
                   onChange={(event) =>
@@ -405,7 +409,7 @@ export default function SalesPage() {
                       quantity: "1"
                     })
                   }
-                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
+                  className="rounded-md border-2 border-slate-300 bg-white px-2.5 py-1.5 text-sm"
                 >
                   <option value="">Select item #{index + 1}</option>
                   {optionsForLine.map((item) => (
@@ -430,7 +434,7 @@ export default function SalesPage() {
                     updateOrderLine(line.id, { quantity: capped });
                   }}
                   placeholder="Qty"
-                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
+                  className="rounded-md border-2 border-slate-300 bg-white px-2.5 py-1.5 text-sm"
                 />
                 <div className="flex items-center gap-2">
                   <button
@@ -444,7 +448,7 @@ export default function SalesPage() {
                     type="button"
                     onClick={() => removeOrderLine(line.id)}
                     disabled={orderLines.length === 1}
-                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="rounded-md border-2 border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     -
                   </button>
@@ -463,20 +467,20 @@ export default function SalesPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+        <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80 xl:col-span-2">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Shipment Queue</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Shipment Queue</h2>
             <div className="flex w-full flex-wrap gap-2 md:w-auto">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search tracking/client/destination"
-                className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm md:w-64"
+                className="w-full rounded-md border-2 border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm md:w-64"
               />
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as "All" | ShipmentStatus)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                className="rounded-md border-2 border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm"
               >
                 <option value="All">All Status</option>
                 <option value="Pending">Pending</option>
@@ -486,7 +490,7 @@ export default function SalesPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {loading ? (
               <p className="text-sm text-slate-500">Loading shipments...</p>
             ) : visibleShipments.length === 0 ? (
@@ -495,8 +499,11 @@ export default function SalesPage() {
               visibleShipments.map((row) => {
                 const trackingUrl = row.tracking_token && origin ? `${origin}/track/${row.tracking_token}` : null;
                 return (
-                  <div key={row.id} className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div
+                    key={row.id}
+                    className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/35 ring-1 ring-slate-200/70"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200 pb-3">
                       <div>
                         <p className="text-xs text-slate-500">Tracking #</p>
                         <p className="text-sm font-semibold text-slate-900">{row.tracking_number}</p>
@@ -511,7 +518,7 @@ export default function SalesPage() {
                         <select
                           value={row.status}
                           onChange={(event) => void updateStatus(row.id, event.target.value as ShipmentStatus)}
-                          className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                          className="rounded-md border-2 border-slate-400 bg-white px-2 py-1.5 text-xs font-medium shadow-sm"
                         >
                           <option value="Pending">Pending</option>
                           <option value="In Transit">In Transit</option>
@@ -519,7 +526,7 @@ export default function SalesPage() {
                         </select>
                       </div>
                     </div>
-                    <div className="mt-2 grid gap-1 text-xs text-slate-600 md:grid-cols-3">
+                    <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-3">
                       <p>
                         <span className="font-medium">Route:</span> {row.origin} to {row.destination}
                       </p>
@@ -532,14 +539,18 @@ export default function SalesPage() {
                       </p>
                     </div>
                     {row.order_items && row.order_items.length > 0 ? (
-                      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Details</p>
+                      <div className="mt-3 rounded-lg border-2 border-slate-300 bg-slate-50 px-3 py-2 shadow-inner shadow-slate-200/60">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Order Details</p>
                         <p className="mt-1 text-xs text-slate-700">
                           {row.order_items.map((item) => `${item.item_name} x${item.quantity}`).join(" | ")}
                         </p>
                       </div>
                     ) : null}
-                    {trackingUrl ? <p className="mt-1 break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
+                    {trackingUrl ? (
+                      <p className="mt-3 break-all rounded-md border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-[11px] text-slate-600">
+                        {trackingUrl}
+                      </p>
+                    ) : null}
                   </div>
                 );
               })
@@ -547,8 +558,8 @@ export default function SalesPage() {
           </div>
         </article>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Priority Follow-ups</h2>
+        <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Priority Follow-ups</h2>
           <p className="mt-1 text-xs text-slate-500">Shipments overdue ETA or stagnant for 48+ hours.</p>
           <div className="mt-3 space-y-2">
             {followUps.length === 0 ? (
@@ -559,7 +570,10 @@ export default function SalesPage() {
                 const overdueHours = row.eta ? hoursBetween(row.eta) : 0;
                 const overdue = Boolean(row.eta && new Date(row.eta).getTime() < Date.now());
                 return (
-                  <div key={row.id} className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                  <div
+                    key={row.id}
+                    className="rounded-lg border-2 border-amber-400/90 bg-amber-50 p-3 shadow-sm shadow-amber-200/50 ring-1 ring-amber-300/60"
+                  >
                     <p className="text-xs font-semibold text-amber-900">{row.tracking_number}</p>
                     <p className="text-xs text-amber-800">
                       Client: {row.client_name} ({row.client_email})

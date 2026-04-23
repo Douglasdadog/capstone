@@ -56,6 +56,13 @@ export async function PATCH(
       return NextResponse.json({ error: currentManifestError?.message ?? "Manifest not found." }, { status: 404 });
     }
 
+    if (currentManifest.status === "Completed") {
+      return NextResponse.json(
+        { error: "This manifest is completed. Its status cannot be changed." },
+        { status: 400 }
+      );
+    }
+
     if (status === "Completed" && currentManifest.status !== "Completed") {
       const inventoryApplyError = await applyManifestItemsToInventory(id);
       if (inventoryApplyError) {

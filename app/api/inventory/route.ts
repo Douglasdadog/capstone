@@ -220,8 +220,7 @@ export async function PATCH(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
 
-  const canOverride =
-    auth.session.role === "SuperAdmin" || auth.session.role === "Admin" || auth.session.role === "Inventory";
+  const canOverride = auth.session.role === "SuperAdmin" || auth.session.role === "Admin";
   if (!canOverride) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -332,9 +331,7 @@ export async function DELETE(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
 
-  const canDelete =
-    auth.session.role === "SuperAdmin" || auth.session.role === "Admin" || auth.session.role === "Inventory";
-  if (!canDelete) {
+  if (auth.session.role !== "SuperAdmin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

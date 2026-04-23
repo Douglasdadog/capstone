@@ -1,6 +1,7 @@
 "use client";
 
-import { DragEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import ManifestUploadPanel from "@/components/manifest-upload-panel";
 
 type ManifestRow = {
   id: string;
@@ -21,17 +22,18 @@ function statusBadgeClass(status: ManifestRow["status"]) {
 
 function nextStepText(status: ManifestRow["status"]) {
   if (status === "Pending Verification") return "Next: Open scanner and verify all items from this manifest.";
-  if (status === "Completed") return "Done: Verification completed and shipment can be received into stock.";
+  if (status === "Completed")
+    return "Final: This manifest is completed. Status is locked and inventory has been updated.";
   return "Action: Review discrepancy report and decide whether to re-verify or resolve.";
 }
 
 export default function AdminManifestManager() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manifests, setManifests] = useState<ManifestRow[]>([]);
   const [pendingDiscrepancyRow, setPendingDiscrepancyRow] = useState<ManifestRow | null>(null);
+  const [pendingCompleteRow, setPendingCompleteRow] = useState<ManifestRow | null>(null);
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
   const [discrepancyReasonInput, setDiscrepancyReasonInput] = useState("Short Shipment");
   const [discrepancyCommentInput, setDiscrepancyCommentInput] = useState("");
 
@@ -56,39 +58,7 @@ export default function AdminManifestManager() {
     return () => window.clearTimeout(timer);
   }, [loadManifests]);
 
-  async function uploadFile(file: File) {
-    setUploading(true);
-    setError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const response = await fetch("/api/admin/manifests", {
-      method: "POST",
-      body: formData
-    });
-    const payload = (await response.json()) as { error?: string };
-    if (!response.ok) {
-      setError(payload.error ?? "Manifest upload failed.");
-      setUploading(false);
-      return;
-    }
-
-    await loadManifests();
-    setUploading(false);
-  }
-
-  async function onStatusChange(row: ManifestRow, status: ManifestRow["status"]) {
-    let discrepancyNotes: string | null = null;
-    let discrepancyReason: string | null = null;
-    let discrepancyComments: string | null = null;
-    if (status === "Discrepancies") {
-      setError(null);
-      setPendingDiscrepancyRow(row);
-      setDiscrepancyReasonInput("Short Shipment");
-      setDiscrepancyCommentInput(row.discrepancy_notes?.trim() || "");
-      return;
-    }
-
+  async function patchManifestStatus(row: ManifestRow, status: ManifestRow["status"]) {
     const response = await fetch(`/api/admin/manifests/${row.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -102,12 +72,44 @@ export default function AdminManifestManager() {
     const payload = (await response.json()) as { error?: string; manifest?: ManifestRow };
     if (!response.ok) {
       setError(payload.error ?? "Unable to update status.");
-      return;
+      return false;
     }
     setError(null);
     setManifests((prev) =>
-      prev.map((entry) => (entry.id === row.id ? payload.manifest ?? { ...entry, status, discrepancy_notes: discrepancyNotes } : entry))
+      prev.map((entry) =>
+        entry.id === row.id ? payload.manifest ?? { ...entry, status, discrepancy_notes: null } : entry
+      )
     );
+    return true;
+  }
+
+  async function onStatusChange(row: ManifestRow, status: ManifestRow["status"]) {
+    if (row.status === "Completed") return;
+    if (status === row.status) return;
+
+    if (status === "Discrepancies") {
+      setError(null);
+      setPendingDiscrepancyRow(row);
+      setDiscrepancyReasonInput("Short Shipment");
+      setDiscrepancyCommentInput(row.discrepancy_notes?.trim() || "");
+      return;
+    }
+
+    if (status === "Completed") {
+      setError(null);
+      setPendingCompleteRow(row);
+      return;
+    }
+
+    await patchManifestStatus(row, status);
+  }
+
+  async function submitCompleteManifest() {
+    if (!pendingCompleteRow) return;
+    setCompleteSubmitting(true);
+    const ok = await patchManifestStatus(pendingCompleteRow, "Completed");
+    setCompleteSubmitting(false);
+    if (ok) setPendingCompleteRow(null);
   }
 
   async function submitDiscrepancyStatus() {
@@ -153,13 +155,6 @@ export default function AdminManifestManager() {
     setDiscrepancyCommentInput("");
   }
 
-  function onDrop(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    setIsDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) void uploadFile(file);
-  }
-
   const counts = useMemo(() => {
     return manifests.reduce(
       (acc, row) => {
@@ -174,38 +169,12 @@ export default function AdminManifestManager() {
 
   return (
     <section className="space-y-5 rounded-2xl border border-white/60 bg-white/90 p-6 shadow-sm backdrop-blur">
-      <div>
-        <h2 className="text-xl font-black text-slate-900">Excel Manifest Upload</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Upload `.xlsx` or `.csv` with either (Part Number, Quantity, Batch ID) or (Product, Brand, Battery Type,
-          Product Serial ID, Quantity).
-        </p>
-      </div>
-
-      <label
-        onDragOver={(event) => {
-          event.preventDefault();
-          setIsDragging(true);
+      <ManifestUploadPanel
+        onUploadSuccess={async () => {
+          setError(null);
+          await loadManifests();
         }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={onDrop}
-        className={`block cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
-          isDragging ? "border-amber-500 bg-amber-50" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
-        }`}
-      >
-        <input
-          type="file"
-          accept=".xlsx,.csv"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void uploadFile(file);
-          }}
-        />
-        <p className="text-sm font-semibold text-slate-700">
-          {uploading ? "Uploading and parsing manifest..." : "Drop manifest here or click to browse"}
-        </p>
-      </label>
+      />
 
       {error ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
@@ -288,8 +257,14 @@ export default function AdminManifestManager() {
                   <td className="px-3 py-2">
                     <select
                       value={row.status}
+                      disabled={row.status === "Completed"}
+                      title={
+                        row.status === "Completed"
+                          ? "Completed manifests are locked and cannot be changed."
+                          : "Change manifest status"
+                      }
                       onChange={(event) => void onStatusChange(row, event.target.value as ManifestRow["status"])}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                     >
                       {statusOptions.map((status) => (
                         <option key={status} value={status}>
@@ -304,6 +279,42 @@ export default function AdminManifestManager() {
           </tbody>
         </table>
       </div>
+
+      {pendingCompleteRow ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Mark manifest as completed?</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              <span className="font-semibold text-slate-800">{pendingCompleteRow.file_name}</span> will be finalized.
+            </p>
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p className="font-semibold text-amber-900">This action cannot be undone.</p>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-amber-900/90">
+                <li>Manifest status will be locked — you will not be able to change it afterward.</li>
+                <li>Quantities from this manifest will be applied to inventory (if not already).</li>
+              </ul>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={completeSubmitting}
+                onClick={() => setPendingCompleteRow(null)}
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={completeSubmitting}
+                onClick={() => void submitCompleteManifest()}
+                className="rounded-md bg-gradient-to-r from-emerald-600 to-slate-800 px-3 py-2 text-sm font-semibold text-white hover:from-emerald-700 hover:to-slate-900 disabled:opacity-60"
+              >
+                {completeSubmitting ? "Completing..." : "Yes, mark as completed"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingDiscrepancyRow ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">

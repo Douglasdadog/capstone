@@ -120,7 +120,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin" && auth.session.role !== "SuperAdmin") {
+  if (
+    auth.session.role !== "Admin" &&
+    auth.session.role !== "SuperAdmin" &&
+    auth.session.role !== "Inventory"
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
