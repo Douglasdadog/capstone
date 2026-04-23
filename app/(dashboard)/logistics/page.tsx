@@ -19,6 +19,8 @@ type Shipment = {
   updated_at: string;
 };
 
+const PROVIDER_OPTIONS = ["LBC", "J&T Express", "2GO", "DHL", "Ninja Van", "Flash Express", "Local Trucking"] as const;
+
 export default function LogisticsPage() {
   const supabase = useMemo(() => createClient(), []);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -146,6 +148,20 @@ export default function LogisticsPage() {
     }
   }
 
+  async function copyTrackingLink(trackingUrl: string | null) {
+    if (!trackingUrl) {
+      setError("Generate tracking link first.");
+      return;
+    }
+    try {
+      setError(null);
+      await navigator.clipboard.writeText(trackingUrl);
+      setMessage("Tracking link copied.");
+    } catch {
+      setError("Unable to copy link.");
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div>
@@ -211,7 +227,7 @@ export default function LogisticsPage() {
 
                 <div>
                   <label className="mb-1 block text-xs text-slate-500">3PL Provider</label>
-                  <input
+                  <select
                     value={shipment.provider_name ?? ""}
                     onChange={(event) =>
                       setShipments((prev) =>
@@ -220,9 +236,15 @@ export default function LogisticsPage() {
                         )
                       )
                     }
-                    placeholder="e.g. LBC / J&T / Trucking Co"
                     className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
-                  />
+                  >
+                    <option value="">Select provider</option>
+                    {PROVIDER_OPTIONS.map((provider) => (
+                      <option key={provider} value={provider}>
+                        {provider}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -271,13 +293,23 @@ export default function LogisticsPage() {
               </div>
 
               <div className="mt-2 border-t border-slate-100 pt-2">
-                <button
-                  type="button"
-                  onClick={() => void generateTrackingLink(shipment.id)}
-                  className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                >
-                  Generate Link
-                </button>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void generateTrackingLink(shipment.id)}
+                    className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                  >
+                    Generate Link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyTrackingLink(trackingUrl)}
+                    disabled={!trackingUrl}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Copy Link
+                  </button>
+                </div>
                 {trackingUrl ? <p className="mt-1 break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
               </div>
             </article>

@@ -17,6 +17,16 @@ type Shipment = {
   tracking_token?: string | null;
   updated_at: string;
 };
+type InventoryItem = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+type OrderLine = {
+  id: string;
+  item_name: string;
+  quantity: string;
+};
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
@@ -33,12 +43,12 @@ export default function SalesPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
   const [newClientName, setNewClientName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newOrigin, setNewOrigin] = useState("");
   const [newDestination, setNewDestination] = useState("");
-  const [newItemName, setNewItemName] = useState("");
-  const [newQuantity, setNewQuantity] = useState("1");
   const [newEta, setNewEta] = useState("");
   const [origin, setOrigin] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ShipmentStatus>("All");
@@ -51,6 +61,14 @@ export default function SalesPage() {
     setShipments(data.shipments ?? []);
   }
 
+  async function fetchInventoryOptions() {
+    const response = await fetch("/api/inventory");
+    const data = (await response.json()) as { items?: InventoryItem[]; error?: string };
+    if (!response.ok) throw new Error(data.error ?? "Unable to load inventory options.");
+    const sorted = [...(data.items ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+    setInventoryItems(sorted);
+  }
+
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
@@ -60,7 +78,7 @@ export default function SalesPage() {
       try {
         setLoading(true);
         setError(null);
-        await fetchShipments();
+        await Promise.all([fetchShipments(), fetchInventoryOptions()]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load sales module.");
       } finally {
@@ -121,14 +139,37 @@ export default function SalesPage() {
   }
 
   async function createOrder() {
-    const quantity = Number.parseInt(newQuantity, 10);
     if (!newClientName.trim() || !newClientEmail.trim() || !newOrigin.trim() || !newDestination.trim()) {
       setError("Client name, email, origin, and destination are required.");
       return;
     }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      setError("Quantity must be a whole number greater than zero.");
+
+    const normalizedLines = orderLines
+      .map((line) => ({
+        ...line,
+        item_name: line.item_name.trim(),
+        quantityNum: Number.parseInt(line.quantity, 10)
+      }))
+      .filter((line) => line.item_name.length > 0);
+
+    if (normalizedLines.length === 0) {
+      setError("Add at least one item before creating an order.");
       return;
+    }
+    for (const line of normalizedLines) {
+      const inventoryMatch = inventoryItems.find((item) => item.name === line.item_name);
+      if (!Number.isFinite(line.quantityNum) || line.quantityNum <= 0) {
+        setError(`Quantity for ${line.item_name} must be greater than zero.`);
+        return;
+      }
+      if (!inventoryMatch) {
+        setError(`Item not found in inventory: ${line.item_name}`);
+        return;
+      }
+      if (line.quantityNum > inventoryMatch.quantity) {
+        setError(`Quantity for ${line.item_name} exceeds stock (${inventoryMatch.quantity}).`);
+        return;
+      }
     }
 
     try {
@@ -143,28 +184,50 @@ export default function SalesPage() {
           client_email: newClientEmail,
           origin: newOrigin,
           destination: newDestination,
-          item_name: newItemName || null,
-          quantity,
+          items: normalizedLines.map((line) => ({
+            item_name: line.item_name,
+            quantity: line.quantityNum
+          })),
           eta: newEta ? new Date(newEta).toISOString() : null
         })
       });
-      const data = (await response.json()) as { error?: string; shipment?: Shipment };
+      const data = (await response.json()) as {
+        error?: string;
+        shipment?: Shipment;
+        communication?: { sent: boolean; message: string } | null;
+      };
       if (!response.ok) throw new Error(data.error ?? "Unable to create order.");
 
-      setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.`);
+      const emailNote = data.communication?.sent
+        ? " Confirmation email sent."
+        : data.communication
+          ? ` Email not sent: ${data.communication.message}`
+          : "";
+      setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.${emailNote}`);
       setNewClientName("");
       setNewClientEmail("");
       setNewOrigin("");
       setNewDestination("");
-      setNewItemName("");
-      setNewQuantity("1");
+      setOrderLines([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
       setNewEta("");
-      await fetchShipments();
+      await Promise.all([fetchShipments(), fetchInventoryOptions()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create order.");
     } finally {
       setCreatingOrder(false);
     }
+  }
+
+  function addOrderLine() {
+    setOrderLines((prev) => [...prev, { id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
+  }
+
+  function removeOrderLine(lineId: string) {
+    setOrderLines((prev) => (prev.length > 1 ? prev.filter((line) => line.id !== lineId) : prev));
+  }
+
+  function updateOrderLine(lineId: string, patch: Partial<OrderLine>) {
+    setOrderLines((prev) => prev.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
   }
 
   const today = new Date().toDateString();
@@ -260,21 +323,6 @@ export default function SalesPage() {
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
           <input
-            value={newItemName}
-            onChange={(event) => setNewItemName(event.target.value)}
-            placeholder="Item Name (optional)"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="number"
-            min={1}
-            step={1}
-            value={newQuantity}
-            onChange={(event) => setNewQuantity(event.target.value)}
-            placeholder="Quantity"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-          />
-          <input
             type="datetime-local"
             value={newEta}
             onChange={(event) => setNewEta(event.target.value)}
@@ -288,6 +336,68 @@ export default function SalesPage() {
           >
             {creatingOrder ? "Creating..." : "Create Order"}
           </button>
+        </div>
+        <div className="mt-3 space-y-2">
+          {orderLines.map((line, index) => {
+            const selectedInventory = inventoryItems.find((item) => item.name === line.item_name);
+            const maxQty = selectedInventory?.quantity ?? 0;
+            return (
+              <div key={line.id} className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-[1fr,140px,auto]">
+                <select
+                  value={line.item_name}
+                  onChange={(event) =>
+                    updateOrderLine(line.id, {
+                      item_name: event.target.value,
+                      quantity: "1"
+                    })
+                  }
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">Select item #{index + 1}</option>
+                  {inventoryItems.map((item) => (
+                    <option key={item.id} value={item.name}>
+                      {item.name} (Stock: {item.quantity})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, maxQty)}
+                  step={1}
+                  value={line.quantity}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    const parsed = Number.parseInt(raw, 10);
+                    const capped =
+                      Number.isFinite(parsed) && parsed > 0
+                        ? String(Math.min(parsed, Math.max(1, maxQty)))
+                        : raw;
+                    updateOrderLine(line.id, { quantity: capped });
+                  }}
+                  placeholder="Qty"
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addOrderLine()}
+                    className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeOrderLine(line.id)}
+                    disabled={orderLines.length === 1}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    -
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </article>
 
