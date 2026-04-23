@@ -36,7 +36,7 @@ export const ROLE_ACCESS: Record<UserRole, string[]> = {
     "/logistics"
   ],
   Inventory: ["/dashboard", "/inventory", "/settings"],
-  Sales: ["/dashboard", "/sales", "/logistics", "/settings"],
+  Sales: ["/dashboard", "/sales", "/logistics", "/admin/reports", "/settings"],
   Client: ["/client", "/settings"]
 };
 

@@ -11,16 +11,6 @@ type ManifestRow = {
   created_at: string;
 };
 
-type ManifestReportRow = {
-  id: string;
-  manifest_id: string;
-  reason: string;
-  comments: string | null;
-  reported_by: string;
-  created_at: string;
-  file_name: string | null;
-};
-
 const statusOptions: ManifestRow["status"][] = ["Pending Verification", "Completed", "Discrepancies"];
 
 function statusBadgeClass(status: ManifestRow["status"]) {
@@ -41,7 +31,6 @@ export default function AdminManifestManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manifests, setManifests] = useState<ManifestRow[]>([]);
-  const [reports, setReports] = useState<ManifestReportRow[]>([]);
 
   const loadManifests = useCallback(async () => {
     setLoading(true);
@@ -57,26 +46,12 @@ export default function AdminManifestManager() {
     setLoading(false);
   }, []);
 
-  const loadReports = useCallback(async () => {
-    const response = await fetch("/api/admin/manifests/reports");
-    const payload = (await response.json()) as {
-      error?: string;
-      reports?: ManifestReportRow[];
-    };
-    if (!response.ok) {
-      setError(payload.error ?? "Unable to load discrepancy reports.");
-      return;
-    }
-    setReports(payload.reports ?? []);
-  }, []);
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadManifests();
-      void loadReports();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadManifests, loadReports]);
+  }, [loadManifests]);
 
   async function uploadFile(file: File) {
     setUploading(true);
@@ -95,7 +70,7 @@ export default function AdminManifestManager() {
       return;
     }
 
-    await Promise.all([loadManifests(), loadReports()]);
+    await loadManifests();
     setUploading(false);
   }
 
@@ -111,7 +86,6 @@ export default function AdminManifestManager() {
       return;
     }
     setManifests((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)));
-    await loadReports();
   }
 
   function onDrop(event: DragEvent<HTMLLabelElement>) {
@@ -265,50 +239,6 @@ export default function AdminManifestManager() {
         </table>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Discrepancy Reports</h3>
-          <button
-            type="button"
-            onClick={() => void loadReports()}
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Refresh
-          </button>
-        </div>
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700">
-              <tr>
-                <th className="px-3 py-2">Reported At</th>
-                <th className="px-3 py-2">Manifest File</th>
-                <th className="px-3 py-2">Reason</th>
-                <th className="px-3 py-2">Comments</th>
-                <th className="px-3 py-2">Reported By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.length === 0 ? (
-                <tr>
-                  <td className="px-3 py-4 text-slate-500" colSpan={5}>
-                    No discrepancy reports yet.
-                  </td>
-                </tr>
-              ) : (
-                reports.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-slate-600">{new Date(row.created_at).toLocaleString()}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{row.file_name || row.manifest_id}</td>
-                    <td className="px-3 py-2 text-red-700">{row.reason}</td>
-                    <td className="px-3 py-2 text-slate-700">{row.comments || "-"}</td>
-                    <td className="px-3 py-2 text-slate-600">{row.reported_by}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </section>
   );
 }
