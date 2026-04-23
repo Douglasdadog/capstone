@@ -413,12 +413,6 @@ export default function InventoryPage() {
         >
           {simulating ? "Simulating..." : "Sensor Simulation"}
         </button>
-        <Link
-          href="/inventory/scanning"
-          className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-        >
-          Open Mobile Scanner
-        </Link>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -452,7 +446,7 @@ export default function InventoryPage() {
                 href="/inventory/scanning"
                 className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
               >
-                Open Scanner Here
+                Open Scanner
               </Link>
             </div>
           </div>
