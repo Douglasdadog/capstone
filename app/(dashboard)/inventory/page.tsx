@@ -83,9 +83,29 @@ export default function InventoryPage() {
     () => items.filter((item) => item.quantity < item.threshold_limit).length,
     [items]
   );
+  const effectiveAlerts = useMemo(() => {
+    const existing = alerts.map((alert) => ({ ...alert, isSynthetic: false as const }));
+    const lowStockFallback = items
+      .filter((item) => item.quantity < item.threshold_limit)
+      .filter((item) => !alerts.some((alert) => alert.item_name.toLowerCase() === item.name.toLowerCase()))
+      .map((item) => ({
+        id: `synthetic-${item.id}`,
+        item_name: item.name,
+        reading_quantity: item.quantity,
+        threshold_limit: item.threshold_limit,
+        status: "triggered",
+        message: `Auto replenishment triggered for ${item.name}`,
+        created_at: item.updated_at,
+        isSynthetic: true as const
+      }));
+
+    return [...existing, ...lowStockFallback]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 6);
+  }, [alerts, items]);
   const alertsTodayCount = useMemo(() => {
     const today = new Date();
-    return alerts.filter((alert) => {
+    return effectiveAlerts.filter((alert) => {
       const created = new Date(alert.created_at);
       return (
         created.getFullYear() === today.getFullYear() &&
@@ -93,13 +113,13 @@ export default function InventoryPage() {
         created.getDate() === today.getDate()
       );
     }).length;
-  }, [alerts]);
+  }, [effectiveAlerts]);
   const lastKnownInventoryEvent = useMemo(() => {
     if (lastInventoryEventAt) return new Date(lastInventoryEventAt);
     if (lastEnvironmentReadingAt) return new Date(lastEnvironmentReadingAt);
-    if (alerts.length > 0) return new Date(alerts[0].created_at);
+    if (effectiveAlerts.length > 0) return new Date(effectiveAlerts[0].created_at);
     return null;
-  }, [alerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
+  }, [effectiveAlerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -707,19 +727,22 @@ export default function InventoryPage() {
               </h2>
             </div>
             <div className="space-y-3 p-4">
-              {alerts.map((alert) => (
+              {effectiveAlerts.map((alert) => (
                 <article key={alert.id} className="rounded-md border border-red-200 bg-red-50 p-3">
                   <p className="text-sm font-medium text-red-800">{alert.item_name}</p>
                   <p className="mt-1 text-xs text-red-700">
                     Qty {alert.reading_quantity} | Threshold {alert.threshold_limit}
                   </p>
                   <p className="mt-1 text-xs text-red-700">{alert.message}</p>
+                  {"isSynthetic" in alert && alert.isSynthetic ? (
+                    <p className="mt-1 text-[11px] text-red-600">Pending log sync from manual override.</p>
+                  ) : null}
                   <p className="mt-2 text-[11px] text-red-600">
                     {new Date(alert.created_at).toLocaleString()}
                   </p>
                 </article>
               ))}
-              {!loading && alerts.length === 0 ? (
+              {!loading && effectiveAlerts.length === 0 ? (
                 <p className="text-sm text-slate-500">No alerts logged yet.</p>
               ) : null}
             </div>

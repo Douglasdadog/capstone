@@ -30,6 +30,24 @@ function isMissingInventoryColumnError(message: string): boolean {
   return normalized.includes("column") && normalized.includes("inventory.") && normalized.includes("does not exist");
 }
 
+async function logLowStockAlert(
+  supabase: ReturnType<typeof createAdminClient>,
+  item: { id: string; name: string; quantity: number; threshold_limit: number }
+): Promise<string | null> {
+  if (item.quantity >= item.threshold_limit) return null;
+
+  const { error } = await supabase.from("auto_replenishment_alerts").insert({
+    inventory_id: item.id,
+    item_name: item.name,
+    reading_quantity: item.quantity,
+    threshold_limit: item.threshold_limit,
+    status: "triggered",
+    message: `Auto replenishment triggered for ${item.name}`
+  });
+
+  return error ? error.message : null;
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient();
@@ -149,19 +167,42 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: legacyInsert.error.message }, { status: 500 });
       }
 
+      const lowStockAlertError = await logLowStockAlert(supabase, {
+        id: legacyInsert.data.id,
+        name: legacyInsert.data.name,
+        quantity: legacyInsert.data.quantity,
+        threshold_limit: legacyInsert.data.threshold_limit
+      });
+
       return NextResponse.json(
         {
           item: {
             ...(legacyInsert.data ?? {}),
             category: null,
             image_url: null
-          }
+          },
+          warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
         },
         { status: 201 }
       );
     }
 
-    return NextResponse.json({ item: modernInsert.data }, { status: 201 });
+    const lowStockAlertError = modernInsert.data
+      ? await logLowStockAlert(supabase, {
+          id: modernInsert.data.id,
+          name: modernInsert.data.name,
+          quantity: modernInsert.data.quantity,
+          threshold_limit: modernInsert.data.threshold_limit
+        })
+      : null;
+
+    return NextResponse.json(
+      {
+        item: modernInsert.data,
+        warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
+      },
+      { status: 201 }
+    );
   } catch (error) {
     return NextResponse.json(
       {
@@ -242,12 +283,20 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
       }
 
+      const lowStockAlertError = await logLowStockAlert(supabase, {
+        id: legacyUpdate.data.id,
+        name: legacyUpdate.data.name,
+        quantity: legacyUpdate.data.quantity,
+        threshold_limit: legacyUpdate.data.threshold_limit
+      });
+
       return NextResponse.json({
         item: {
           ...legacyUpdate.data,
           category: null,
           image_url: null
-        }
+        },
+        warning: lowStockAlertError ? `Inventory updated, but alert logging failed: ${lowStockAlertError}` : null
       });
     }
 
@@ -255,7 +304,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ item: modernUpdate.data });
+    const lowStockAlertError = await logLowStockAlert(supabase, {
+      id: modernUpdate.data.id,
+      name: modernUpdate.data.name,
+      quantity: modernUpdate.data.quantity,
+      threshold_limit: modernUpdate.data.threshold_limit
+    });
+
+    return NextResponse.json({
+      item: modernUpdate.data,
+      warning: lowStockAlertError ? `Inventory updated, but alert logging failed: ${lowStockAlertError}` : null
+    });
   } catch (error) {
     return NextResponse.json(
       {
