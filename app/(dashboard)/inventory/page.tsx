@@ -24,6 +24,26 @@ type ReplenishmentAlert = {
   created_at: string;
 };
 
+type MonitoringPayload = {
+  source?: "live" | "preview";
+  temperatureC?: number | null;
+  humidityPct?: number | null;
+  lastReadingAt?: string | null;
+  uptimeSeconds?: number | null;
+  isRunning?: boolean;
+  error?: string;
+};
+
+function formatUptime(seconds: number | null | undefined): string {
+  if (!seconds || seconds <= 0) return "0m";
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
 export default function InventoryPage() {
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -45,6 +65,11 @@ export default function InventoryPage() {
   const [addingProduct, setAddingProduct] = useState(false);
   const [lastInventoryEventAt, setLastInventoryEventAt] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<"CONNECTING" | "CONNECTED" | "DISCONNECTED">("CONNECTING");
+  const [temperatureC, setTemperatureC] = useState<number | null>(null);
+  const [humidityPct, setHumidityPct] = useState<number | null>(null);
+  const [iotUptimeSeconds, setIotUptimeSeconds] = useState<number>(0);
+  const [iotRunning, setIotRunning] = useState(false);
+  const [lastEnvironmentReadingAt, setLastEnvironmentReadingAt] = useState<string | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -64,9 +89,10 @@ export default function InventoryPage() {
   }, [alerts]);
   const lastKnownInventoryEvent = useMemo(() => {
     if (lastInventoryEventAt) return new Date(lastInventoryEventAt);
+    if (lastEnvironmentReadingAt) return new Date(lastEnvironmentReadingAt);
     if (alerts.length > 0) return new Date(alerts[0].created_at);
     return null;
-  }, [alerts, lastInventoryEventAt]);
+  }, [alerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -91,9 +117,22 @@ export default function InventoryPage() {
     setAlerts((data ?? []) as ReplenishmentAlert[]);
   }, [supabase]);
 
+  const fetchMonitoring = useCallback(async () => {
+    const response = await fetch("/api/inventory/monitoring");
+    const data = (await response.json()) as MonitoringPayload;
+    if (!response.ok) {
+      throw new Error(data.error ?? "Unable to fetch monitoring data.");
+    }
+    setTemperatureC(typeof data.temperatureC === "number" ? data.temperatureC : null);
+    setHumidityPct(typeof data.humidityPct === "number" ? data.humidityPct : null);
+    setIotUptimeSeconds(typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
+    setIotRunning(Boolean(data.isRunning));
+    setLastEnvironmentReadingAt(typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
+  }, []);
+
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchInventory(), fetchAlerts()]);
-  }, [fetchAlerts, fetchInventory]);
+    await Promise.all([fetchInventory(), fetchAlerts(), fetchMonitoring()]);
+  }, [fetchAlerts, fetchInventory, fetchMonitoring]);
 
   useEffect(() => {
     async function initialLoad() {
@@ -133,6 +172,13 @@ export default function InventoryPage() {
           void fetchAlerts();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sensor_logs" },
+        () => {
+          void fetchMonitoring();
+        }
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("CONNECTED");
@@ -149,7 +195,7 @@ export default function InventoryPage() {
       setRealtimeStatus("DISCONNECTED");
       void supabase.removeChannel(channel);
     };
-  }, [fetchAlerts, fetchInventory, supabase]);
+  }, [fetchAlerts, fetchInventory, fetchMonitoring, supabase]);
 
   async function handleSensorSimulation() {
     try {
@@ -179,7 +225,11 @@ export default function InventoryPage() {
           `Sensor updated ${data.item?.name}. Quantity is now ${data.item?.newQuantity}. No replenishment needed.`
         );
       }
-      setLastInventoryEventAt(new Date().toISOString());
+      const now = new Date().toISOString();
+      setLastInventoryEventAt(now);
+      setLastEnvironmentReadingAt(now);
+      setIotRunning(true);
+      setIotUptimeSeconds((prev) => prev + 60);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sensor simulation failed.");
     } finally {
@@ -312,7 +362,7 @@ export default function InventoryPage() {
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Live Feed Status</p>
             <p
@@ -325,10 +375,30 @@ export default function InventoryPage() {
               }`}
             >
               {realtimeStatus === "CONNECTED"
-                ? "Connected (Inventory Realtime)"
+                ? iotRunning
+                  ? "Connected (IoT Running)"
+                  : "Connected (No Recent Reading)"
                 : realtimeStatus === "CONNECTING"
                   ? "Connecting..."
                   : "Disconnected"}
+            </p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Battery Temp</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">
+              {temperatureC !== null ? `${temperatureC.toFixed(1)} C` : "--"}
+            </p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Humidity</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">
+              {humidityPct !== null ? `${humidityPct.toFixed(1)} %RH` : "--"}
+            </p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">IoT Uptime</p>
+            <p className={`mt-1 text-sm font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
+              {formatUptime(iotUptimeSeconds)}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
