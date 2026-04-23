@@ -35,6 +35,8 @@ type MonitoringPayload = {
   note?: string;
   error?: string;
 };
+type InventorySortKey = "name" | "category" | "quantity" | "threshold" | "status" | "updated";
+type SortDirection = "asc" | "desc";
 
 function formatUptime(seconds: number | null | undefined, showPlaceholder = false): string {
   if (!seconds || seconds <= 0) return showPlaceholder ? "--" : "0m";
@@ -77,6 +79,8 @@ export default function InventoryPage() {
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
   const [copyScannerLinkLabel, setCopyScannerLinkLabel] = useState("Copy Link");
+  const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -120,6 +124,35 @@ export default function InventoryPage() {
     if (effectiveAlerts.length > 0) return new Date(effectiveAlerts[0].created_at);
     return null;
   }, [effectiveAlerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
+  const sortedItems = useMemo(() => {
+    const statusRank = (item: InventoryItem) => {
+      if (item.quantity <= 0) return 0;
+      if (item.quantity < item.threshold_limit) return 1;
+      return 2;
+    };
+
+    const list = [...items];
+    list.sort((a, b) => {
+      let base = 0;
+      if (sortKey === "name") base = a.name.localeCompare(b.name);
+      else if (sortKey === "category") base = (a.category ?? "").localeCompare(b.category ?? "");
+      else if (sortKey === "quantity") base = a.quantity - b.quantity;
+      else if (sortKey === "threshold") base = a.threshold_limit - b.threshold_limit;
+      else if (sortKey === "status") base = statusRank(a) - statusRank(b);
+      else base = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+      return sortDirection === "asc" ? base : -base;
+    });
+    return list;
+  }, [items, sortDirection, sortKey]);
+
+  function toggleSort(nextKey: InventorySortKey) {
+    if (sortKey === nextKey) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection("asc");
+  }
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -477,37 +510,48 @@ export default function InventoryPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
-                    <th className="px-4 py-3">Image</th>
-                    <th className="px-4 py-3">Item</th>
-                    <th className="px-4 py-3">Category</th>
-                    <th className="px-4 py-3">Quantity</th>
-                    <th className="px-4 py-3">Threshold</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Updated</th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("name")} className="inline-flex items-center gap-1 font-semibold">
+                        Item {sortKey === "name" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("category")} className="inline-flex items-center gap-1 font-semibold">
+                        Category {sortKey === "category" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("quantity")} className="inline-flex items-center gap-1 font-semibold">
+                        Quantity {sortKey === "quantity" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("threshold")} className="inline-flex items-center gap-1 font-semibold">
+                        Threshold {sortKey === "threshold" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("status")} className="inline-flex items-center gap-1 font-semibold">
+                        Status {sortKey === "status" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3">
+                      <button type="button" onClick={() => toggleSort("updated")} className="inline-flex items-center gap-1 font-semibold">
+                        Updated {sortKey === "updated" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
+                      </button>
+                    </th>
                     <th className="px-4 py-3">Manual override</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => {
-                    const lowStock = item.quantity < item.threshold_limit;
+                  {sortedItems.map((item) => {
+                    const outOfStock = item.quantity <= 0;
+                    const belowThreshold = !outOfStock && item.quantity < item.threshold_limit;
                     const isEditing = editingId === item.id;
                     const rowBusy = rowSavingId === item.id;
                     const category = item.category?.trim() || "Uncategorized";
                     return (
                       <tr key={item.id} className="border-t border-slate-100">
-                        <td className="px-4 py-3">
-                          {item.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.image_url}
-                              alt={item.name}
-                              className="h-10 w-16 rounded object-cover"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="text-xs text-slate-400">No image</span>
-                          )}
-                        </td>
                         <td className="px-4 py-3">{item.name}</td>
                         <td className="px-4 py-3">
                           <span
@@ -555,12 +599,14 @@ export default function InventoryPage() {
                         <td className="px-4 py-3">
                           <span
                             className={`rounded-full px-2 py-1 text-xs ${
-                              lowStock
+                              outOfStock
                                 ? "bg-red-100 text-red-700"
-                                : "bg-amber-100 text-amber-700"
+                                : belowThreshold
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-green-100 text-green-700"
                             }`}
                           >
-                            {lowStock ? "Below threshold" : "Healthy"}
+                            {outOfStock ? "Out of stock" : belowThreshold ? "Below threshold" : "Healthy"}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-500">
@@ -602,7 +648,7 @@ export default function InventoryPage() {
                   })}
                   {!loading && items.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-6 text-slate-500" colSpan={8}>
+                      <td className="px-4 py-6 text-slate-500" colSpan={7}>
                         No inventory items found.
                       </td>
                     </tr>
