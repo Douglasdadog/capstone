@@ -17,8 +17,27 @@ type ManifestItem = {
   batch_id: string;
 };
 
+type HighlightBox = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  token: number;
+};
+
+function asPoint(value: unknown): { x: number; y: number } | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as { x?: unknown; y?: unknown };
+  if (typeof candidate.x === "number" && typeof candidate.y === "number") {
+    return { x: candidate.x, y: candidate.y };
+  }
+  return null;
+}
+
 export default function InventoryScanningPage() {
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const scannerViewportRef = useRef<HTMLDivElement | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +48,7 @@ export default function InventoryScanningPage() {
   const [scanned, setScanned] = useState<Record<string, number>>({});
   const [activePart, setActivePart] = useState<string>("");
   const [lastScan, setLastScan] = useState<string | null>(null);
+  const [highlightBox, setHighlightBox] = useState<HighlightBox | null>(null);
 
   useEffect(() => {
     async function loadPending() {
@@ -83,6 +103,9 @@ export default function InventoryScanningPage() {
         void scannerRef.current.stop().catch(() => undefined);
         scannerRef.current.clear();
       }
+      if (highlightTimeoutRef.current !== null) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -104,6 +127,69 @@ export default function InventoryScanningPage() {
     if (partKeys.length === 0) return false;
     return partKeys.every((part) => (scanned[part] ?? 0) === byPart[part]);
   }, [byPart, partKeys, scanned]);
+
+  function flashHighlight(decodedResult?: unknown) {
+    const viewport = scannerViewportRef.current;
+    const video = document.querySelector("#manifest-scanner video") as HTMLVideoElement | null;
+    const viewportRect = viewport?.getBoundingClientRect();
+
+    let nextBox: HighlightBox | null = null;
+    const pointsRaw = (
+      decodedResult as {
+        result?: {
+          resultPoints?: unknown[];
+        };
+      }
+    )?.result?.resultPoints;
+    const points = Array.isArray(pointsRaw) ? pointsRaw.map(asPoint).filter(Boolean) as { x: number; y: number }[] : [];
+
+    if (viewportRect && video && points.length >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+      const minX = Math.min(...points.map((point) => point.x));
+      const maxX = Math.max(...points.map((point) => point.x));
+      const minY = Math.min(...points.map((point) => point.y));
+      const maxY = Math.max(...points.map((point) => point.y));
+
+      const containerWidth = viewportRect.width;
+      const containerHeight = viewportRect.height;
+      const sourceWidth = video.videoWidth;
+      const sourceHeight = video.videoHeight;
+      const scale = Math.min(containerWidth / sourceWidth, containerHeight / sourceHeight);
+      const renderWidth = sourceWidth * scale;
+      const renderHeight = sourceHeight * scale;
+      const offsetX = (containerWidth - renderWidth) / 2;
+      const offsetY = (containerHeight - renderHeight) / 2;
+
+      const left = offsetX + (minX / sourceWidth) * renderWidth;
+      const top = offsetY + (minY / sourceHeight) * renderHeight;
+      const width = Math.max(28, ((maxX - minX) / sourceWidth) * renderWidth);
+      const height = Math.max(28, ((maxY - minY) / sourceHeight) * renderHeight);
+
+      nextBox = {
+        left,
+        top,
+        width,
+        height,
+        token: Date.now()
+      };
+    } else if (viewportRect) {
+      nextBox = {
+        left: viewportRect.width * 0.35,
+        top: viewportRect.height * 0.35,
+        width: viewportRect.width * 0.3,
+        height: viewportRect.height * 0.3,
+        token: Date.now()
+      };
+    }
+
+    if (!nextBox) return;
+    setHighlightBox(nextBox);
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightBox(null);
+    }, 520);
+  }
 
   async function startScanner() {
     if (cameraOn) return;
@@ -128,9 +214,10 @@ export default function InventoryScanningPage() {
           Html5QrcodeSupportedFormats.CODABAR
         ]
       },
-      (decodedText: string) => {
+      (decodedText: string, decodedResult: unknown) => {
         const code = decodedText.trim();
         setLastScan(code);
+        flashHighlight(decodedResult);
         if (partKeys.length === 0) {
           setActivePart(code);
           return;
@@ -155,6 +242,7 @@ export default function InventoryScanningPage() {
     scannerRef.current.clear();
     scannerRef.current = null;
     setCameraOn(false);
+    setHighlightBox(null);
   }
 
   async function completeManifest() {
@@ -239,8 +327,23 @@ export default function InventoryScanningPage() {
             Stop Camera
           </button>
         </div>
-        <div className="mt-3 h-[38vh] min-h-[220px] max-h-[420px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+        <div
+          ref={scannerViewportRef}
+          className="relative mt-3 h-[38vh] min-h-[220px] max-h-[420px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+        >
           <div id="manifest-scanner" className="h-full w-full" />
+          {highlightBox ? (
+            <div
+              key={highlightBox.token}
+              className="pointer-events-none absolute rounded-md border-2 border-emerald-400 shadow-[0_0_0_2px_rgba(16,185,129,0.15)] animate-scan-detect"
+              style={{
+                left: `${highlightBox.left}px`,
+                top: `${highlightBox.top}px`,
+                width: `${highlightBox.width}px`,
+                height: `${highlightBox.height}px`
+              }}
+            />
+          ) : null}
         </div>
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       </div>
@@ -306,6 +409,11 @@ export default function InventoryScanningPage() {
           overflow: hidden !important;
         }
 
+        #manifest-scanner #qr-shaded-region {
+          border-width: 0 !important;
+          background: transparent !important;
+        }
+
         #manifest-scanner > div {
           height: 100%;
           max-height: 100%;
@@ -316,7 +424,26 @@ export default function InventoryScanningPage() {
           width: 100% !important;
           height: 100% !important;
           max-height: 100% !important;
-          object-fit: cover;
+          object-fit: contain;
+        }
+
+        @keyframes scan-detect {
+          0% {
+            opacity: 0;
+            transform: scale(0.92);
+          }
+          30% {
+            opacity: 1;
+            transform: scale(1.02);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1);
+          }
+        }
+
+        .animate-scan-detect {
+          animation: scan-detect 520ms ease-out forwards;
         }
       `}</style>
     </section>
