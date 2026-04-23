@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
 
 type Manifest = {
   id: string;
@@ -486,7 +487,7 @@ export default function InventoryScanningPage() {
           ref={scannerViewportRef}
           className="relative mt-3 h-[48vh] min-h-[260px] max-h-[560px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
         >
-          <div id="manifest-scanner" className="h-full w-full" />
+          <Html5QrcodeMount id="manifest-scanner" />
           {scanToast ? (
             <div
               key={scanToast.token}

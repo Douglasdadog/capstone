@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
 
 type ScanToast = {
   value: string;
@@ -221,7 +222,7 @@ export default function PublicScannerPage() {
         </button>
       </div>
       <div className="relative h-[56vh] min-h-[320px] max-h-[720px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-        <div id="public-scanner" className="h-full w-full" />
+        <Html5QrcodeMount id="public-scanner" />
         {scanToast ? (
           <div
             key={scanToast.token}
