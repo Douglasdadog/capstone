@@ -32,6 +32,14 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newOrigin, setNewOrigin] = useState("");
+  const [newDestination, setNewDestination] = useState("");
+  const [newItemName, setNewItemName] = useState("");
+  const [newQuantity, setNewQuantity] = useState("1");
+  const [newEta, setNewEta] = useState("");
   const [origin, setOrigin] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ShipmentStatus>("All");
   const [search, setSearch] = useState("");
@@ -112,6 +120,53 @@ export default function SalesPage() {
     }
   }
 
+  async function createOrder() {
+    const quantity = Number.parseInt(newQuantity, 10);
+    if (!newClientName.trim() || !newClientEmail.trim() || !newOrigin.trim() || !newDestination.trim()) {
+      setError("Client name, email, origin, and destination are required.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      setError("Quantity must be a whole number greater than zero.");
+      return;
+    }
+
+    try {
+      setCreatingOrder(true);
+      setError(null);
+      setMessage(null);
+      const response = await fetch("/api/logistics/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_name: newClientName,
+          client_email: newClientEmail,
+          origin: newOrigin,
+          destination: newDestination,
+          item_name: newItemName || null,
+          quantity,
+          eta: newEta ? new Date(newEta).toISOString() : null
+        })
+      });
+      const data = (await response.json()) as { error?: string; shipment?: Shipment };
+      if (!response.ok) throw new Error(data.error ?? "Unable to create order.");
+
+      setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.`);
+      setNewClientName("");
+      setNewClientEmail("");
+      setNewOrigin("");
+      setNewDestination("");
+      setNewItemName("");
+      setNewQuantity("1");
+      setNewEta("");
+      await fetchShipments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create order.");
+    } finally {
+      setCreatingOrder(false);
+    }
+  }
+
   const today = new Date().toDateString();
   const stats = useMemo(() => {
     const pending = shipments.filter((row) => row.status === "Pending").length;
@@ -172,6 +227,69 @@ export default function SalesPage() {
         <StatCard label="Delivered Today" value={stats.deliveredToday} />
         <StatCard label="Delayed Follow-ups" value={stats.delayed} />
       </div>
+
+      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Create Order</h2>
+          <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <input
+            value={newClientName}
+            onChange={(event) => setNewClientName(event.target.value)}
+            placeholder="Client Name"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="email"
+            value={newClientEmail}
+            onChange={(event) => setNewClientEmail(event.target.value)}
+            placeholder="Client Email"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={newOrigin}
+            onChange={(event) => setNewOrigin(event.target.value)}
+            placeholder="Origin"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={newDestination}
+            onChange={(event) => setNewDestination(event.target.value)}
+            placeholder="Destination"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            value={newItemName}
+            onChange={(event) => setNewItemName(event.target.value)}
+            placeholder="Item Name (optional)"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={newQuantity}
+            onChange={(event) => setNewQuantity(event.target.value)}
+            placeholder="Quantity"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <input
+            type="datetime-local"
+            value={newEta}
+            onChange={(event) => setNewEta(event.target.value)}
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => void createOrder()}
+            disabled={creatingOrder}
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {creatingOrder ? "Creating..." : "Create Order"}
+          </button>
+        </div>
+      </article>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
