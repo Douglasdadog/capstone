@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireDemoSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildPreviewEnvironmentSeries } from "@/lib/iot/environment-series";
 
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
@@ -69,17 +68,15 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      const preview = buildPreviewEnvironmentSeries();
-      const latest = preview[preview.length - 1];
       return NextResponse.json({
-        source: "preview" as const,
-        temperatureC: latest?.temperature ?? null,
-        humidityPct: latest?.humidity ?? null,
+        source: "live" as const,
+        temperatureC: null,
+        humidityPct: null,
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
         isRunning: false,
         connectionStatus: "disconnected" as const,
-        note: error.message
+        note: `No device data: ${error.message}`
       });
     }
 
@@ -92,18 +89,16 @@ export async function GET(request: NextRequest) {
     });
 
     if (readings.length === 0) {
-      const preview = buildPreviewEnvironmentSeries();
-      const latest = preview[preview.length - 1];
       const remote = await probeIotHealthUrl();
       return NextResponse.json({
-        source: "preview" as const,
-        temperatureC: latest?.temperature ?? null,
-        humidityPct: latest?.humidity ?? null,
+        source: "live" as const,
+        temperatureC: null,
+        humidityPct: null,
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
         isRunning: false,
         connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
-        note: remote.message
+        note: remote.ok ? "IoT endpoint reachable, waiting for first sensor reading." : remote.message
       });
     }
 

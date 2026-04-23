@@ -36,8 +36,8 @@ type MonitoringPayload = {
   error?: string;
 };
 
-function formatUptime(seconds: number | null | undefined): string {
-  if (!seconds || seconds <= 0) return "0m";
+function formatUptime(seconds: number | null | undefined, showPlaceholder = false): string {
+  if (!seconds || seconds <= 0) return showPlaceholder ? "--" : "0m";
   const days = Math.floor(seconds / 86_400);
   const hours = Math.floor((seconds % 86_400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -73,6 +73,7 @@ export default function InventoryPage() {
   const [iotRunning, setIotRunning] = useState(false);
   const [lastEnvironmentReadingAt, setLastEnvironmentReadingAt] = useState<string | null>(null);
   const [iotConnectionStatus, setIotConnectionStatus] = useState<"connected" | "disconnected">("disconnected");
+  const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -126,12 +127,15 @@ export default function InventoryPage() {
     if (!response.ok) {
       throw new Error(data.error ?? "Unable to fetch monitoring data.");
     }
-    setTemperatureC(typeof data.temperatureC === "number" ? data.temperatureC : null);
-    setHumidityPct(typeof data.humidityPct === "number" ? data.humidityPct : null);
+    const connected = data.connectionStatus === "connected";
+    const hasLiveReading = typeof data.lastReadingAt === "string";
+    setTemperatureC(connected && hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
+    setHumidityPct(connected && hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
     setIotUptimeSeconds(typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
     setIotRunning(Boolean(data.isRunning));
     setLastEnvironmentReadingAt(typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
     setIotConnectionStatus(data.connectionStatus === "connected" ? "connected" : "disconnected");
+    setIotStatusNote(typeof data.note === "string" && data.note.length > 0 ? data.note : null);
   }, []);
 
   const refreshAll = useCallback(async () => {
@@ -387,6 +391,9 @@ export default function InventoryPage() {
                   ? "Connecting..."
                   : "Disconnected (IoT Not Connected)"}
             </p>
+            {iotConnectionStatus === "disconnected" && iotStatusNote ? (
+              <p className="mt-1 text-[11px] text-slate-500">{iotStatusNote}</p>
+            ) : null}
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Battery Temp</p>
@@ -403,7 +410,7 @@ export default function InventoryPage() {
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">IoT Uptime</p>
             <p className={`mt-1 text-sm font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
-              {formatUptime(iotUptimeSeconds)}
+              {formatUptime(iotUptimeSeconds, iotConnectionStatus !== "connected")}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
