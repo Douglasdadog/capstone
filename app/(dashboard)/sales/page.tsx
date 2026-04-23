@@ -284,65 +284,58 @@ export default function SalesPage() {
       ) : null}
       {error ? <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Pending Orders" value={stats.pending} />
-        <StatCard label="In Transit" value={stats.transit} />
-        <StatCard label="Delivered Today" value={stats.deliveredToday} />
-        <StatCard label="Delayed Follow-ups" value={stats.delayed} />
-      </div>
-
-      <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Create Order</h2>
           <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
         </div>
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
           <input
             value={newClientName}
             onChange={(event) => setNewClientName(event.target.value)}
             placeholder="Client Name"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
           />
           <input
             type="email"
             value={newClientEmail}
             onChange={(event) => setNewClientEmail(event.target.value)}
             placeholder="Client Email"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
           />
           <input
             value={newOrigin}
             onChange={(event) => setNewOrigin(event.target.value)}
             placeholder="Origin"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
           />
           <input
             value={newDestination}
             onChange={(event) => setNewDestination(event.target.value)}
             placeholder="Destination"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
           />
           <input
             type="datetime-local"
             value={newEta}
             onChange={(event) => setNewEta(event.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
           />
           <button
             type="button"
             onClick={() => void createOrder()}
             disabled={creatingOrder}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {creatingOrder ? "Creating..." : "Create Order"}
           </button>
         </div>
-        <div className="mt-3 space-y-2">
+        <div className="mt-2 space-y-1.5">
           {orderLines.map((line, index) => {
             const selectedInventory = inventoryItems.find((item) => item.name === line.item_name);
             const maxQty = selectedInventory?.quantity ?? 0;
             return (
-              <div key={line.id} className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 md:grid-cols-[1fr,140px,auto]">
+              <div key={line.id} className="grid gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-1.5 md:grid-cols-[1fr,120px,auto]">
                 <select
                   value={line.item_name}
                   onChange={(event) =>
@@ -351,7 +344,7 @@ export default function SalesPage() {
                       quantity: "1"
                     })
                   }
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
                 >
                   <option value="">Select item #{index + 1}</option>
                   {inventoryItems.map((item) => (
@@ -376,7 +369,7 @@ export default function SalesPage() {
                     updateOrderLine(line.id, { quantity: capped });
                   }}
                   placeholder="Qty"
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
                 />
                 <div className="flex items-center gap-2">
                   <button
@@ -400,6 +393,13 @@ export default function SalesPage() {
           })}
         </div>
       </article>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Pending Orders" value={stats.pending} />
+        <StatCard label="In Transit" value={stats.transit} />
+        <StatCard label="Delivered Today" value={stats.deliveredToday} />
+        <StatCard label="Delayed Follow-ups" value={stats.delayed} />
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
