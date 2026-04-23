@@ -116,7 +116,6 @@ export default function InventoryScanningPage() {
       selectedCameraId || { facingMode: "environment" },
       {
         fps: 10,
-        qrbox: { width: 320, height: 120 },
         formatsToSupport: [
           Html5QrcodeSupportedFormats.CODE_128,
           Html5QrcodeSupportedFormats.CODE_39,
