@@ -54,7 +54,6 @@ export default function InventoryPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [simulating, setSimulating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftQuantity, setDraftQuantity] = useState("");
   const [draftThreshold, setDraftThreshold] = useState("");
@@ -257,47 +256,6 @@ export default function InventoryPage() {
     };
   }, [fetchAlerts, fetchInventory, fetchMonitoring, supabase]);
 
-  async function handleSensorSimulation() {
-    try {
-      setError(null);
-      setMessage(null);
-      setSimulating(true);
-
-      const response = await fetch("/api/inventory/simulate-sensor", {
-        method: "POST"
-      });
-      const data = (await response.json()) as {
-        error?: string;
-        item?: { name: string; newQuantity: number; thresholdLimit: number };
-        alertTriggered?: boolean;
-      };
-
-      if (!response.ok) {
-        throw new Error(data.error ?? "Sensor simulation failed.");
-      }
-
-      if (data.alertTriggered) {
-        setMessage(
-          `Auto replenishment alert triggered for ${data.item?.name} (qty ${data.item?.newQuantity}, threshold ${data.item?.thresholdLimit}).`
-        );
-      } else {
-        setMessage(
-          `Sensor updated ${data.item?.name}. Quantity is now ${data.item?.newQuantity}. No replenishment needed.`
-        );
-      }
-      const now = new Date().toISOString();
-      setLastInventoryEventAt(now);
-      setLastEnvironmentReadingAt(now);
-      setIotRunning(true);
-      setIotUptimeSeconds((prev) => prev + 60);
-      setIotConnectionStatus("connected");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sensor simulation failed.");
-    } finally {
-      setSimulating(false);
-    }
-  }
-
   function startOverride(item: InventoryItem) {
     setMessage(null);
     setError(null);
@@ -401,18 +359,9 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-2xl font-bold">Inventory Module</h1>
           <p className="text-slate-600">
-            Live warehouse stock with sensor simulation, manual quantity/threshold overrides, and auto
-            replenishment alerts.
+            Live warehouse stock with manual quantity/threshold overrides and auto replenishment alerts.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSensorSimulation}
-          disabled={simulating}
-          className="rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:from-yellow-400 hover:to-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {simulating ? "Simulating..." : "Sensor Simulation"}
-        </button>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
