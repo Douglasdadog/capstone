@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       map.set(row.item_name, (map.get(row.item_name) ?? 0) + row.quantity);
       return map;
     }, new Map<string, number>())
-  ).map(([item_name: itemName, qty]) => ({ item_name: itemName, quantity: qty }));
+  ).map(([itemName, qty]) => ({ item_name: itemName, quantity: qty }));
 
   const supabase = createAdminClient();
   const itemNames = mergedItems.map((row) => row.item_name);
