@@ -234,6 +234,7 @@ export async function POST(request: NextRequest) {
             trackingNumber: data.tracking_number,
             origin,
             destination,
+            orderCreatedAt: data.updated_at,
             eta,
             trackingLink,
             itemDetails: details

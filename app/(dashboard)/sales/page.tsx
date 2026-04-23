@@ -285,37 +285,54 @@ export default function SalesPage() {
           <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
         </div>
         <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-5">
-          <input
-            value={newClientName}
-            onChange={(event) => setNewClientName(event.target.value)}
-            placeholder="Client Name"
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-          />
-          <input
-            type="email"
-            value={newClientEmail}
-            onChange={(event) => setNewClientEmail(event.target.value)}
-            placeholder="Client Email"
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-          />
-          <input
-            value={newOrigin}
-            onChange={(event) => setNewOrigin(event.target.value)}
-            placeholder="Origin"
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-          />
-          <input
-            value={newDestination}
-            onChange={(event) => setNewDestination(event.target.value)}
-            placeholder="Destination"
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-          />
-          <input
-            type="datetime-local"
-            value={newEta}
-            onChange={(event) => setNewEta(event.target.value)}
-            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
-          />
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Client Name</span>
+            <input
+              value={newClientName}
+              onChange={(event) => setNewClientName(event.target.value)}
+              placeholder="Client Name"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Client Email</span>
+            <input
+              type="email"
+              value={newClientEmail}
+              onChange={(event) => setNewClientEmail(event.target.value)}
+              placeholder="Client Email"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origin</span>
+            <input
+              value={newOrigin}
+              onChange={(event) => setNewOrigin(event.target.value)}
+              placeholder="Origin"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Destination</span>
+            <input
+              value={newDestination}
+              onChange={(event) => setNewDestination(event.target.value)}
+              placeholder="Destination"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              ETA (Estimated Arrival)
+            </span>
+            <input
+              type="datetime-local"
+              value={newEta}
+              onChange={(event) => setNewEta(event.target.value)}
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
           <button
             type="button"
             onClick={() => void createOrder()}

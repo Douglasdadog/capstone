@@ -18,6 +18,7 @@ type UserPermissionsMap = Record<string, string[]>;
 type UserProfilesMap = Record<string, { fullName: string; phone: string }>;
 type UserMfaMap = Record<string, string>;
 type VerificationCodeMap = Record<string, { code: string; expiresAt: number }>;
+type LoginGuardMap = Record<string, { failedCount: number; lockedUntil: number | null; lastFailedAt: number }>;
 
 export const DEMO_SESSION_COOKIE = "wis_demo_session";
 export const DEMO_USERS_COOKIE = "wis_demo_users";
@@ -26,6 +27,7 @@ export const DEMO_PROFILE_COOKIE = "wis_demo_profile";
 export const DEMO_MFA_COOKIE = "wis_demo_mfa";
 export const DEMO_MFA_PENDING_COOKIE = "wis_demo_mfa_pending";
 export const DEMO_EMAIL_VERIFY_COOKIE = "wis_demo_email_verify";
+export const DEMO_LOGIN_GUARD_COOKIE = "wis_demo_login_guard";
 
 const SAMPLE_USERS: DemoUser[] = [
   { email: "superadmin@wis.local", password: "superadmin123", role: "SuperAdmin" },
@@ -159,5 +161,24 @@ export function readEmailVerificationCodes(rawCookie: string | undefined): Verif
 }
 
 export function serializeEmailVerificationCodes(data: VerificationCodeMap): string {
+  return JSON.stringify(data);
+}
+
+export function readLoginGuard(rawCookie: string | undefined): LoginGuardMap {
+  const data = safeJsonParse<LoginGuardMap>(rawCookie, {});
+  return Object.fromEntries(
+    Object.entries(data).filter(([email, entry]) => {
+      return (
+        typeof email === "string" &&
+        entry &&
+        typeof entry.failedCount === "number" &&
+        (typeof entry.lockedUntil === "number" || entry.lockedUntil === null) &&
+        typeof entry.lastFailedAt === "number"
+      );
+    })
+  );
+}
+
+export function serializeLoginGuard(data: LoginGuardMap): string {
   return JSON.stringify(data);
 }

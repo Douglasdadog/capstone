@@ -15,6 +15,7 @@ type ShipmentOrderCreatedEmailInput = {
   trackingNumber: string;
   origin: string;
   destination: string;
+  orderCreatedAt?: string | null;
   eta?: string | null;
   trackingLink?: string | null;
   itemDetails: string[];
@@ -81,6 +82,7 @@ export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailI
     )
     .join("");
   const etaLabel = input.eta ? new Date(input.eta).toLocaleString() : "To be confirmed";
+  const orderDateLabel = input.orderCreatedAt ? new Date(input.orderCreatedAt).toLocaleString() : new Date().toLocaleString();
 
   const text = [
     `Hello ${input.clientName},`,
@@ -88,6 +90,7 @@ export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailI
     "Thank you for your order. We have successfully created your shipment in WIS.",
     "",
     "Order Summary",
+    `Order Date: ${orderDateLabel}`,
     `Tracking Number: ${input.trackingNumber}`,
     `Route: ${input.origin} -> ${input.destination}`,
     `ETA: ${etaLabel}`,
@@ -127,6 +130,10 @@ export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailI
             </p>
 
             <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-bottom: 14px; background: #f8fafc; border: 1px solid #e2e8f0;">
+              <tr>
+                <td style="padding: 8px 10px; font-weight: 700; width: 150px; color: #334155;">Order Date</td>
+                <td style="padding: 8px 10px; color: #111827;">${orderDateLabel}</td>
+              </tr>
               <tr>
                 <td style="padding: 8px 10px; font-weight: 700; width: 150px; color: #334155;">Tracking Number</td>
                 <td style="padding: 8px 10px; color: #111827;">${input.trackingNumber}</td>

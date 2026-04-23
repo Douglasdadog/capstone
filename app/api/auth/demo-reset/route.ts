@@ -4,6 +4,7 @@ import {
   DEMO_MFA_COOKIE,
   DEMO_MFA_PENDING_COOKIE,
   DEMO_PROFILE_COOKIE,
+  DEMO_LOGIN_GUARD_COOKIE,
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE
 } from "@/lib/auth/demo-auth";
@@ -22,7 +23,8 @@ function clearAllDemoState(response: NextResponse) {
     DEMO_PERMISSIONS_COOKIE,
     DEMO_PROFILE_COOKIE,
     DEMO_MFA_COOKIE,
-    DEMO_MFA_PENDING_COOKIE
+    DEMO_MFA_PENDING_COOKIE,
+    DEMO_LOGIN_GUARD_COOKIE
   ]) {
     response.cookies.set(name, "", COOKIE_CLEAR);
   }
