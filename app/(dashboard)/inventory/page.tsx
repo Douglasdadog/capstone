@@ -246,8 +246,16 @@ export default function InventoryPage() {
   useEffect(() => {
     let active = true;
     async function buildScannerAccess() {
-      if (typeof window === "undefined") return;
-      const url = `${window.location.origin}/inventory/scanning`;
+      const response = await fetch("/api/inventory/scanner-link");
+      const payload = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) {
+        if (active) {
+          setScannerUrl(null);
+          setScannerQrDataUrl(null);
+        }
+        return;
+      }
+      const url = payload.url;
       setScannerUrl(url);
       try {
         const qrcode = await import("qrcode");
@@ -258,8 +266,12 @@ export default function InventoryPage() {
       }
     }
     void buildScannerAccess();
+    const interval = window.setInterval(() => {
+      void buildScannerAccess();
+    }, 12000);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
 

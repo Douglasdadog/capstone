@@ -7,7 +7,7 @@ import {
   readSession
 } from "@/lib/auth/demo-auth";
 
-const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh", "/shipment-tracking"];
+const publicRoutes = ["/", "/login", "/verify-otp", "/forbidden", "/start-fresh", "/shipment-tracking", "/scan"];
 
 function applySecurityHeaders(response: NextResponse) {
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -36,6 +36,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/track/") ||
+    pathname.startsWith("/scan/") ||
     pathname.includes(".") ||
     publicRoutes.includes(pathname)
   ) {

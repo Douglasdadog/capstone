@@ -64,6 +64,19 @@ begin
 end
 $$;
 
+-- One-time public scanner QR access tokens
+create table if not exists public.scanner_access_tokens (
+  id uuid primary key default gen_random_uuid(),
+  token text not null unique,
+  created_by text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  used_at timestamptz
+);
+
+create index if not exists idx_scanner_access_tokens_active
+  on public.scanner_access_tokens (used_at, expires_at, created_at desc);
+
 -- Discrepancy reports table for scanner "Make Report" submissions
 create table if not exists public.manifest_reports (
   id uuid primary key default gen_random_uuid(),
