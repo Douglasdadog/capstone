@@ -728,8 +728,8 @@ export default function InventoryPage() {
             <p className="mt-1 text-xs text-slate-600">
               Open this link on your phone to launch the BYOD barcode scanner instantly.
             </p>
-            <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
+            <div className="mt-2 flex min-h-[9.5rem] flex-wrap items-center gap-3 sm:flex-nowrap">
+              <div className="shrink-0 rounded-md border border-slate-200 bg-slate-50 p-1.5">
                 {scannerQrDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={scannerQrDataUrl} alt="Scanner link QR" className="h-36 w-36 rounded" />
@@ -739,20 +739,20 @@ export default function InventoryPage() {
                   </div>
                 )}
               </div>
-              <div className="flex min-w-[180px] flex-1 justify-end">
-                <div className="flex flex-col items-end gap-1.5">
+              <div className="flex min-w-[10rem] flex-1 items-center justify-center sm:min-w-0 sm:pl-1">
+                <div className="flex flex-col items-center gap-1.5 text-center">
                   <button
                     type="button"
                     onClick={() => void copyScannerLink()}
                     disabled={!scannerUrl}
-                    className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                    className="min-w-[7.5rem] rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                   >
                     Copy Link
                   </button>
                   {scannerLinkCopied ? <p className="text-[11px] font-semibold text-green-600">Link copied</p> : null}
                   <Link
                     href="/inventory/scanning"
-                    className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                    className="min-w-[7.5rem] rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-center text-[11px] font-semibold text-red-700 hover:bg-red-100"
                   >
                     Open Scanner
                   </Link>
