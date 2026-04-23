@@ -16,7 +16,6 @@ export const DASHBOARD_ROUTES = {
 
 export const ROLE_ACCESS: Record<UserRole, string[]> = {
   SuperAdmin: [
-    "/dashboard",
     "/logs",
     "/super-admin",
     "/admin",

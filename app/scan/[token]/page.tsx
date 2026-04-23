@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 
+type ScanToast = {
+  value: string;
+  token: number;
+};
+
 export default function PublicScannerPage() {
   const params = useParams<{ token: string }>();
   const token = useMemo(() => String(params?.token ?? ""), [params]);
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const scanToastTimeoutRef = useRef<number | null>(null);
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,6 +20,7 @@ export default function PublicScannerPage() {
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraDevices, setCameraDevices] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState("");
+  const [scanToast, setScanToast] = useState<ScanToast | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -77,8 +84,24 @@ export default function PublicScannerPage() {
         void scannerRef.current.stop().catch(() => undefined);
         scannerRef.current.clear();
       }
+      if (scanToastTimeoutRef.current !== null) {
+        window.clearTimeout(scanToastTimeoutRef.current);
+      }
     };
   }, []);
+
+  function showScanToast(value: string) {
+    setScanToast({ value, token: Date.now() });
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate([80, 40, 120]);
+    }
+    if (scanToastTimeoutRef.current !== null) {
+      window.clearTimeout(scanToastTimeoutRef.current);
+    }
+    scanToastTimeoutRef.current = window.setTimeout(() => {
+      setScanToast(null);
+    }, 1300);
+  }
 
   async function startScanner() {
     if (cameraOn || !allowed) return;
@@ -105,14 +128,22 @@ export default function PublicScannerPage() {
         await scanner.start(
           selectedCameraId || { facingMode: "environment" },
           { fps: 12, disableFlip: true },
-          (decodedText) => setLastScan(decodedText.trim()),
+          (decodedText) => {
+            const value = decodedText.trim();
+            setLastScan(value);
+            showScanToast(value);
+          },
           () => undefined
         );
       } catch {
         await scanner.start(
           { facingMode: { ideal: "environment" } },
           { fps: 10, disableFlip: true },
-          (decodedText) => setLastScan(decodedText.trim()),
+          (decodedText) => {
+            const value = decodedText.trim();
+            setLastScan(value);
+            showScanToast(value);
+          },
           () => undefined
         );
       }
@@ -191,6 +222,14 @@ export default function PublicScannerPage() {
       </div>
       <div className="relative h-[56vh] min-h-[320px] max-h-[720px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
         <div id="public-scanner" className="h-full w-full" />
+        {scanToast ? (
+          <div
+            key={scanToast.token}
+            className="pointer-events-none absolute left-1/2 top-3 z-20 w-[min(92%,420px)] -translate-x-1/2 rounded-md border border-emerald-300 bg-emerald-50/95 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm animate-scan-toast"
+          >
+            Scan successful: <span className="font-black">{scanToast.value}</span>
+          </div>
+        ) : null}
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <style jsx global>{`
@@ -209,6 +248,27 @@ export default function PublicScannerPage() {
           width: 100% !important;
           height: 100% !important;
           object-fit: contain;
+        }
+        @keyframes scan-toast {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -6px);
+          }
+          15% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+          85% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -4px);
+          }
+        }
+        .animate-scan-toast {
+          animation: scan-toast 1300ms ease-out forwards;
         }
       `}</style>
     </section>

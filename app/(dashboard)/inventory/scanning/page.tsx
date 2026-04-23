@@ -25,6 +25,11 @@ type HighlightBox = {
   token: number;
 };
 
+type ScanToast = {
+  value: string;
+  token: number;
+};
+
 function normalizeBarcodeValue(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
@@ -42,6 +47,7 @@ export default function InventoryScanningPage() {
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const scannerViewportRef = useRef<HTMLDivElement | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
+  const scanToastTimeoutRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +59,7 @@ export default function InventoryScanningPage() {
   const [activePart, setActivePart] = useState<string>("");
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [highlightBox, setHighlightBox] = useState<HighlightBox | null>(null);
+  const [scanToast, setScanToast] = useState<ScanToast | null>(null);
 
   useEffect(() => {
     async function loadPending() {
@@ -110,6 +117,9 @@ export default function InventoryScanningPage() {
       }
       if (highlightTimeoutRef.current !== null) {
         window.clearTimeout(highlightTimeoutRef.current);
+      }
+      if (scanToastTimeoutRef.current !== null) {
+        window.clearTimeout(scanToastTimeoutRef.current);
       }
     };
   }, []);
@@ -219,6 +229,19 @@ export default function InventoryScanningPage() {
     return null;
   }
 
+  function showScanToast(value: string) {
+    setScanToast({ value, token: Date.now() });
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate([80, 40, 120]);
+    }
+    if (scanToastTimeoutRef.current !== null) {
+      window.clearTimeout(scanToastTimeoutRef.current);
+    }
+    scanToastTimeoutRef.current = window.setTimeout(() => {
+      setScanToast(null);
+    }, 1300);
+  }
+
   async function startScanner() {
     if (cameraOn) return;
     setError(null);
@@ -244,6 +267,7 @@ export default function InventoryScanningPage() {
       const onScan = (decodedText: string, decodedResult: unknown) => {
         const code = decodedText.trim();
         setLastScan(code);
+        showScanToast(code);
         flashHighlight(decodedResult);
         if (partKeys.length === 0) {
           setActivePart(code);
@@ -389,6 +413,14 @@ export default function InventoryScanningPage() {
           className="relative mt-3 h-[48vh] min-h-[260px] max-h-[560px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
         >
           <div id="manifest-scanner" className="h-full w-full" />
+          {scanToast ? (
+            <div
+              key={scanToast.token}
+              className="pointer-events-none absolute left-1/2 top-3 z-20 w-[min(92%,420px)] -translate-x-1/2 rounded-md border border-emerald-300 bg-emerald-50/95 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm animate-scan-toast"
+            >
+              Scan successful: <span className="font-black">{scanToast.value}</span>
+            </div>
+          ) : null}
           {highlightBox ? (
             <div
               key={highlightBox.token}
@@ -501,6 +533,29 @@ export default function InventoryScanningPage() {
 
         .animate-scan-detect {
           animation: scan-detect 520ms ease-out forwards;
+        }
+
+        @keyframes scan-toast {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -6px);
+          }
+          15% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+          85% {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -4px);
+          }
+        }
+
+        .animate-scan-toast {
+          animation: scan-toast 1300ms ease-out forwards;
         }
       `}</style>
     </section>
