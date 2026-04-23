@@ -240,7 +240,10 @@ export default function InventoryScanningPage() {
             Stop Camera
           </button>
         </div>
-        <div id="manifest-scanner" className="mt-3 min-h-48 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" />
+        <div
+          id="manifest-scanner"
+          className="mt-3 h-[38vh] min-h-[220px] max-h-[420px] w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+        />
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       </div>
 
@@ -292,6 +295,18 @@ export default function InventoryScanningPage() {
           ) : null}
         </div>
       ) : null}
+
+      <style jsx global>{`
+        #manifest-scanner > div {
+          height: 100%;
+        }
+
+        #manifest-scanner video {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover;
+        }
+      `}</style>
     </section>
   );
 }
