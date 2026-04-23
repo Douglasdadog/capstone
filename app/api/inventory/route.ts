@@ -25,19 +25,42 @@ function resolveDefaultImageUrl(category: (typeof CATEGORY_OPTIONS)[number]): st
   return "https://placehold.co/320x200/e2e8f0/334155?text=D-Zel+King+Conventional";
 }
 
+function isMissingInventoryColumnError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes("column") && normalized.includes("inventory.") && normalized.includes("does not exist");
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    const modernQuery = await supabase
       .from("inventory")
       .select("id, category, name, image_url, quantity, threshold_limit, updated_at")
       .order("name", { ascending: true });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (modernQuery.error) {
+      if (!isMissingInventoryColumnError(modernQuery.error.message)) {
+        return NextResponse.json({ error: modernQuery.error.message }, { status: 500 });
+      }
+
+      const legacyQuery = await supabase
+        .from("inventory")
+        .select("id, name, quantity, threshold_limit, updated_at")
+        .order("name", { ascending: true });
+
+      if (legacyQuery.error) {
+        return NextResponse.json({ error: legacyQuery.error.message }, { status: 500 });
+      }
+
+      const items = (legacyQuery.data ?? []).map((item) => ({
+        ...item,
+        category: null,
+        image_url: null
+      }));
+      return NextResponse.json({ items });
     }
 
-    return NextResponse.json({ items: data ?? [] });
+    return NextResponse.json({ items: modernQuery.data ?? [] });
   } catch (error) {
     return NextResponse.json(
       {
@@ -95,7 +118,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    const modernInsert = await supabase
       .from("inventory")
       .insert({
         name,
@@ -107,11 +130,38 @@ export async function POST(request: NextRequest) {
       .select("id, category, name, image_url, quantity, threshold_limit, updated_at")
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (modernInsert.error) {
+      if (!isMissingInventoryColumnError(modernInsert.error.message)) {
+        return NextResponse.json({ error: modernInsert.error.message }, { status: 500 });
+      }
+
+      const legacyInsert = await supabase
+        .from("inventory")
+        .insert({
+          name,
+          quantity,
+          threshold_limit
+        })
+        .select("id, name, quantity, threshold_limit, updated_at")
+        .single();
+
+      if (legacyInsert.error) {
+        return NextResponse.json({ error: legacyInsert.error.message }, { status: 500 });
+      }
+
+      return NextResponse.json(
+        {
+          item: {
+            ...(legacyInsert.data ?? {}),
+            category: null,
+            image_url: null
+          }
+        },
+        { status: 201 }
+      );
     }
 
-    return NextResponse.json({ item: data }, { status: 201 });
+    return NextResponse.json({ item: modernInsert.data }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       {
@@ -157,7 +207,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    const modernUpdate = await supabase
       .from("inventory")
       .update({
         quantity,
@@ -168,15 +218,44 @@ export async function PATCH(request: NextRequest) {
       .select("id, category, name, image_url, quantity, threshold_limit, updated_at")
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (modernUpdate.error) {
+      if (!isMissingInventoryColumnError(modernUpdate.error.message)) {
+        return NextResponse.json({ error: modernUpdate.error.message }, { status: 500 });
+      }
+
+      const legacyUpdate = await supabase
+        .from("inventory")
+        .update({
+          quantity,
+          threshold_limit,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select("id, name, quantity, threshold_limit, updated_at")
+        .single();
+
+      if (legacyUpdate.error) {
+        return NextResponse.json({ error: legacyUpdate.error.message }, { status: 500 });
+      }
+
+      if (!legacyUpdate.data) {
+        return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        item: {
+          ...legacyUpdate.data,
+          category: null,
+          image_url: null
+        }
+      });
     }
 
-    if (!data) {
+    if (!modernUpdate.data) {
       return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ item: data });
+    return NextResponse.json({ item: modernUpdate.data });
   } catch (error) {
     return NextResponse.json(
       {
