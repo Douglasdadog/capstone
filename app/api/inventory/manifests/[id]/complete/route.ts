@@ -39,6 +39,7 @@ export async function POST(
       );
     }
 
+    // Parts counter during scanning is UI-only; receiving into inventory happens here once verification completes.
     const inventoryApplyError = await applyManifestItemsToInventory(id);
     if (inventoryApplyError) {
       return NextResponse.json({ error: inventoryApplyError }, { status: 500 });

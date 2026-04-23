@@ -10,6 +10,7 @@ export default function PublicScannerPage() {
   const token = useMemo(() => String(params?.token ?? ""), [params]);
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const lastScanNotifyRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
+  const scanInFlightRef = useRef<string | null>(null);
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,14 +84,35 @@ export default function PublicScannerPage() {
     };
   }, []);
 
-  function recordLastScan(value: string) {
-    const now = Date.now();
-    if (value === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
-      return;
-    }
-    lastScanNotifyRef.current = { value, at: now };
-    setLastScan(value);
-    feedbackScanSuccess();
+  function onDecodedBarcode(decodedText: string) {
+    const value = decodedText.trim();
+    void (async () => {
+      const now = Date.now();
+      if (value === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
+        return;
+      }
+      if (scanInFlightRef.current === value) return;
+      scanInFlightRef.current = value;
+      try {
+        const response = await fetch("/api/inventory/scan-increment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barcode: value, scannerToken: token })
+        });
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          setError(payload.error ?? "Could not update inventory.");
+          return;
+        }
+        lastScanNotifyRef.current = { value, at: Date.now() };
+        setLastScan(value);
+        feedbackScanSuccess();
+      } finally {
+        if (scanInFlightRef.current === value) {
+          scanInFlightRef.current = null;
+        }
+      }
+    })();
   }
 
   async function startScanner() {
@@ -118,18 +140,14 @@ export default function PublicScannerPage() {
         await scanner.start(
           selectedCameraId || { facingMode: "environment" },
           { fps: 12, disableFlip: true },
-          (decodedText) => {
-            recordLastScan(decodedText.trim());
-          },
+          onDecodedBarcode,
           () => undefined
         );
       } catch {
         await scanner.start(
           { facingMode: { ideal: "environment" } },
           { fps: 10, disableFlip: true },
-          (decodedText) => {
-            recordLastScan(decodedText.trim());
-          },
+          onDecodedBarcode,
           () => undefined
         );
       }

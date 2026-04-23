@@ -57,6 +57,7 @@ export default function InventoryScanningPage() {
   const scannerViewportRef = useRef<HTMLDivElement | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
   const lastScanNotifyRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
+  const scanInFlightRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export default function InventoryScanningPage() {
       if (nextId === null) {
         setScanned({});
         toast.success("Manifest completed", {
-          description: "Parts counter cleared. Inventory quantities were updated in real time."
+          description: "Parts counter cleared. Inventory was updated when verification was completed."
         });
       } else {
         const init: Record<string, number> = {};
@@ -298,16 +299,6 @@ export default function InventoryScanningPage() {
     return null;
   }
 
-  function recordLastScan(value: string) {
-    const now = Date.now();
-    if (value === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
-      return;
-    }
-    lastScanNotifyRef.current = { value, at: now };
-    setLastScan(value);
-    feedbackScanSuccess();
-  }
-
   async function startScanner() {
     if (cameraOn) return;
     setError(null);
@@ -332,19 +323,61 @@ export default function InventoryScanningPage() {
 
       const onScan = (decodedText: string, decodedResult: unknown) => {
         const code = decodedText.trim();
-        recordLastScan(code);
         flashHighlight(decodedResult);
-        if (partKeys.length === 0) {
-          setActivePart(code);
+
+        // Manifest mode: parts counter only until "Complete Verification" applies manifest quantities to inventory.
+        if (partKeys.length > 0) {
+          const now = Date.now();
+          if (code === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
+            return;
+          }
+          const matchedPart = matchScannedPart(code);
+          if (!matchedPart) {
+            setLastScan(code);
+            return;
+          }
+          lastScanNotifyRef.current = { value: code, at: now };
+          setLastScan(code);
+          feedbackScanSuccess();
+          setActivePart(matchedPart);
+          setScanned((prev) => {
+            const current = prev[matchedPart] ?? 0;
+            return { ...prev, [matchedPart]: current + 1 };
+          });
           return;
         }
-        const matchedPart = matchScannedPart(code);
-        if (!matchedPart) return;
-        setActivePart(matchedPart);
-        setScanned((prev) => {
-          const current = prev[matchedPart] ?? 0;
-          return { ...prev, [matchedPart]: current + 1 };
-        });
+
+        // Quick scan (no manifest): increment inventory immediately per scan.
+        void (async () => {
+          const now = Date.now();
+          if (code === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
+            return;
+          }
+          if (scanInFlightRef.current === code) return;
+
+          scanInFlightRef.current = code;
+          try {
+            const incRes = await fetch("/api/inventory/scan-increment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ barcode: code })
+            });
+            const incPayload = (await incRes.json()) as { error?: string };
+            if (!incRes.ok) {
+              toast.error(incPayload.error ?? "Could not update inventory.");
+              return;
+            }
+
+            lastScanNotifyRef.current = { value: code, at: Date.now() };
+            setLastScan(code);
+            feedbackScanSuccess();
+            setActivePart(code);
+          } finally {
+            if (scanInFlightRef.current === code) {
+              scanInFlightRef.current = null;
+            }
+          }
+        })();
       };
 
       try {
