@@ -61,7 +61,9 @@ async function parseManifestFile(file: File): Promise<ParsedRow[]> {
 export async function GET(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "Admin" && auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const supabase = createAdminClient();
@@ -94,7 +96,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "Admin" && auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const formData = await request.formData();
   const file = formData.get("file");

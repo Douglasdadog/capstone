@@ -10,7 +10,9 @@ export async function PATCH(
 ) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (auth.session.role !== "Admin" && auth.session.role !== "SuperAdmin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Manifest id is required." }, { status: 400 });
