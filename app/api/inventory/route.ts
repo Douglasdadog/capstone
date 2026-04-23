@@ -327,3 +327,44 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const auth = requireDemoSession(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
+
+  const canDelete =
+    auth.session.role === "SuperAdmin" || auth.session.role === "Admin" || auth.session.role === "Inventory";
+  if (!canDelete) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const id = new URL(request.url).searchParams.get("id")?.trim() ?? "";
+  if (!id) {
+    return NextResponse.json({ error: "id query parameter is required." }, { status: 400 });
+  }
+
+  try {
+    const supabase = createAdminClient();
+    const { data: removed, error } = await supabase.from("inventory").delete().eq("id", id).select("id").maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!removed) {
+      return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete inventory item. Check Supabase env configuration."
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -177,7 +177,8 @@ export default function AdminManifestManager() {
       <div>
         <h2 className="text-xl font-black text-slate-900">Excel Manifest Upload</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Upload `.xlsx` or `.csv` with either (Part Number, Quantity, Batch ID) or (Product, Product Serial ID).
+          Upload `.xlsx` or `.csv` with either (Part Number, Quantity, Batch ID) or (Product, Brand, Battery Type,
+          Product Serial ID, Quantity).
         </p>
       </div>
 

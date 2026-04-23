@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type InventoryItem = {
@@ -60,6 +60,7 @@ export default function InventoryPage() {
   const [draftQuantity, setDraftQuantity] = useState("");
   const [draftThreshold, setDraftThreshold] = useState("");
   const [rowSavingId, setRowSavingId] = useState<string | null>(null);
+  const [rowDeletingId, setRowDeletingId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState<"Maintenance Free" | "Conventional">("Maintenance Free");
   const [newQuantity, setNewQuantity] = useState("0");
@@ -78,9 +79,10 @@ export default function InventoryPage() {
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
-  const [copyScannerLinkLabel, setCopyScannerLinkLabel] = useState("Copy Link");
+  const [scannerLinkCopied, setScannerLinkCopied] = useState(false);
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const copyFeedbackTimeoutRef = useRef<number | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -210,11 +212,15 @@ export default function InventoryPage() {
     if (!scannerUrl) return;
     try {
       await navigator.clipboard.writeText(scannerUrl);
-      setCopyScannerLinkLabel("Copied!");
-      setTimeout(() => setCopyScannerLinkLabel("Copy Link"), 1500);
+      setScannerLinkCopied(true);
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+      copyFeedbackTimeoutRef.current = window.setTimeout(() => {
+        setScannerLinkCopied(false);
+      }, 1500);
     } catch {
-      setCopyScannerLinkLabel("Copy failed");
-      setTimeout(() => setCopyScannerLinkLabel("Copy Link"), 1500);
+      setScannerLinkCopied(false);
     }
   }
 
@@ -272,6 +278,14 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const channel = supabase
       .channel("inventory-realtime")
       .on(
@@ -325,6 +339,34 @@ export default function InventoryPage() {
     setEditingId(null);
     setDraftQuantity("");
     setDraftThreshold("");
+  }
+
+  async function deleteItem(item: InventoryItem) {
+    if (
+      !window.confirm(
+        `Remove "${item.name}" from inventory? This cannot be undone. Related replenishment alert rows may be removed automatically.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setMessage(null);
+      setRowDeletingId(item.id);
+      const response = await fetch(`/api/inventory?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to delete item.");
+      }
+      setMessage(`Removed ${item.name} from inventory.`);
+      if (editingId === item.id) cancelOverride();
+      await fetchInventory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to delete item.");
+    } finally {
+      setRowDeletingId(null);
+    }
   }
 
   async function saveOverride(itemId: string) {
@@ -548,7 +590,7 @@ export default function InventoryPage() {
                         Updated {sortKey === "updated" ? (sortDirection === "asc" ? "↑" : "↓") : ""}
                       </button>
                     </th>
-                    <th className="px-4 py-3">Manual override</th>
+                    <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -557,6 +599,7 @@ export default function InventoryPage() {
                     const belowThreshold = !outOfStock && item.quantity < item.threshold_limit;
                     const isEditing = editingId === item.id;
                     const rowBusy = rowSavingId === item.id;
+                    const rowDeleting = rowDeletingId === item.id;
                     const category = item.category?.trim() || "Uncategorized";
                     return (
                       <tr key={item.id} className="border-t border-slate-100">
@@ -641,14 +684,26 @@ export default function InventoryPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              disabled={editingId !== null && editingId !== item.id}
-                              onClick={() => startOverride(item)}
-                              className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Override
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                disabled={(editingId !== null && editingId !== item.id) || rowDeleting}
+                                onClick={() => startOverride(item)}
+                                className="rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                Override
+                              </button>
+                              {canManageProducts ? (
+                                <button
+                                  type="button"
+                                  disabled={(editingId !== null && editingId !== item.id) || rowDeleting}
+                                  onClick={() => void deleteItem(item)}
+                                  className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {rowDeleting ? "Removing..." : "Delete"}
+                                </button>
+                              ) : null}
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -673,30 +728,28 @@ export default function InventoryPage() {
             <p className="mt-1 text-xs text-slate-600">
               Open this link on your phone to launch the BYOD barcode scanner instantly.
             </p>
-            <div className="mt-2 flex flex-wrap items-start gap-3">
+            <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
               <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
                 {scannerQrDataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={scannerQrDataUrl} alt="Scanner link QR" className="h-24 w-24 rounded" />
+                  <img src={scannerQrDataUrl} alt="Scanner link QR" className="h-36 w-36 rounded" />
                 ) : (
-                  <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">
+                  <div className="flex h-36 w-36 items-center justify-center text-[11px] text-slate-500">
                     Generating QR...
                   </div>
                 )}
               </div>
-              <div className="min-w-[220px] flex-1">
-                <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
-                  {scannerUrl ?? "Preparing scanner link..."}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <div className="flex min-w-[180px] flex-1 justify-end">
+                <div className="flex flex-col items-end gap-1.5">
                   <button
                     type="button"
                     onClick={() => void copyScannerLink()}
                     disabled={!scannerUrl}
                     className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                   >
-                    {copyScannerLinkLabel}
+                    Copy Link
                   </button>
+                  {scannerLinkCopied ? <p className="text-[11px] font-semibold text-green-600">Link copied</p> : null}
                   <Link
                     href="/inventory/scanning"
                     className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"

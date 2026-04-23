@@ -383,13 +383,6 @@ export default function SalesPage() {
             />
           </label>
         </div>
-        <p className="mt-1 text-[11px] text-slate-500">
-          Origin is fixed to Imarflex. Destination should be the client&apos;s complete delivery address.
-        </p>
-        <p className="mt-1 text-[11px] text-slate-500">
-          Orders are linked by email. If client email matches an existing account, that shipment appears in that
-          account&apos;s dashboard.
-        </p>
         <div className="mt-2 space-y-1.5">
           {orderLines.map((line, index) => {
             const selectedInventory = inventoryItems.find((item) => item.name === line.item_name);

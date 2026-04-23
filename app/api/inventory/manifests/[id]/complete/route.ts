@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
-
-function inferCategory(partNumber: string): "Maintenance Free" | "Conventional" {
-  return partNumber.toLowerCase().includes("d-zel") ? "Conventional" : "Maintenance Free";
-}
+import { applyManifestItemsToInventory } from "@/lib/inventory/apply-manifest-to-inventory";
 
 export async function POST(
   request: NextRequest,
@@ -21,66 +18,30 @@ export async function POST(
 
   try {
     const supabase = createAdminClient();
-    const { data: manifestItems, error: itemsError } = await supabase
-      .from("manifest_items")
-      .select("part_number, quantity")
-      .eq("manifest_id", id);
+    const { data: manifestRow, error: manifestReadError } = await supabase
+      .from("manifests")
+      .select("id, status")
+      .eq("id", id)
+      .single();
 
-    if (itemsError) {
-      return NextResponse.json({ error: itemsError.message }, { status: 500 });
+    if (manifestReadError || !manifestRow) {
+      return NextResponse.json({ error: manifestReadError?.message ?? "Manifest not found." }, { status: 404 });
     }
 
-    const mergedByPart = new Map<string, number>();
-    for (const row of manifestItems ?? []) {
-      const partNumber = String(row.part_number ?? "").trim();
-      const qty = Number(row.quantity ?? 0);
-      if (!partNumber || !Number.isFinite(qty) || qty <= 0) continue;
-      mergedByPart.set(partNumber, (mergedByPart.get(partNumber) ?? 0) + qty);
+    if (manifestRow.status === "Completed") {
+      return NextResponse.json({ ok: true, alreadyCompleted: true });
     }
 
-    if (mergedByPart.size > 0) {
-      const partNames = Array.from(mergedByPart.keys());
-      const { data: existingInventory, error: inventoryError } = await supabase
-        .from("inventory")
-        .select("id, name, quantity")
-        .in("name", partNames);
-
-      if (inventoryError) {
-        return NextResponse.json({ error: inventoryError.message }, { status: 500 });
-      }
-
-      const existingMap = new Map(
-        (existingInventory ?? []).map((item) => [String(item.name), { id: String(item.id), quantity: Number(item.quantity ?? 0) }])
+    if (manifestRow.status === "Discrepancies") {
+      return NextResponse.json(
+        { error: "This manifest is flagged as Discrepancies. Resolve it in Admin before receiving into inventory." },
+        { status: 400 }
       );
+    }
 
-      for (const [partNumber, addQty] of mergedByPart.entries()) {
-        const existing = existingMap.get(partNumber);
-        const nowIso = new Date().toISOString();
-        if (existing) {
-          const { error: updateError } = await supabase
-            .from("inventory")
-            .update({
-              quantity: existing.quantity + addQty,
-              updated_at: nowIso
-            })
-            .eq("id", existing.id);
-          if (updateError) {
-            return NextResponse.json({ error: updateError.message }, { status: 500 });
-          }
-          continue;
-        }
-
-        const { error: insertError } = await supabase.from("inventory").insert({
-          name: partNumber,
-          category: inferCategory(partNumber),
-          quantity: addQty,
-          threshold_limit: 5,
-          updated_at: nowIso
-        });
-        if (insertError) {
-          return NextResponse.json({ error: insertError.message }, { status: 500 });
-        }
-      }
+    const inventoryApplyError = await applyManifestItemsToInventory(id);
+    if (inventoryApplyError) {
+      return NextResponse.json({ error: inventoryApplyError }, { status: 500 });
     }
 
     const { error } = await supabase

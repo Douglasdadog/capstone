@@ -20,6 +20,7 @@ function toPositiveInt(value: unknown): number | null {
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
+    .replace(/\u00a0/g, " ")
     .trim()
     .toLowerCase()
     .replace(/[_\s-]+/g, " ");
@@ -33,9 +34,29 @@ function pickValue(row: Record<string, unknown>, keys: string[]): unknown {
 function parseWorksheetRows(rows: Record<string, unknown>[]): ParsedRow[] {
   const parsed: ParsedRow[] = [];
   for (const row of rows) {
-    const partRaw = pickValue(row, ["part number", "part no", "part", "partnumber", "product"]);
-    const qtyRaw = pickValue(row, ["quantity", "qty"]);
-    const batchRaw = pickValue(row, ["batch id", "batch", "batchid", "product serial id", "serial id"]);
+    // Supported manifest formats:
+    // - Legacy: Part Number + Quantity + Batch ID
+    // - New: Product + Brand + Battery Type + Product Serial ID + Quantity
+    const partRaw = pickValue(row, [
+      "part number",
+      "part no",
+      "part",
+      "partnumber",
+      "product",
+      "product name",
+      "item",
+      "item name"
+    ]);
+    const qtyRaw = pickValue(row, ["quantity", "qty", "qty pcs", "pieces"]);
+    const batchRaw = pickValue(row, [
+      "batch id",
+      "batch",
+      "batchid",
+      "product serial id",
+      "product serial",
+      "serial id",
+      "serial number"
+    ]);
 
     const partNumber = String(partRaw ?? "").trim();
     const serialOrBatch = String(batchRaw ?? "").trim();
@@ -119,7 +140,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "No valid rows found. Use either (Part Number, Quantity, Batch ID) or (Product, Product Serial ID)."
+          "No valid rows found. Use either (Part Number, Quantity, Batch ID) or (Product, Product Serial ID, Quantity)."
       },
       { status: 400 }
     );
