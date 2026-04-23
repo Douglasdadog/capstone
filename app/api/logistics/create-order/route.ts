@@ -136,11 +136,13 @@ export async function POST(request: NextRequest) {
   while (attempt < maxAttempts) {
     attempt += 1;
     const tracking_number = requestedTracking || generateTrackingCandidate();
+    const tracking_token = crypto.randomUUID();
 
     const { data, error } = await supabase
       .from("shipments")
       .insert({
         tracking_number,
+        tracking_token,
         client_name,
         client_email,
         origin,

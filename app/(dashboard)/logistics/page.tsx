@@ -16,6 +16,7 @@ type Shipment = {
   waybill_number?: string | null;
   eta?: string | null;
   tracking_token?: string | null;
+  order_items?: Array<{ item_name: string; quantity: number }>;
   updated_at: string;
 };
 
@@ -130,28 +131,6 @@ export default function LogisticsPage() {
       setError(err instanceof Error ? err.message : "Failed to save logistics details.");
     } finally {
       setRowSavingId(null);
-    }
-  }
-
-  async function generateTrackingLink(shipmentId: string) {
-    const response = await fetch("/api/logistics/generate-tracking-link", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shipmentId })
-    });
-    const data = (await response.json()) as { error?: string; trackingLink?: string; token?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Unable to generate tracking link.");
-      return;
-    }
-    setShipments((prev) =>
-      prev.map((row) => (row.id === shipmentId ? { ...row, tracking_token: data.token ?? row.tracking_token } : row))
-    );
-    if (data.trackingLink && navigator.clipboard) {
-      await navigator.clipboard.writeText(data.trackingLink);
-      setMessage("Tracking link generated and copied.");
-    } else {
-      setMessage(`Tracking link: ${data.trackingLink ?? "generated"}`);
     }
   }
 
@@ -408,14 +387,15 @@ export default function LogisticsPage() {
               </div>
 
               <div className="mt-2 border-t border-slate-100 pt-2">
+                {shipment.order_items && shipment.order_items.length > 0 ? (
+                  <div className="mb-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Details</p>
+                    <p className="mt-1 text-xs text-slate-700">
+                      {shipment.order_items.map((item) => `${item.item_name} x${item.quantity}`).join(" | ")}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void generateTrackingLink(shipment.id)}
-                    className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-100"
-                  >
-                    Generate Link
-                  </button>
                   <button
                     type="button"
                     onClick={() => void copyTrackingLink(trackingUrl)}

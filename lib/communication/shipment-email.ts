@@ -68,6 +68,7 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
 
 export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailInput) {
   const subject = `WIS Order Confirmed: ${input.trackingNumber}`;
+  const portalUrl = "https://capstone-teal-psi.vercel.app/shipment-tracking";
   const itemsText = input.itemDetails.map((item, index) => `${index + 1}. ${item}`).join("\n");
   const itemsHtmlRows = input.itemDetails
     .map(
@@ -94,9 +95,10 @@ export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailI
     "Order Items:",
     itemsText,
     "",
-    input.trackingLink
-      ? `Track your shipment here (no login required): ${input.trackingLink}`
-      : "Tracking link will be shared once available.",
+    "How to track your order:",
+    input.trackingLink ? `1) Open your direct tracking link: ${input.trackingLink}` : `1) Open: ${portalUrl}`,
+    input.trackingLink ? "2) Or visit the portal and enter your tracking number" : "2) Enter your tracking number",
+    `3) Tracking code: ${input.trackingNumber}`,
     "",
     "If you have questions, please reply to this email and our team will assist you.",
     "",
@@ -148,11 +150,18 @@ export function buildShipmentOrderCreatedEmail(input: ShipmentOrderCreatedEmailI
               ${itemsHtmlRows}
             </table>
 
-            ${
-              input.trackingLink
-                ? `<p style="margin: 0 0 12px;">Track your shipment: <a href="${input.trackingLink}" style="color: #0f172a; font-weight: 700;">${input.trackingLink}</a></p>`
-                : `<p style="margin: 0 0 12px; color: #334155;">Tracking link will be shared once available.</p>`
-            }
+            <div style="margin: 0 0 12px; padding: 10px 12px; border: 1px solid #e2e8f0; background: #f8fafc;">
+              <p style="margin: 0 0 6px; font-weight: 700; color: #111827;">How to track your order</p>
+              ${
+                input.trackingLink
+                  ? `<p style="margin: 0 0 4px; color: #334155;">1) Open direct link: <a href="${input.trackingLink}" style="color: #0f172a; font-weight: 700;">${input.trackingLink}</a></p>`
+                  : `<p style="margin: 0 0 4px; color: #334155;">1) Open: <a href="${portalUrl}" style="color: #0f172a; font-weight: 700;">${portalUrl}</a></p>`
+              }
+              <p style="margin: 0 0 4px; color: #334155;">2) ${
+                input.trackingLink ? "Or use the portal and enter your tracking number" : "Enter your tracking number"
+              }</p>
+              <p style="margin: 0; color: #334155;">3) Code: <strong>${input.trackingNumber}</strong></p>
+            </div>
 
             <p style="margin: 0; color: #334155;">
               If you have questions, please reply to this email and our team will assist you.

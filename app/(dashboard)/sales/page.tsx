@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type ShipmentStatus = "Pending" | "In Transit" | "Delivered";
 type Shipment = {
@@ -15,6 +16,7 @@ type Shipment = {
   waybill_number?: string | null;
   eta?: string | null;
   tracking_token?: string | null;
+  order_items?: Array<{ item_name: string; quantity: number }>;
   updated_at: string;
 };
 type InventoryItem = {
@@ -38,6 +40,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function SalesPage() {
+  const supabase = useMemo(() => createClient(), []);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +91,19 @@ export default function SalesPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("sales-shipments-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () => {
+        void fetchShipments();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
   async function updateStatus(shipmentId: string, status: ShipmentStatus) {
     try {
       setError(null);
@@ -110,31 +126,6 @@ export default function SalesPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update shipment status.");
-    }
-  }
-
-  async function generateTrackingLink(shipmentId: string) {
-    try {
-      setError(null);
-      setMessage(null);
-      const response = await fetch("/api/logistics/generate-tracking-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipmentId })
-      });
-      const data = (await response.json()) as { error?: string; trackingLink?: string; token?: string };
-      if (!response.ok) throw new Error(data.error ?? "Unable to generate tracking link.");
-      setShipments((prev) =>
-        prev.map((row) => (row.id === shipmentId ? { ...row, tracking_token: data.token ?? row.tracking_token } : row))
-      );
-      if (data.trackingLink && navigator.clipboard) {
-        await navigator.clipboard.writeText(data.trackingLink);
-        setMessage("Tracking link generated and copied.");
-      } else {
-        setMessage("Tracking link generated.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate tracking link.");
     }
   }
 
@@ -267,6 +258,10 @@ export default function SalesPage() {
       ),
     [shipments]
   );
+  const orderableItems = useMemo(
+    () => inventoryItems.filter((item) => Number(item.quantity) > 0),
+    [inventoryItems]
+  );
 
   return (
     <section className="space-y-4">
@@ -334,6 +329,14 @@ export default function SalesPage() {
           {orderLines.map((line, index) => {
             const selectedInventory = inventoryItems.find((item) => item.name === line.item_name);
             const maxQty = selectedInventory?.quantity ?? 0;
+            const selectedElsewhere = new Set(
+              orderLines
+                .filter((candidate) => candidate.id !== line.id && candidate.item_name.trim().length > 0)
+                .map((candidate) => candidate.item_name)
+            );
+            const optionsForLine = orderableItems.filter(
+              (item) => item.name === line.item_name || !selectedElsewhere.has(item.name)
+            );
             return (
               <div key={line.id} className="grid gap-1.5 rounded-md border border-slate-200 bg-slate-50 p-1.5 md:grid-cols-[1fr,120px,auto]">
                 <select
@@ -347,7 +350,7 @@ export default function SalesPage() {
                   className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm"
                 >
                   <option value="">Select item #{index + 1}</option>
-                  {inventoryItems.map((item) => (
+                  {optionsForLine.map((item) => (
                     <option key={item.id} value={item.name}>
                       {item.name} (Stock: {item.quantity})
                     </option>
@@ -453,13 +456,6 @@ export default function SalesPage() {
                           <option value="In Transit">In Transit</option>
                           <option value="Delivered">Delivered</option>
                         </select>
-                        <button
-                          type="button"
-                          onClick={() => void generateTrackingLink(row.id)}
-                          className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                        >
-                          Generate Link
-                        </button>
                       </div>
                     </div>
                     <div className="mt-2 grid gap-1 text-xs text-slate-600 md:grid-cols-3">
@@ -474,6 +470,14 @@ export default function SalesPage() {
                         <span className="font-medium">Updated:</span> {new Date(row.updated_at).toLocaleString()}
                       </p>
                     </div>
+                    {row.order_items && row.order_items.length > 0 ? (
+                      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Order Details</p>
+                        <p className="mt-1 text-xs text-slate-700">
+                          {row.order_items.map((item) => `${item.item_name} x${item.quantity}`).join(" | ")}
+                        </p>
+                      </div>
+                    ) : null}
                     {trackingUrl ? <p className="mt-1 break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
                   </div>
                 );
