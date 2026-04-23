@@ -8,21 +8,6 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  if (auth.session.role === "Admin" || auth.session.role === "SuperAdmin") {
-    const { data, error } = await supabase
-      .from("shipments")
-      .select("*")
-      .order("updated_at", { ascending: false });
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json({ shipments: data ?? [] });
-  }
-
-  if (auth.session.role !== "Client") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { data, error } = await supabase
     .from("shipments")
     .select("*")
