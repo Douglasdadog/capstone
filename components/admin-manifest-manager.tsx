@@ -19,6 +19,12 @@ function statusBadgeClass(status: ManifestRow["status"]) {
   return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
+function nextStepText(status: ManifestRow["status"]) {
+  if (status === "Pending Verification") return "Next: Open scanner and verify all items from this manifest.";
+  if (status === "Completed") return "Done: Verification completed and shipment can be received into stock.";
+  return "Action: Review discrepancy report and decide whether to re-verify or resolve.";
+}
+
 export default function AdminManifestManager() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -160,19 +166,20 @@ export default function AdminManifestManager() {
               <th className="px-3 py-2">File</th>
               <th className="px-3 py-2">By</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Details</th>
               <th className="px-3 py-2">Set Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={5}>
+                <td className="px-3 py-4 text-slate-500" colSpan={6}>
                   Loading manifests...
                 </td>
               </tr>
             ) : manifests.length === 0 ? (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={5}>
+                <td className="px-3 py-4 text-slate-500" colSpan={6}>
                   No manifests uploaded yet.
                 </td>
               </tr>
@@ -186,6 +193,31 @@ export default function AdminManifestManager() {
                     <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(row.status)}`}>
                       {row.status}
                     </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <details className="group max-w-sm rounded-md border border-slate-200 bg-slate-50 px-2 py-1">
+                      <summary className="cursor-pointer list-none text-xs font-semibold text-slate-700">
+                        View Details
+                      </summary>
+                      <div className="mt-2 space-y-1 text-xs text-slate-600">
+                        <p>
+                          <span className="font-semibold text-slate-700">File:</span> {row.file_name}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-slate-700">Uploaded by:</span> {row.uploaded_by}
+                        </p>
+                        <p>
+                          <span className="font-semibold text-slate-700">Uploaded at:</span>{" "}
+                          {new Date(row.created_at).toLocaleString()}
+                        </p>
+                        {row.discrepancy_notes ? (
+                          <p>
+                            <span className="font-semibold text-slate-700">Notes:</span> {row.discrepancy_notes}
+                          </p>
+                        ) : null}
+                        <p className="pt-1 font-medium text-slate-700">{nextStepText(row.status)}</p>
+                      </div>
+                    </details>
                   </td>
                   <td className="px-3 py-2">
                     <select
