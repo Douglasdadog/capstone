@@ -16,6 +16,35 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const grantableRoutes = SIDEBAR_LINKS.filter((link) => link.grantable).map((link) => link.href);
 const allRoles: UserRole[] = ["SuperAdmin", "Admin", "Inventory", "Sales", "Client"];
 
+type SupabaseUserRow = {
+  id: string;
+  email: string;
+  role: UserRole;
+};
+
+async function listSupabaseUsersSafe(): Promise<SupabaseUserRow[]> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.auth.admin.listUsers();
+    if (error) return [];
+    return (data?.users ?? [])
+      .map((user) => {
+        const email = String(user.email ?? "").trim().toLowerCase();
+        if (!email) return null;
+        const metadataRole = (user.user_metadata as { role?: unknown } | null)?.role;
+        const appRole = (user.app_metadata as { role?: unknown } | null)?.role;
+        return {
+          id: String(user.id),
+          email,
+          role: normalizeRole(metadataRole ?? appRole)
+        } as SupabaseUserRow;
+      })
+      .filter((row): row is SupabaseUserRow => Boolean(row));
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
@@ -23,15 +52,49 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
   }
 
-  const users = [...getSampleUsers(), ...readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value)];
+  const sampleUsers = getSampleUsers();
+  const registeredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
+  const supabaseUsers = await listSupabaseUsersSafe();
   const permissions = readPermissions(request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
+  const mergedByEmail = new Map<
+    string,
+    {
+      email: string;
+      role: UserRole;
+      isSample: boolean;
+    }
+  >();
+
+  for (const user of supabaseUsers) {
+    mergedByEmail.set(user.email, {
+      email: user.email,
+      role: user.role,
+      isSample: false
+    });
+  }
+  for (const user of registeredUsers) {
+    mergedByEmail.set(user.email, {
+      email: user.email,
+      role: user.role,
+      isSample: false
+    });
+  }
+  for (const user of sampleUsers) {
+    mergedByEmail.set(user.email, {
+      email: user.email,
+      role: user.role,
+      isSample: true
+    });
+  }
+
+  const users = Array.from(mergedByEmail.values()).sort((a, b) => a.email.localeCompare(b.email));
 
   return NextResponse.json({
     users: users.map((user) => ({
       email: user.email,
       role: user.role,
       extraRoutes: permissions[user.email] ?? [],
-      isSample: getSampleUsers().some((sample) => sample.email === user.email)
+      isSample: user.isSample
     })),
     grantableRoutes
   });
@@ -110,9 +173,12 @@ export async function PATCH(request: NextRequest) {
   }
 
   const registeredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
-  const existing = registeredUsers.find((user) => user.email === email);
-  if (!existing) {
-    return NextResponse.json({ error: "User not found in local registry." }, { status: 404 });
+  const localUserExists = registeredUsers.some((user) => user.email === email);
+  const supabaseUsers = await listSupabaseUsersSafe();
+  const supabaseMatch = supabaseUsers.find((user) => user.email === email);
+  const userExists = localUserExists || Boolean(supabaseMatch);
+  if (!userExists) {
+    return NextResponse.json({ error: "User not found." }, { status: 404 });
   }
 
   if (body.action === "deleteUser") {
@@ -121,13 +187,9 @@ export async function PATCH(request: NextRequest) {
     delete permissions[email];
 
     try {
-      const admin = createAdminClient();
-      const { data: usersResult, error: listError } = await admin.auth.admin.listUsers();
-      if (!listError) {
-        const supabaseUser = usersResult.users.find((user) => user.email?.toLowerCase() === email);
-        if (supabaseUser) {
-          await admin.auth.admin.deleteUser(supabaseUser.id);
-        }
+      if (supabaseMatch) {
+        const admin = createAdminClient();
+        await admin.auth.admin.deleteUser(supabaseMatch.id);
       }
     } catch {
       // Local delete still proceeds even if Supabase cleanup fails.
@@ -155,27 +217,20 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
   }
 
-  const updatedUsers = registeredUsers.map((user) =>
-    user.email === email ? { ...user, role: normalizedRole } : user
-  );
+  const updatedUsers = registeredUsers.map((user) => (user.email === email ? { ...user, role: normalizedRole } : user));
   const permissions = readPermissions(request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
   const currentExtras = permissions[email] ?? [];
   const nextExtras = currentExtras.filter((route) => !ROLE_ACCESS[normalizedRole].includes(route));
   permissions[email] = nextExtras;
 
   try {
-    const admin = createAdminClient();
-    const { data: usersResult, error: listError } = await admin.auth.admin.listUsers();
-    if (!listError) {
-      const supabaseUser = usersResult.users.find((user) => user.email?.toLowerCase() === email);
-      if (supabaseUser) {
-        await admin.auth.admin.updateUserById(supabaseUser.id, {
-          user_metadata: {
-            ...(supabaseUser.user_metadata ?? {}),
-            role: normalizedRole
-          }
-        });
-      }
+    if (supabaseMatch) {
+      const admin = createAdminClient();
+      await admin.auth.admin.updateUserById(supabaseMatch.id, {
+        user_metadata: {
+          role: normalizedRole
+        }
+      });
     }
   } catch {
     // Local role update still proceeds if Supabase metadata sync fails.
