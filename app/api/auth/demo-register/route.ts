@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/security/password-policy";
 import {
   DEMO_SESSION_COOKIE,
   DEMO_USERS_COOKIE,
@@ -27,8 +28,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Input exceeds allowed length." }, { status: 400 });
   }
 
-  if (password.length < 6) {
-    return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
+  if (!isStrongPassword(password)) {
+    return NextResponse.json({ error: PASSWORD_POLICY_MESSAGE }, { status: 400 });
   }
 
   const normalizedRole = "Client";

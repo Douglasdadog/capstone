@@ -9,6 +9,11 @@ const validReasons = new Set([
   "Over-shipment"
 ]);
 
+function isMissingManifestReportsTable(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes("manifest_reports") && (lower.includes("does not exist") || lower.includes("could not find"));
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -35,6 +40,7 @@ export async function POST(
 
   try {
     const supabase = createAdminClient();
+    let reportWarning: string | null = null;
     const { error: reportError } = await supabase.from("manifest_reports").insert({
       manifest_id: id,
       reported_by: auth.session.email,
@@ -42,7 +48,12 @@ export async function POST(
       comments: comments || null
     });
     if (reportError) {
-      return NextResponse.json({ error: reportError.message }, { status: 500 });
+      if (isMissingManifestReportsTable(reportError.message)) {
+        reportWarning =
+          "Submitted with fallback. Create `manifest_reports` table in Supabase to keep full report history.";
+      } else {
+        return NextResponse.json({ error: reportError.message }, { status: 500 });
+      }
     }
 
     const statusNote = comments ? `${reason}: ${comments}` : reason;
@@ -59,7 +70,7 @@ export async function POST(
       return NextResponse.json({ error: manifestError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, warning: reportWarning });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to submit report." },

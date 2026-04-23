@@ -44,6 +44,7 @@ export const SIDEBAR_LINKS: NavLink[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/super-admin", label: "Super Admin" },
   { href: "/admin", label: "Admin", grantable: true },
+  { href: "/admin/reports", label: "Reports" },
   { href: "/admin/settings", label: "Settings" },
   { href: "/inventory", label: "Inventory", grantable: true },
   { href: "/sales", label: "Sales", grantable: true },

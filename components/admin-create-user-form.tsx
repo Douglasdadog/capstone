@@ -36,7 +36,10 @@ export default function AdminCreateUserForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail })
     });
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as {
+      error?: string;
+      communication?: { sent: boolean; message: string } | null;
+    };
     if (!response.ok) {
       setError(payload.error ?? "Unable to send code.");
       setSendingCode(false);
@@ -66,14 +69,22 @@ export default function AdminCreateUserForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: normalizedEmail, password, role, verificationCode })
     });
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as {
+      error?: string;
+      communication?: { sent: boolean; message: string } | null;
+    };
     if (!response.ok) {
       setError(payload.error ?? "Unable to create account.");
       setLoading(false);
       return;
     }
 
-    setMessage(`Created ${roleLabels[role]} account: ${normalizedEmail}`);
+    const emailNote = payload.communication?.sent
+      ? " Login details sent via email."
+      : payload.communication
+        ? ` Email not sent: ${payload.communication.message}`
+        : "";
+    setMessage(`Created ${roleLabels[role]} account: ${normalizedEmail}.${emailNote}`);
     setEmail("");
     setPassword("");
     setVerificationCode("");
@@ -119,7 +130,9 @@ export default function AdminCreateUserForm() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
-          minLength={6}
+          minLength={8}
+          pattern="(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}"
+          title="Use at least 8 characters, with one uppercase letter and one special character."
           autoComplete="new-password"
           placeholder="Temporary password"
           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
@@ -173,7 +186,9 @@ export default function AdminCreateUserForm() {
         </button>
       </form>
       <p className="text-xs text-slate-500">
-        Tip: use a temporary password and ask the user to change it after first login. Verification codes expire in 10 minutes.
+        Tip: temporary passwords must be at least 8 characters with one uppercase letter and one
+        special character. Ask users to change it after first login. Verification codes expire in 10
+        minutes.
       </p>
 
       {message ? <p className="text-sm text-emerald-700">{message}</p> : null}

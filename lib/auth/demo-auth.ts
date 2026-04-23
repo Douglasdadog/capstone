@@ -77,7 +77,8 @@ export function serializeRegisteredUsers(users: DemoUser[]): string {
 
 export function findUser(email: string, password: string, registeredUsers: DemoUser[]): DemoUser | null {
   const normalizedEmail = email.toLowerCase();
-  const allUsers = [...SAMPLE_USERS, ...registeredUsers];
+  // Registered users are prioritized so password overrides can supersede sample defaults.
+  const allUsers = [...registeredUsers, ...SAMPLE_USERS];
   return allUsers.find((user) => user.email === normalizedEmail && user.password === password) ?? null;
 }
 

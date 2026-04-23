@@ -25,6 +25,10 @@ type HighlightBox = {
   token: number;
 };
 
+function normalizeBarcodeValue(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
+
 function asPoint(value: unknown): { x: number; y: number } | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as { x?: unknown; y?: unknown };
@@ -120,6 +124,15 @@ export default function InventoryScanningPage() {
   }, [items]);
 
   const partKeys = useMemo(() => Object.keys(byPart), [byPart]);
+  const normalizedPartLookup = useMemo(() => {
+    return partKeys.reduce(
+      (acc, part) => {
+        acc[normalizeBarcodeValue(part)] = part;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+  }, [partKeys]);
   const activeTarget = byPart[activePart] ?? 0;
   const activeScanned = scanned[activePart] ?? 0;
 
@@ -191,51 +204,78 @@ export default function InventoryScanningPage() {
     }, 520);
   }
 
+  function matchScannedPart(rawCode: string): string | null {
+    const normalizedCode = normalizeBarcodeValue(rawCode);
+    if (!normalizedCode) return null;
+    if (normalizedPartLookup[normalizedCode]) return normalizedPartLookup[normalizedCode];
+
+    // Supplier labels commonly include part code with extra suffix/prefix (e.g., serial chunks).
+    for (const [normalizedPart, originalPart] of Object.entries(normalizedPartLookup)) {
+      if (normalizedCode.includes(normalizedPart) || normalizedPart.includes(normalizedCode)) {
+        return originalPart;
+      }
+    }
+    return null;
+  }
+
   async function startScanner() {
     if (cameraOn) return;
     setError(null);
-    const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
-    const scanner = new Html5Qrcode("manifest-scanner", {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.CODE_93,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.CODABAR
-      ]
-    });
-    scannerRef.current = scanner;
+    try {
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("manifest-scanner", {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR
+        ]
+      });
+      scannerRef.current = scanner;
 
-    await scanner.start(
-      selectedCameraId || { facingMode: "environment" },
-      {
-        fps: 10
-      },
-      (decodedText: string, decodedResult: unknown) => {
-        const code = decodedText.trim();
-        setLastScan(code);
-        flashHighlight(decodedResult);
-        if (partKeys.length === 0) {
-          setActivePart(code);
-          return;
-        }
-        if (!byPart[code]) return;
-        setActivePart(code);
-        setScanned((prev) => {
-          const current = prev[code] ?? 0;
-          const max = byPart[code];
-          if (current >= max) return prev;
-          return { ...prev, [code]: current + 1 };
-        });
-      },
-      () => undefined
-    );
-    setCameraOn(true);
+      await scanner.start(
+        selectedCameraId || { facingMode: "environment" },
+        {
+          fps: 14,
+          aspectRatio: 1.7778,
+          disableFlip: true
+        },
+        (decodedText: string, decodedResult: unknown) => {
+          const code = decodedText.trim();
+          setLastScan(code);
+          flashHighlight(decodedResult);
+          if (partKeys.length === 0) {
+            setActivePart(code);
+            return;
+          }
+          const matchedPart = matchScannedPart(code);
+          if (!matchedPart) return;
+          setActivePart(matchedPart);
+          setScanned((prev) => {
+            const current = prev[matchedPart] ?? 0;
+            const max = byPart[matchedPart];
+            if (current >= max) return prev;
+            return { ...prev, [matchedPart]: current + 1 };
+          });
+        },
+        () => undefined
+      );
+      setCameraOn(true);
+    } catch (scanError) {
+      if (scannerRef.current) {
+        await scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+      setCameraOn(false);
+      setError(scanError instanceof Error ? scanError.message : "Unable to start barcode scanner.");
+    }
   }
 
   async function stopScanner() {

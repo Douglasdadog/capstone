@@ -64,6 +64,30 @@ begin
 end
 $$;
 
+-- Discrepancy reports table for scanner "Make Report" submissions
+create table if not exists public.manifest_reports (
+  id uuid primary key default gen_random_uuid(),
+  manifest_id uuid not null references public.manifests(id) on delete cascade,
+  reported_by text not null,
+  reason text not null,
+  comments text,
+  created_at timestamptz not null default now()
+);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'manifest_reports'
+  ) then
+    alter publication supabase_realtime add table public.manifest_reports;
+  end if;
+end
+$$;
+
 do $$
 begin
   if not exists (

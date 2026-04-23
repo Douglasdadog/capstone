@@ -12,7 +12,8 @@ export function requireDemoSession(request: NextRequest) {
     ok: true as const,
     session: {
       email: session.email.toLowerCase(),
-      role: normalizeRole(session.role) as UserRole
+      role: normalizeRole(session.role) as UserRole,
+      supabaseUserId: typeof session.supabaseUserId === "string" ? session.supabaseUserId : null
     }
   };
 }

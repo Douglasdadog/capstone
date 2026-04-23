@@ -19,6 +19,7 @@ const LINK_ICONS: Record<string, LucideIcon> = {
   "/dashboard": LayoutDashboard,
   "/super-admin": ShieldCheck,
   "/admin": ShieldCheck,
+  "/admin/reports": ShieldCheck,
   "/admin/settings": Settings,
   "/inventory": Package,
   "/sales": ShoppingCart,

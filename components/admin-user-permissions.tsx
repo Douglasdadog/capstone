@@ -1,20 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ROLE_ACCESS, UserRole } from "@/lib/auth/roles";
 
 type UserRow = {
   email: string;
-  role: string;
+  role: UserRole;
   extraRoutes: string[];
+  isSample?: boolean;
 };
 
 type RouteOption = string;
+const roles: UserRole[] = ["SuperAdmin", "Admin", "Inventory", "Sales", "Client"];
 
 export default function AdminUserPermissions() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [routeOptions, setRouteOptions] = useState<RouteOption[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteEmail, setPendingDeleteEmail] = useState<string | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
 
   async function load() {
     const response = await fetch("/api/admin/permissions");
@@ -57,6 +62,45 @@ export default function AdminUserPermissions() {
       return;
     }
     setMessage(`Permissions updated for ${email}`);
+    await load();
+  }
+
+  async function updateRole(email: string, role: UserRole) {
+    setMessage(null);
+    setError(null);
+    const response = await fetch("/api/admin/permissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "updateRole", email, role })
+    });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(data.error ?? "Unable to update role.");
+      return;
+    }
+    setMessage(`Role updated for ${email}`);
+    await load();
+  }
+
+  async function deleteAccount(email: string) {
+    const ok = window.confirm(`Delete account ${email}? This cannot be undone.`);
+    if (!ok) return;
+
+    setMessage(null);
+    setError(null);
+    const response = await fetch("/api/admin/permissions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "deleteUser", email })
+    });
+    const data = (await response.json()) as { error?: string };
+    if (!response.ok) {
+      setError(data.error ?? "Unable to delete account.");
+      return;
+    }
+    setMessage(`Deleted account: ${email}`);
+    setPendingDeleteEmail(null);
+    setDeleteConfirmInput("");
     await load();
   }
 
@@ -116,37 +160,78 @@ export default function AdminUserPermissions() {
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Extra Panels</th>
+              <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.map((user) => (
               <tr key={user.email} className="border-t border-slate-100 align-top">
                 <td className="px-4 py-3 font-medium text-slate-800">{user.email}</td>
-                <td className="px-4 py-3">{user.role}</td>
+                <td className="px-4 py-3">
+                  <select
+                    value={user.role}
+                    onChange={(event) => void updateRole(user.email, event.target.value as UserRole)}
+                    disabled={Boolean(user.isSample)}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                  >
+                    {roles.map((role) => (
+                      <option key={`${user.email}-${role}`} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                  {user.isSample ? (
+                    <p className="mt-1 text-[11px] text-slate-500">Sample account (role locked)</p>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3">
                   <div className="grid gap-2 md:grid-cols-2">
                     {routeOptions.map((route) => {
                       const checked = user.extraRoutes.includes(route);
+                      const roleHasRoute = ROLE_ACCESS[user.role]?.includes(route);
                       return (
-                        <label key={`${user.email}-${route}`} className="flex items-center gap-2 text-xs">
+                        <label
+                          key={`${user.email}-${route}`}
+                          className={`flex items-center gap-2 text-xs ${
+                            roleHasRoute ? "text-slate-400" : "text-slate-700"
+                          }`}
+                        >
                           <input
                             type="checkbox"
-                            checked={checked}
+                            checked={roleHasRoute || checked}
+                            disabled={roleHasRoute}
                             onChange={(event) =>
                               void togglePermission(user.email, route, event.target.checked)
                             }
                           />
                           {route}
+                          {roleHasRoute ? " (from role)" : ""}
                         </label>
                       );
                     })}
                   </div>
                 </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingDeleteEmail(user.email);
+                      setDeleteConfirmInput("");
+                    }}
+                    disabled={Boolean(user.isSample)}
+                    className="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Delete
+                  </button>
+                  {user.isSample ? (
+                    <p className="mt-1 text-[11px] text-slate-500">Sample account cannot be deleted.</p>
+                  ) : null}
+                </td>
               </tr>
             ))}
             {users.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-slate-500" colSpan={3}>
+                <td className="px-4 py-6 text-slate-500" colSpan={4}>
                   No users available.
                 </td>
               </tr>
@@ -154,6 +239,49 @@ export default function AdminUserPermissions() {
           </tbody>
         </table>
       </div>
+
+      {pendingDeleteEmail ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-slate-900">Confirm account deletion</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Type this email exactly to confirm permanent delete:
+            </p>
+            <p className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-sm font-semibold text-slate-800">
+              {pendingDeleteEmail}
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmInput}
+              onChange={(event) => setDeleteConfirmInput(event.target.value)}
+              placeholder="Enter exact email"
+              className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeleteEmail(null);
+                  setDeleteConfirmInput("");
+                }}
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteConfirmInput.trim().toLowerCase() !== pendingDeleteEmail}
+                onClick={() => {
+                  void deleteAccount(pendingDeleteEmail);
+                }}
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
