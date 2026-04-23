@@ -6,6 +6,7 @@ import { buildPreviewEnvironmentSeries } from "@/lib/iot/environment-series";
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
 const RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000;
+const REMOTE_TIMEOUT_MS = 8000;
 
 type ReadingRow = {
   temperature: number | null;
@@ -16,6 +17,35 @@ type ReadingRow = {
 function toMillis(value: string): number | null {
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : null;
+}
+
+async function probeIotHealthUrl(): Promise<{ configured: boolean; ok: boolean; message?: string }> {
+  const healthUrl = process.env.WIS_IOT_HEALTH_URL?.trim();
+  if (!healthUrl) {
+    return { configured: false, ok: false, message: "Health URL not configured" };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
+    const response = await fetch(healthUrl, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { Accept: "application/json, text/plain, */*" }
+    });
+    clearTimeout(timeoutId);
+    return {
+      configured: true,
+      ok: response.ok,
+      message: response.ok ? "IoT endpoint reachable" : `HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      ok: false,
+      message: error instanceof Error ? error.message : "IoT endpoint request failed"
+    };
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -48,6 +78,7 @@ export async function GET(request: NextRequest) {
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
         isRunning: false,
+        connectionStatus: "disconnected" as const,
         note: error.message
       });
     }
@@ -63,26 +94,32 @@ export async function GET(request: NextRequest) {
     if (readings.length === 0) {
       const preview = buildPreviewEnvironmentSeries();
       const latest = preview[preview.length - 1];
+      const remote = await probeIotHealthUrl();
       return NextResponse.json({
         source: "preview" as const,
         temperatureC: latest?.temperature ?? null,
         humidityPct: latest?.humidity ?? null,
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
-        isRunning: false
+        isRunning: false,
+        connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
+        note: remote.message
       });
     }
 
     const latest = readings[readings.length - 1];
     const latestMs = toMillis(latest.created_at);
     if (latestMs === null) {
+      const remote = await probeIotHealthUrl();
       return NextResponse.json({
         source: "live" as const,
         temperatureC: Number(latest.temperature),
         humidityPct: Number(latest.humidity),
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
-        isRunning: false
+        isRunning: false,
+        connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
+        note: remote.message
       });
     }
 
@@ -97,6 +134,8 @@ export async function GET(request: NextRequest) {
 
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const isRunning = Date.now() - latestMs <= RUNNING_STALE_THRESHOLD_MS;
+    const remote = await probeIotHealthUrl();
+    const connectionStatus = isRunning || remote.ok ? ("connected" as const) : ("disconnected" as const);
 
     return NextResponse.json({
       source: "live" as const,
@@ -104,7 +143,9 @@ export async function GET(request: NextRequest) {
       humidityPct: Number(latest.humidity),
       lastReadingAt: latest.created_at,
       uptimeSeconds,
-      isRunning
+      isRunning,
+      connectionStatus,
+      note: remote.message
     });
   } catch (error) {
     return NextResponse.json(

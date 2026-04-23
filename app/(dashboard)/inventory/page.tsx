@@ -31,6 +31,8 @@ type MonitoringPayload = {
   lastReadingAt?: string | null;
   uptimeSeconds?: number | null;
   isRunning?: boolean;
+  connectionStatus?: "connected" | "disconnected";
+  note?: string;
   error?: string;
 };
 
@@ -70,6 +72,7 @@ export default function InventoryPage() {
   const [iotUptimeSeconds, setIotUptimeSeconds] = useState<number>(0);
   const [iotRunning, setIotRunning] = useState(false);
   const [lastEnvironmentReadingAt, setLastEnvironmentReadingAt] = useState<string | null>(null);
+  const [iotConnectionStatus, setIotConnectionStatus] = useState<"connected" | "disconnected">("disconnected");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -128,6 +131,7 @@ export default function InventoryPage() {
     setIotUptimeSeconds(typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
     setIotRunning(Boolean(data.isRunning));
     setLastEnvironmentReadingAt(typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
+    setIotConnectionStatus(data.connectionStatus === "connected" ? "connected" : "disconnected");
   }, []);
 
   const refreshAll = useCallback(async () => {
@@ -230,6 +234,7 @@ export default function InventoryPage() {
       setLastEnvironmentReadingAt(now);
       setIotRunning(true);
       setIotUptimeSeconds((prev) => prev + 60);
+      setIotConnectionStatus("connected");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sensor simulation failed.");
     } finally {
@@ -367,20 +372,20 @@ export default function InventoryPage() {
             <p className="text-xs uppercase tracking-wide text-slate-500">Live Feed Status</p>
             <p
               className={`mt-1 text-sm font-semibold ${
-                realtimeStatus === "CONNECTED"
+                realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
                   ? "text-green-700"
                   : realtimeStatus === "CONNECTING"
                     ? "text-amber-700"
                     : "text-red-700"
               }`}
             >
-              {realtimeStatus === "CONNECTED"
+              {realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
                 ? iotRunning
                   ? "Connected (IoT Running)"
-                  : "Connected (No Recent Reading)"
+                  : "Connected (Standby)"
                 : realtimeStatus === "CONNECTING"
                   ? "Connecting..."
-                  : "Disconnected"}
+                  : "Disconnected (IoT Not Connected)"}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
