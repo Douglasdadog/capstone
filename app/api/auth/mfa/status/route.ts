@@ -9,13 +9,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const normalizedEmail = session.email.toLowerCase();
+  const mfaMap = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
   let enrolled = false;
   if (session.supabaseUserId) {
     const supabaseMeta = await getSupabaseMfaMeta(session.supabaseUserId);
-    enrolled = Boolean(supabaseMeta.enabled && supabaseMeta.secret);
+    enrolled = Boolean(supabaseMeta.secret || supabaseMeta.enabled || mfaMap[normalizedEmail]);
   } else {
-    const mfaMap = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
-    enrolled = Boolean(mfaMap[session.email.toLowerCase()]);
+    enrolled = Boolean(mfaMap[normalizedEmail]);
   }
 
   let recentlyReset = false;
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     const { data } = await supabase
       .from("mfa_reset_requests")
       .select("id")
-      .eq("email", session.email)
+      .eq("email", normalizedEmail)
       .eq("status", "Approved")
       .limit(1);
     recentlyReset = Boolean(data && data.length > 0);

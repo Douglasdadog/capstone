@@ -6,7 +6,9 @@ import { createClient } from "@/lib/supabase/client";
 
 type InventoryItem = {
   id: string;
+  category?: string | null;
   name: string;
+  image_url?: string | null;
   quantity: number;
   threshold_limit: number;
   updated_at: string;
@@ -25,6 +27,7 @@ type ReplenishmentAlert = {
 export default function InventoryPage() {
   const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [role, setRole] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<ReplenishmentAlert[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +37,14 @@ export default function InventoryPage() {
   const [draftQuantity, setDraftQuantity] = useState("");
   const [draftThreshold, setDraftThreshold] = useState("");
   const [rowSavingId, setRowSavingId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState<"Maintenance Free" | "Conventional">("Maintenance Free");
+  const [newQuantity, setNewQuantity] = useState("0");
+  const [newThreshold, setNewThreshold] = useState("5");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [addingProduct, setAddingProduct] = useState(false);
+
+  const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -67,6 +78,11 @@ export default function InventoryPage() {
       try {
         setLoading(true);
         setError(null);
+        const sessionResponse = await fetch("/api/auth/session");
+        if (sessionResponse.ok) {
+          const sessionData = (await sessionResponse.json()) as { role?: string };
+          setRole(sessionData.role ?? null);
+        }
         await refreshAll();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load inventory module.");
@@ -188,6 +204,52 @@ export default function InventoryPage() {
     }
   }
 
+  async function addProduct() {
+    const qty = Number.parseInt(newQuantity, 10);
+    const thresh = Number.parseInt(newThreshold, 10);
+    if (!newName.trim()) {
+      setError("Product name is required.");
+      return;
+    }
+    if (!Number.isFinite(qty) || qty < 0 || !Number.isFinite(thresh) || thresh < 0) {
+      setError("Enter non-negative whole numbers for quantity and threshold.");
+      return;
+    }
+
+    try {
+      setAddingProduct(true);
+      setError(null);
+      setMessage(null);
+      const response = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          category: newCategory,
+          quantity: qty,
+          threshold_limit: thresh,
+          image_url: newImageUrl.trim() || undefined
+        })
+      });
+      const data = (await response.json()) as { error?: string; item?: InventoryItem };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to add product.");
+      }
+
+      setMessage(`Added ${data.item?.name ?? "new product"} to inventory.`);
+      setNewName("");
+      setNewCategory("Maintenance Free");
+      setNewQuantity("0");
+      setNewThreshold("5");
+      setNewImageUrl("");
+      await fetchInventory();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to add product.");
+    } finally {
+      setAddingProduct(false);
+    }
+  }
+
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -214,6 +276,64 @@ export default function InventoryPage() {
         </Link>
       </div>
 
+      {canManageProducts ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Manual Add Product</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <input
+              type="text"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="Product name"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <select
+              value={newCategory}
+              onChange={(event) => setNewCategory(event.target.value as "Maintenance Free" | "Conventional")}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="Maintenance Free">Maintenance Free</option>
+              <option value="Conventional">Conventional</option>
+            </select>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={newQuantity}
+              onChange={(event) => setNewQuantity(event.target.value)}
+              placeholder="Quantity"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={newThreshold}
+              onChange={(event) => setNewThreshold(event.target.value)}
+              placeholder="Threshold"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+            <input
+              type="url"
+              value={newImageUrl}
+              onChange={(event) => setNewImageUrl(event.target.value)}
+              placeholder="Image URL (optional)"
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => void addProduct()}
+              disabled={addingProduct}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              {addingProduct ? "Adding..." : "Add Product"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {message ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {message}
@@ -238,7 +358,9 @@ export default function InventoryPage() {
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-700">
                   <tr>
+                    <th className="px-4 py-3">Image</th>
                     <th className="px-4 py-3">Item</th>
+                    <th className="px-4 py-3">Category</th>
                     <th className="px-4 py-3">Quantity</th>
                     <th className="px-4 py-3">Threshold</th>
                     <th className="px-4 py-3">Status</th>
@@ -251,9 +373,36 @@ export default function InventoryPage() {
                     const lowStock = item.quantity < item.threshold_limit;
                     const isEditing = editingId === item.id;
                     const rowBusy = rowSavingId === item.id;
+                    const category = item.category?.trim() || "Uncategorized";
                     return (
                       <tr key={item.id} className="border-t border-slate-100">
+                        <td className="px-4 py-3">
+                          {item.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="h-10 w-16 rounded object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-400">No image</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3">{item.name}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs font-medium ${
+                              category === "Maintenance Free"
+                                ? "bg-amber-100 text-amber-800"
+                                : category === "Conventional"
+                                  ? "bg-slate-200 text-slate-700"
+                                  : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {category}
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           {isEditing ? (
                             <input
@@ -334,7 +483,7 @@ export default function InventoryPage() {
                   })}
                   {!loading && items.length === 0 ? (
                     <tr>
-                      <td className="px-4 py-6 text-slate-500" colSpan={6}>
+                      <td className="px-4 py-6 text-slate-500" colSpan={8}>
                         No inventory items found.
                       </td>
                     </tr>

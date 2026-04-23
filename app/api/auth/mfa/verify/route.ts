@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
     const supabaseMeta = await getSupabaseMfaMeta(session.supabaseUserId);
     if (supabaseMeta.secret) {
       secret = supabaseMeta.secret;
+    } else if (persistedMap[normalizedEmail]) {
+      // Backward compatibility: older enrollments were stored in the local cookie map.
+      secret = persistedMap[normalizedEmail];
+      isFirstEnrollment = true;
     } else if (pendingMap[normalizedEmail]) {
       secret = pendingMap[normalizedEmail];
       isFirstEnrollment = true;
