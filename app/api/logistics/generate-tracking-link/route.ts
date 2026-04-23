@@ -6,7 +6,8 @@ import { requireDemoSession } from "@/lib/auth/session";
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  const canUpdateShipments = auth.session.role === "Admin" || auth.session.role === "Sales";
+  const canUpdateShipments =
+    auth.session.role === "SuperAdmin" || auth.session.role === "Admin" || auth.session.role === "Sales";
   if (!canUpdateShipments) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

@@ -8,7 +8,8 @@ const issueTypes = new Set(["Delayed Shipment", "Incorrect Status", "Order Inqui
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
-  if (auth.session.role !== "Client") {
+  const canSubmitIssue = auth.session.role === "Client" || auth.session.role === "SuperAdmin";
+  if (!canSubmitIssue) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -35,12 +36,11 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const { data: shipment, error: shipmentError } = await supabase
-    .from("shipments")
-    .select("id")
-    .eq("id", shipmentId)
-    .eq("client_email", auth.session.email)
-    .maybeSingle();
+  const shipmentLookup = supabase.from("shipments").select("id").eq("id", shipmentId);
+  const { data: shipment, error: shipmentError } =
+    auth.session.role === "Client"
+      ? await shipmentLookup.eq("client_email", auth.session.email).maybeSingle()
+      : await shipmentLookup.maybeSingle();
 
   if (shipmentError) return NextResponse.json({ error: shipmentError.message }, { status: 500 });
   if (!shipment) return NextResponse.json({ error: "Shipment not found for this account." }, { status: 404 });

@@ -7,7 +7,8 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: 401 });
   }
-  const canViewShipments = auth.session.role === "Admin" || auth.session.role === "Sales";
+  const canViewShipments =
+    auth.session.role === "SuperAdmin" || auth.session.role === "Admin" || auth.session.role === "Sales";
   if (!canViewShipments) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

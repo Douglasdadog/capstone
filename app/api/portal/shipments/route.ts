@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  if (auth.session.role === "Admin") {
+  if (auth.session.role === "Admin" || auth.session.role === "SuperAdmin") {
     const { data, error } = await supabase
       .from("shipments")
       .select("*")
