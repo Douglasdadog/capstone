@@ -17,10 +17,30 @@ export async function PATCH(
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Manifest id is required." }, { status: 400 });
 
-  const body = (await request.json()) as { status?: string; discrepancy_notes?: string };
+  const body = (await request.json()) as {
+    status?: string;
+    discrepancy_notes?: string;
+    discrepancy_reason?: string;
+    discrepancy_comments?: string;
+  };
   const status = String(body.status ?? "");
   if (!allowedStatuses.has(status)) {
     return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+  }
+  const discrepancyReason = String(body.discrepancy_reason ?? "").trim();
+  const discrepancyComments = String(body.discrepancy_comments ?? "").trim();
+  const explicitNotes = String(body.discrepancy_notes ?? "").trim();
+  const discrepancyNotes =
+    explicitNotes || (discrepancyReason ? `${discrepancyReason}${discrepancyComments ? `: ${discrepancyComments}` : ""}` : "");
+
+  if (status === "Discrepancies" && (!discrepancyReason || !discrepancyComments)) {
+    return NextResponse.json(
+      { error: "discrepancy_reason and discrepancy_comments are required for Discrepancies status." },
+      { status: 400 }
+    );
+  }
+  if (status === "Discrepancies" && discrepancyNotes.length === 0) {
+    return NextResponse.json({ error: "discrepancy_notes is required for Discrepancies status." }, { status: 400 });
   }
 
   try {
@@ -29,7 +49,7 @@ export async function PATCH(
       .from("manifests")
       .update({
         status,
-        discrepancy_notes: body.discrepancy_notes?.trim() || null,
+        discrepancy_notes: status === "Discrepancies" ? discrepancyNotes : null,
         updated_at: new Date().toISOString()
       })
       .eq("id", id)

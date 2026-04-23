@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     const { data: manifests, error: manifestError } = await supabase
       .from("manifests")
       .select("id, file_name, uploaded_by, discrepancy_notes, updated_at, created_at")
-      .not("discrepancy_notes", "is", null)
+      .eq("status", "Discrepancies")
       .order("updated_at", { ascending: false })
       .limit(100);
 
@@ -89,10 +89,13 @@ export async function GET(request: NextRequest) {
     }
 
     const fallbackReports: ReportRow[] = (manifests ?? [])
-      .filter((manifest) => String(manifest.discrepancy_notes ?? "").trim().length > 0)
       .filter((manifest) => !existingManifestIds.has(String(manifest.id)))
       .map((manifest) => {
-        const parsed = parseNotes(manifest.discrepancy_notes ?? null);
+        const rawNotes = String(manifest.discrepancy_notes ?? "").trim();
+        const parsed =
+          rawNotes.length > 0
+            ? parseNotes(manifest.discrepancy_notes ?? null)
+            : { reason: "Discrepancy (status flag)", comments: "Manifest marked as Discrepancies." };
         return {
           id: `fallback-${manifest.id}`,
           manifest_id: manifest.id,

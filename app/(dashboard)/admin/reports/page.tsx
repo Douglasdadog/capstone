@@ -85,9 +85,6 @@ export default function AdminReportsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-black text-slate-900">Discrepancy Reports</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Reports submitted by scanning teams for Admin, SuperAdmin, and Sales review.
-          </p>
         </div>
         <button
           type="button"

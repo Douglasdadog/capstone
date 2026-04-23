@@ -74,18 +74,48 @@ export default function AdminManifestManager() {
     setUploading(false);
   }
 
-  async function onStatusChange(id: string, status: ManifestRow["status"]) {
-    const response = await fetch(`/api/admin/manifests/${id}`, {
+  async function onStatusChange(row: ManifestRow, status: ManifestRow["status"]) {
+    let discrepancyNotes: string | null = null;
+    let discrepancyReason: string | null = null;
+    let discrepancyComments: string | null = null;
+    if (status === "Discrepancies") {
+      const reasonInput = window.prompt("Discrepancy reason (required):", "Short Shipment");
+      if (reasonInput === null) return;
+      discrepancyReason = reasonInput.trim();
+      if (!discrepancyReason) {
+        setError("Discrepancy reason is required.");
+        return;
+      }
+
+      const commentsInput = window.prompt("Discrepancy comment/details (required):", "");
+      if (commentsInput === null) return;
+      discrepancyComments = commentsInput.trim();
+      if (!discrepancyComments) {
+        setError("Discrepancy comment is required.");
+        return;
+      }
+      discrepancyNotes = `${discrepancyReason}: ${discrepancyComments}`;
+    }
+
+    const response = await fetch(`/api/admin/manifests/${row.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status })
+      body: JSON.stringify({
+        status,
+        discrepancy_reason: status === "Discrepancies" ? discrepancyReason : null,
+        discrepancy_comments: status === "Discrepancies" ? discrepancyComments : null,
+        discrepancy_notes: status === "Discrepancies" ? discrepancyNotes : null
+      })
     });
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as { error?: string; manifest?: ManifestRow };
     if (!response.ok) {
       setError(payload.error ?? "Unable to update status.");
       return;
     }
-    setManifests((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)));
+    setError(null);
+    setManifests((prev) =>
+      prev.map((entry) => (entry.id === row.id ? payload.manifest ?? { ...entry, status, discrepancy_notes: discrepancyNotes } : entry))
+    );
   }
 
   function onDrop(event: DragEvent<HTMLLabelElement>) {
@@ -222,7 +252,7 @@ export default function AdminManifestManager() {
                   <td className="px-3 py-2">
                     <select
                       value={row.status}
-                      onChange={(event) => void onStatusChange(row.id, event.target.value as ManifestRow["status"])}
+                      onChange={(event) => void onStatusChange(row, event.target.value as ManifestRow["status"])}
                       className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
                     >
                       {statusOptions.map((status) => (

@@ -71,11 +71,6 @@ export default function Sidebar() {
     void loadSession();
   }, []);
 
-  async function handleLogout() {
-    await fetch("/api/auth/demo-logout", { method: "POST" });
-    window.location.href = "/login";
-  }
-
   const activeHref = resolveActiveHref(pathname, visibleLinks);
 
   return (
@@ -118,13 +113,6 @@ export default function Sidebar() {
           })
         )}
       </nav>
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-6 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all hover:bg-slate-50 hover:shadow"
-      >
-        Logout (Demo)
-      </button>
     </aside>
   );
 }
