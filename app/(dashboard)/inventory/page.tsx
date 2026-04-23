@@ -266,12 +266,8 @@ export default function InventoryPage() {
       }
     }
     void buildScannerAccess();
-    const interval = window.setInterval(() => {
-      void buildScannerAccess();
-    }, 12000);
     return () => {
       active = false;
-      window.clearInterval(interval);
     };
   }, []);
 

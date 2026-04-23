@@ -42,7 +42,6 @@ export default function AdminManifestManager() {
   const [error, setError] = useState<string | null>(null);
   const [manifests, setManifests] = useState<ManifestRow[]>([]);
   const [reports, setReports] = useState<ManifestReportRow[]>([]);
-  const [reportsWarning, setReportsWarning] = useState<string | null>(null);
 
   const loadManifests = useCallback(async () => {
     setLoading(true);
@@ -62,7 +61,6 @@ export default function AdminManifestManager() {
     const response = await fetch("/api/admin/manifests/reports");
     const payload = (await response.json()) as {
       error?: string;
-      warning?: string;
       reports?: ManifestReportRow[];
     };
     if (!response.ok) {
@@ -70,7 +68,6 @@ export default function AdminManifestManager() {
       return;
     }
     setReports(payload.reports ?? []);
-    setReportsWarning(payload.warning ?? null);
   }, []);
 
   useEffect(() => {
@@ -279,11 +276,6 @@ export default function AdminManifestManager() {
             Refresh
           </button>
         </div>
-        {reportsWarning ? (
-          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            {reportsWarning}
-          </p>
-        ) : null}
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-700">

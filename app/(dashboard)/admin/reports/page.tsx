@@ -15,7 +15,6 @@ type ManifestReportRow = {
 export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
   const [reports, setReports] = useState<ManifestReportRow[]>([]);
 
   const loadReports = useCallback(async () => {
@@ -23,7 +22,6 @@ export default function AdminReportsPage() {
     const response = await fetch("/api/admin/manifests/reports");
     const payload = (await response.json()) as {
       error?: string;
-      warning?: string;
       reports?: ManifestReportRow[];
     };
     if (!response.ok) {
@@ -32,7 +30,6 @@ export default function AdminReportsPage() {
       return;
     }
     setError(null);
-    setWarning(payload.warning ?? null);
     setReports(payload.reports ?? []);
     setLoading(false);
   }, []);
@@ -59,9 +56,6 @@ export default function AdminReportsPage() {
         </button>
       </div>
 
-      {warning ? (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">{warning}</p>
-      ) : null}
       {error ? <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">

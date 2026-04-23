@@ -61,7 +61,7 @@ function LoginContent() {
       <section className="relative z-10 w-full max-w-md rounded-2xl border border-white/15 bg-white/95 p-7 shadow-2xl backdrop-blur">
         {showFreshBanner ? (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Demo data was reset. You can sign in again with the sample accounts below.
+            Demo data was reset. You can sign in again with your account credentials.
           </div>
         ) : null}
 
@@ -70,15 +70,6 @@ function LoginContent() {
           Login
         </h1>
         <p className="mt-2 text-sm text-slate-600">Access your WIS mission control workspace.</p>
-
-        <div className="mt-5 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-amber-50 p-4 text-xs text-slate-700">
-          <p className="font-semibold uppercase tracking-wide text-slate-800">Sample test accounts</p>
-          <p>Super Admin: superadmin@wis.local / superadmin123</p>
-          <p>Admin: admin@wis.local / admin123</p>
-          <p>Inventory: inventory@wis.local / inventory123</p>
-          <p>Sales: sales@wis.local / sales123</p>
-          <p>Client: client@wis.local / client123</p>
-        </div>
 
         <div className="mt-5 grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
           <button

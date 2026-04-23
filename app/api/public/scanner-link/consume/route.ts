@@ -1,9 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createHmac, timingSafeEqual } from "crypto";
 
-function makeToken(): string {
-  return randomUUID().replace(/-/g, "");
+function getScannerSigningSecret(): string {
+  return (
+    process.env.SCANNER_LINK_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    "wis-scanner-dev-secret"
+  );
+}
+
+function safeEqual(left: string, right: string): boolean {
+  const leftBuf = Buffer.from(left);
+  const rightBuf = Buffer.from(right);
+  if (leftBuf.length !== rightBuf.length) return false;
+  return timingSafeEqual(leftBuf, rightBuf);
+}
+
+function verifySignedToken(token: string): { valid: boolean; expired: boolean } {
+  const [payloadPart, signaturePart] = token.split(".");
+  if (!payloadPart || !signaturePart) {
+    return { valid: false, expired: false };
+  }
+  const expected = createHmac("sha256", getScannerSigningSecret()).update(payloadPart).digest("base64url");
+  if (!safeEqual(signaturePart, expected)) {
+    return { valid: false, expired: false };
+  }
+  try {
+    const parsed = JSON.parse(Buffer.from(payloadPart, "base64url").toString("utf8")) as { exp?: number };
+    if (typeof parsed.exp !== "number") return { valid: false, expired: false };
+    return { valid: true, expired: parsed.exp <= Date.now() };
+  } catch {
+    return { valid: false, expired: false };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -12,36 +41,8 @@ export async function POST(request: NextRequest) {
   if (!token) {
     return NextResponse.json({ error: "Token is required." }, { status: 400 });
   }
-
-  const supabase = createAdminClient();
-  const now = new Date();
-  const nowIso = now.toISOString();
-  const { data: row, error: readError } = await supabase
-    .from("scanner_access_tokens")
-    .select("id, used_at, expires_at")
-    .eq("token", token)
-    .maybeSingle<{ id: string; used_at: string | null; expires_at: string }>();
-
-  if (readError) return NextResponse.json({ error: readError.message }, { status: 500 });
-  if (!row) return NextResponse.json({ error: "Invalid scanner link." }, { status: 404 });
-  if (row.used_at) return NextResponse.json({ error: "This scanner link was already used." }, { status: 410 });
-  if (new Date(row.expires_at).getTime() <= now.getTime()) {
-    return NextResponse.json({ error: "This scanner link has expired." }, { status: 410 });
-  }
-
-  const { error: markError } = await supabase
-    .from("scanner_access_tokens")
-    .update({ used_at: nowIso })
-    .eq("id", row.id)
-    .is("used_at", null);
-  if (markError) return NextResponse.json({ error: markError.message }, { status: 500 });
-
-  const nextToken = makeToken();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-  const { error: createNextError } = await supabase
-    .from("scanner_access_tokens")
-    .insert({ token: nextToken, expires_at: expiresAt, created_by: "public-consume" });
-  if (createNextError) return NextResponse.json({ error: createNextError.message }, { status: 500 });
-
+  const result = verifySignedToken(token);
+  if (!result.valid) return NextResponse.json({ error: "Invalid scanner link." }, { status: 404 });
+  if (result.expired) return NextResponse.json({ error: "This scanner link has expired." }, { status: 410 });
   return NextResponse.json({ ok: true });
 }

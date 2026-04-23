@@ -114,46 +114,6 @@ export default function SuperAdminGovernancePanel() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
-        <h2 className="text-lg font-semibold text-slate-900">Permission matrix</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Clear split between operational Admin actions and governance-level Super Admin controls.
-        </p>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-700">
-              <tr>
-                <th className="px-4 py-3">Feature</th>
-                <th className="px-4 py-3">Admin</th>
-                <th className="px-4 py-3">Super Admin</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-t border-slate-100">
-                <td className="px-4 py-3">Create users with role assignment</td>
-                <td className="px-4 py-3 text-red-600">No</td>
-                <td className="px-4 py-3 text-emerald-700">Yes</td>
-              </tr>
-              <tr className="border-t border-slate-100">
-                <td className="px-4 py-3">Grant extra route permissions</td>
-                <td className="px-4 py-3 text-red-600">No</td>
-                <td className="px-4 py-3 text-emerald-700">Yes</td>
-              </tr>
-              <tr className="border-t border-slate-100">
-                <td className="px-4 py-3">Approve MFA reset security requests</td>
-                <td className="px-4 py-3 text-red-600">No</td>
-                <td className="px-4 py-3 text-emerald-700">Yes</td>
-              </tr>
-              <tr className="border-t border-slate-100">
-                <td className="px-4 py-3">Manage operational manifests</td>
-                <td className="px-4 py-3 text-emerald-700">Yes</td>
-                <td className="px-4 py-3 text-emerald-700">Yes</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
         <h2 className="text-lg font-semibold text-slate-900">Privileged security requests</h2>
         <p className="mt-1 text-sm text-slate-600">
           Review pending MFA reset requests. Each approval requires typed confirmation and a documented reason.
