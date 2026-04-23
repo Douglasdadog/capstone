@@ -12,7 +12,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
-        <Toaster position="top-right" richColors />
+        <Toaster
+          position="top-center"
+          richColors
+          offset={16}
+          mobileOffset={{ top: "max(12px, env(safe-area-inset-top, 0px))" }}
+          toastOptions={{
+            classNames: {
+              toast: "w-full max-w-full min-w-0 justify-center text-center sm:text-left sm:justify-start"
+            }
+          }}
+        />
       </body>
     </html>
   );

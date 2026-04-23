@@ -33,3 +33,24 @@ body {
   background-clip: content-box;
   background-color: rgba(100, 116, 139, 0.45);
 }
+
+/* Sonner: centered stack + viewport width cap so toasts are not cropped on phones */
+[data-sonner-toaster][data-x-position="center"] {
+  width: min(calc(100vw - 1.25rem), 22rem);
+  max-width: min(calc(100vw - 1.25rem), 22rem);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  box-sizing: border-box;
+}
+
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast][data-styled="true"] {
+  width: 100% !important;
+  max-width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  [data-sonner-toaster][data-x-position="center"] [data-sonner-toast][data-styled="true"] {
+    justify-content: flex-start;
+  }
+}
