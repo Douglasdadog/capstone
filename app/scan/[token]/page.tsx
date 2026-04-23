@@ -56,7 +56,11 @@ export default function PublicScannerPage() {
           label: device.label || `Camera ${index + 1}`
         }));
         setCameraDevices(mapped);
-        if (mapped.length > 0) setSelectedCameraId(mapped[0].id);
+        if (mapped.length > 0) {
+          const rearCandidate =
+            mapped.find((item) => /back|rear|environment/i.test(item.label)) ?? mapped[0];
+          setSelectedCameraId(rearCandidate.id);
+        }
       } catch {
         if (alive) setCameraDevices([]);
       }
@@ -80,17 +84,46 @@ export default function PublicScannerPage() {
     if (cameraOn || !allowed) return;
     setError(null);
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode("public-scanner", { verbose: false });
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("public-scanner", {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      });
       scannerRef.current = scanner;
-      await scanner.start(
-        selectedCameraId || { facingMode: "environment" },
-        { fps: 10, disableFlip: false },
-        (decodedText) => setLastScan(decodedText.trim()),
-        () => undefined
-      );
+      try {
+        await scanner.start(
+          selectedCameraId || { facingMode: "environment" },
+          { fps: 12, disableFlip: true },
+          (decodedText) => setLastScan(decodedText.trim()),
+          () => undefined
+        );
+      } catch {
+        await scanner.start(
+          { facingMode: { ideal: "environment" } },
+          { fps: 10, disableFlip: true },
+          (decodedText) => setLastScan(decodedText.trim()),
+          () => undefined
+        );
+      }
       setCameraOn(true);
     } catch (scanError) {
+      if (scannerRef.current) {
+        await scannerRef.current.stop().catch(() => undefined);
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+      setCameraOn(false);
       setError(scanError instanceof Error ? scanError.message : "Unable to start camera.");
     }
   }

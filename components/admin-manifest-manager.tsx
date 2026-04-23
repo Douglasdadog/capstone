@@ -31,6 +31,9 @@ export default function AdminManifestManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manifests, setManifests] = useState<ManifestRow[]>([]);
+  const [pendingDiscrepancyRow, setPendingDiscrepancyRow] = useState<ManifestRow | null>(null);
+  const [discrepancyReasonInput, setDiscrepancyReasonInput] = useState("Short Shipment");
+  const [discrepancyCommentInput, setDiscrepancyCommentInput] = useState("");
 
   const loadManifests = useCallback(async () => {
     setLoading(true);
@@ -79,22 +82,11 @@ export default function AdminManifestManager() {
     let discrepancyReason: string | null = null;
     let discrepancyComments: string | null = null;
     if (status === "Discrepancies") {
-      const reasonInput = window.prompt("Discrepancy reason (required):", "Short Shipment");
-      if (reasonInput === null) return;
-      discrepancyReason = reasonInput.trim();
-      if (!discrepancyReason) {
-        setError("Discrepancy reason is required.");
-        return;
-      }
-
-      const commentsInput = window.prompt("Discrepancy comment/details (required):", "");
-      if (commentsInput === null) return;
-      discrepancyComments = commentsInput.trim();
-      if (!discrepancyComments) {
-        setError("Discrepancy comment is required.");
-        return;
-      }
-      discrepancyNotes = `${discrepancyReason}: ${discrepancyComments}`;
+      setError(null);
+      setPendingDiscrepancyRow(row);
+      setDiscrepancyReasonInput("Short Shipment");
+      setDiscrepancyCommentInput(row.discrepancy_notes?.trim() || "");
+      return;
     }
 
     const response = await fetch(`/api/admin/manifests/${row.id}`, {
@@ -102,9 +94,9 @@ export default function AdminManifestManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status,
-        discrepancy_reason: status === "Discrepancies" ? discrepancyReason : null,
-        discrepancy_comments: status === "Discrepancies" ? discrepancyComments : null,
-        discrepancy_notes: status === "Discrepancies" ? discrepancyNotes : null
+        discrepancy_reason: null,
+        discrepancy_comments: null,
+        discrepancy_notes: null
       })
     });
     const payload = (await response.json()) as { error?: string; manifest?: ManifestRow };
@@ -116,6 +108,49 @@ export default function AdminManifestManager() {
     setManifests((prev) =>
       prev.map((entry) => (entry.id === row.id ? payload.manifest ?? { ...entry, status, discrepancy_notes: discrepancyNotes } : entry))
     );
+  }
+
+  async function submitDiscrepancyStatus() {
+    if (!pendingDiscrepancyRow) return;
+    const discrepancyReason = discrepancyReasonInput.trim();
+    const discrepancyComments = discrepancyCommentInput.trim();
+    if (!discrepancyReason) {
+      setError("Discrepancy reason is required.");
+      return;
+    }
+    if (!discrepancyComments) {
+      setError("Discrepancy comment is required.");
+      return;
+    }
+
+    const discrepancyNotes = `${discrepancyReason}: ${discrepancyComments}`;
+    const response = await fetch(`/api/admin/manifests/${pendingDiscrepancyRow.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "Discrepancies",
+        discrepancy_reason: discrepancyReason,
+        discrepancy_comments: discrepancyComments,
+        discrepancy_notes: discrepancyNotes
+      })
+    });
+    const payload = (await response.json()) as { error?: string; manifest?: ManifestRow };
+    if (!response.ok) {
+      setError(payload.error ?? "Unable to update status.");
+      return;
+    }
+
+    setError(null);
+    setManifests((prev) =>
+      prev.map((entry) =>
+        entry.id === pendingDiscrepancyRow.id
+          ? payload.manifest ?? { ...entry, status: "Discrepancies", discrepancy_notes: discrepancyNotes }
+          : entry
+      )
+    );
+    setPendingDiscrepancyRow(null);
+    setDiscrepancyReasonInput("Short Shipment");
+    setDiscrepancyCommentInput("");
   }
 
   function onDrop(event: DragEvent<HTMLLabelElement>) {
@@ -269,6 +304,64 @@ export default function AdminManifestManager() {
         </table>
       </div>
 
+      {pendingDiscrepancyRow ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-900">Mark as Discrepancy</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Add reason and details for <span className="font-semibold">{pendingDiscrepancyRow.file_name}</span>.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reason</span>
+                <select
+                  value={discrepancyReasonInput}
+                  onChange={(event) => setDiscrepancyReasonInput(event.target.value)}
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="Short Shipment">Short Shipment</option>
+                  <option value="Damaged on Arrival">Damaged on Arrival</option>
+                  <option value="Mismatched Part">Mismatched Part</option>
+                  <option value="Over-shipment">Over-shipment</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Comment / Details
+                </span>
+                <textarea
+                  rows={4}
+                  value={discrepancyCommentInput}
+                  onChange={(event) => setDiscrepancyCommentInput(event.target.value)}
+                  placeholder="Describe what was found during verification..."
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDiscrepancyRow(null);
+                  setDiscrepancyReasonInput("Short Shipment");
+                  setDiscrepancyCommentInput("");
+                }}
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitDiscrepancyStatus()}
+                className="rounded-md bg-gradient-to-r from-red-600 to-amber-600 px-3 py-2 text-sm font-semibold text-white hover:from-red-700 hover:to-amber-700"
+              >
+                Save Discrepancy
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

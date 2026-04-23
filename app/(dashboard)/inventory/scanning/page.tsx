@@ -87,7 +87,8 @@ export default function InventoryScanningPage() {
         }));
         setCameraDevices(mapped);
         if (mapped.length > 0) {
-          setSelectedCameraId((prev) => prev || mapped[0].id);
+          const rearCandidate = mapped.find((item) => /back|rear|environment/i.test(item.label)) ?? mapped[0];
+          setSelectedCameraId((prev) => prev || rearCandidate.id);
         }
       } catch {
         if (alive) {
@@ -222,36 +223,64 @@ export default function InventoryScanningPage() {
     if (cameraOn) return;
     setError(null);
     try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode("manifest-scanner", { verbose: false });
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("manifest-scanner", {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ]
+      });
       scannerRef.current = scanner;
 
-      await scanner.start(
-        selectedCameraId || { facingMode: "environment" },
-        {
-          fps: 10,
-          disableFlip: false
-        },
-        (decodedText: string, decodedResult: unknown) => {
-          const code = decodedText.trim();
-          setLastScan(code);
-          flashHighlight(decodedResult);
-          if (partKeys.length === 0) {
-            setActivePart(code);
-            return;
-          }
-          const matchedPart = matchScannedPart(code);
-          if (!matchedPart) return;
-          setActivePart(matchedPart);
-          setScanned((prev) => {
-            const current = prev[matchedPart] ?? 0;
-            const max = byPart[matchedPart];
-            if (current >= max) return prev;
-            return { ...prev, [matchedPart]: current + 1 };
-          });
-        },
-        () => undefined
-      );
+      const onScan = (decodedText: string, decodedResult: unknown) => {
+        const code = decodedText.trim();
+        setLastScan(code);
+        flashHighlight(decodedResult);
+        if (partKeys.length === 0) {
+          setActivePart(code);
+          return;
+        }
+        const matchedPart = matchScannedPart(code);
+        if (!matchedPart) return;
+        setActivePart(matchedPart);
+        setScanned((prev) => {
+          const current = prev[matchedPart] ?? 0;
+          const max = byPart[matchedPart];
+          if (current >= max) return prev;
+          return { ...prev, [matchedPart]: current + 1 };
+        });
+      };
+
+      try {
+        await scanner.start(
+          selectedCameraId || { facingMode: "environment" },
+          {
+            fps: 12,
+            disableFlip: true
+          },
+          onScan,
+          () => undefined
+        );
+      } catch {
+        await scanner.start(
+          { facingMode: { ideal: "environment" } },
+          {
+            fps: 10,
+            disableFlip: true
+          },
+          onScan,
+          () => undefined
+        );
+      }
       setCameraOn(true);
     } catch (scanError) {
       if (scannerRef.current) {
