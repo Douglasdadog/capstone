@@ -26,6 +26,9 @@ type ShipmentOrderCreatedEmailInput = {
 
 export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
   const subject = `WIS Shipment Update: ${input.trackingNumber} is ${input.status}`;
+  const etaLabel = input.eta ? new Date(input.eta).toLocaleString() : "To be confirmed";
+  const detailsLabel =
+    input.itemDetails && input.itemDetails.length > 0 ? input.itemDetails.join(" | ") : "Shipment details not available";
 
   const text = [
     `Hello ${input.clientName},`,
@@ -36,8 +39,8 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
     `Route: ${input.origin} -> ${input.destination}`,
     input.providerName ? `3PL Provider: ${input.providerName}` : null,
     input.waybillNumber ? `Waybill/Trucker #: ${input.waybillNumber}` : null,
-    input.itemDetails && input.itemDetails.length > 0 ? `Shipment Details: ${input.itemDetails.join(" | ")}` : null,
-    input.eta ? `ETA: ${new Date(input.eta).toLocaleString()}` : null,
+    `Shipment Details: ${detailsLabel}`,
+    `ETA: ${etaLabel}`,
     "",
     input.trackingLink
       ? `Track your shipment here (no login required): ${input.trackingLink}`
@@ -50,25 +53,47 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
     .join("\n");
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
-      <h2 style="margin-bottom: 8px;">Shipment Status Update</h2>
-      <p>Hello <strong>${input.clientName}</strong>,</p>
-      <p>Your shipment status has been updated.</p>
-      <table style="border-collapse: collapse; margin: 12px 0;">
-        <tr><td style="padding: 6px 10px; font-weight: 600;">Tracking</td><td style="padding: 6px 10px;">${input.trackingNumber}</td></tr>
-        <tr><td style="padding: 6px 10px; font-weight: 600;">Status</td><td style="padding: 6px 10px;">${input.status}</td></tr>
-        <tr><td style="padding: 6px 10px; font-weight: 600;">Route</td><td style="padding: 6px 10px;">${input.origin} &rarr; ${input.destination}</td></tr>
-        ${input.providerName ? `<tr><td style="padding: 6px 10px; font-weight: 600;">3PL Provider</td><td style="padding: 6px 10px;">${input.providerName}</td></tr>` : ""}
-        ${input.waybillNumber ? `<tr><td style="padding: 6px 10px; font-weight: 600;">Waybill / Trucker #</td><td style="padding: 6px 10px;">${input.waybillNumber}</td></tr>` : ""}
-        ${
-          input.itemDetails && input.itemDetails.length > 0
-            ? `<tr><td style="padding: 6px 10px; font-weight: 600;">Shipment Details</td><td style="padding: 6px 10px;">${input.itemDetails.join(" | ")}</td></tr>`
-            : ""
-        }
-        ${input.eta ? `<tr><td style="padding: 6px 10px; font-weight: 600;">ETA</td><td style="padding: 6px 10px;">${new Date(input.eta).toLocaleString()}</td></tr>` : ""}
+    <div style="margin: 0; padding: 24px; background: #f8fafc; font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 680px; margin: 0 auto; border-collapse: collapse; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
+        <tr>
+          <td style="padding: 16px 20px; background: #0f172a; color: #f8fafc;">
+            <div style="font-size: 18px; font-weight: 700;">Warehouse Information System</div>
+            <div style="font-size: 12px; opacity: 0.9; margin-top: 2px;">Imarflex • Shipment Notification</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 20px;">
+            <h2 style="margin: 0 0 10px; font-size: 22px; color: #111827;">Shipment Status Update</h2>
+            <p style="margin: 0 0 12px;">Hello <strong>${input.clientName}</strong>,</p>
+            <p style="margin: 0 0 16px; color: #334155;">Your shipment status has been updated.</p>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-bottom: 14px; background: #f8fafc; border: 1px solid #e2e8f0;">
+              <tr><td style="padding: 8px 10px; font-weight: 700; width: 150px; color: #334155;">Tracking Number</td><td style="padding: 8px 10px; color: #111827;">${input.trackingNumber}</td></tr>
+              <tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">Status</td><td style="padding: 8px 10px; color: #111827;">${input.status}</td></tr>
+              <tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">Route</td><td style="padding: 8px 10px; color: #111827;">${input.origin} &rarr; ${input.destination}</td></tr>
+              ${input.providerName ? `<tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">3PL Provider</td><td style="padding: 8px 10px; color: #111827;">${input.providerName}</td></tr>` : ""}
+              ${input.waybillNumber ? `<tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">Waybill / Trucker #</td><td style="padding: 8px 10px; color: #111827;">${input.waybillNumber}</td></tr>` : ""}
+              <tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">Shipment Details</td><td style="padding: 8px 10px; color: #111827;">${detailsLabel}</td></tr>
+              <tr><td style="padding: 8px 10px; font-weight: 700; color: #334155;">ETA</td><td style="padding: 8px 10px; color: #111827;">${etaLabel}</td></tr>
+            </table>
+
+            ${
+              input.trackingLink
+                ? `<div style="margin: 0 0 12px; padding: 10px 12px; border: 1px solid #e2e8f0; background: #f8fafc;">
+                     <p style="margin: 0 0 4px; font-weight: 700; color: #111827;">Track your shipment</p>
+                     <p style="margin: 0; color: #334155;">No login required: <a href="${input.trackingLink}" style="color: #0f172a; font-weight: 700;">${input.trackingLink}</a></p>
+                   </div>`
+                : `<p style="margin: 0 0 12px; color: #334155;">You can track your shipment anytime through the WIS Client Portal.</p>`
+            }
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 14px 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+            Regards,<br/>
+            Warehouse Information System (WIS) • Imarflex
+          </td>
+        </tr>
       </table>
-      ${input.trackingLink ? `<p>Track your shipment (no login required): <a href="${input.trackingLink}">${input.trackingLink}</a></p>` : "<p>You can track your shipment anytime through the WIS Client Portal.</p>"}
-      <p style="margin-top: 16px;">Regards,<br/>Warehouse Information System</p>
     </div>
   `;
 
