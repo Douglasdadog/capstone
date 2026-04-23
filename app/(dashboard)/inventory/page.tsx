@@ -364,23 +364,23 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
           <button
             type="button"
             onClick={() => void refreshMonitoringStatus()}
             disabled={refreshingStatus}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
             {refreshingStatus ? "Refreshing..." : "Refresh Status"}
           </button>
         </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Live Feed Status</p>
+        <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Live Feed Status</p>
             <p
-              className={`mt-1 text-sm font-semibold ${
+              className={`mt-1 text-xs font-semibold leading-tight ${
                 realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
                   ? "text-green-700"
                   : realtimeStatus === "CONNECTING"
@@ -397,40 +397,40 @@ export default function InventoryPage() {
                   : "Disconnected (Monitoring Device Not Connected)"}
             </p>
             {iotConnectionStatus === "disconnected" && iotStatusNote ? (
-              <p className="mt-1 text-[11px] text-slate-500">{iotStatusNote}</p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-slate-500">{iotStatusNote}</p>
             ) : null}
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Battery Temp</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Battery Temp</p>
+            <p className="mt-1 text-xs font-semibold text-slate-800">
               {temperatureC !== null ? `${temperatureC.toFixed(1)} C` : "--"}
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Humidity</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Humidity</p>
+            <p className="mt-1 text-xs font-semibold text-slate-800">
               {humidityPct !== null ? `${humidityPct.toFixed(1)} %RH` : "--"}
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">IoT Uptime</p>
-            <p className={`mt-1 text-sm font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">IoT Uptime</p>
+            <p className={`mt-1 text-xs font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
               {formatUptime(iotUptimeSeconds, iotConnectionStatus !== "connected")}
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Last Inventory Event</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Last Inventory Event</p>
+            <p className="mt-1 text-xs font-semibold text-slate-800">
               {lastKnownInventoryEvent ? lastKnownInventoryEvent.toLocaleString() : "No event yet"}
             </p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Alerts Today</p>
-            <p className="mt-1 text-sm font-semibold text-slate-800">{alertsTodayCount}</p>
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Alerts Today</p>
+            <p className="mt-1 text-xs font-semibold text-slate-800">{alertsTodayCount}</p>
           </article>
-          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Low Stock Items</p>
-            <p className={`mt-1 text-sm font-semibold ${lowStockCount > 0 ? "text-red-700" : "text-green-700"}`}>
+          <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Low Stock Items</p>
+            <p className={`mt-1 text-xs font-semibold ${lowStockCount > 0 ? "text-red-700" : "text-green-700"}`}>
               {lowStockCount}
             </p>
           </article>
