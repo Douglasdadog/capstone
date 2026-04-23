@@ -43,7 +43,7 @@ export default function InventoryPage() {
   const [newThreshold, setNewThreshold] = useState("5");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
-  const [lastSensorEventAt, setLastSensorEventAt] = useState<string | null>(null);
+  const [lastInventoryEventAt, setLastInventoryEventAt] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<"CONNECTING" | "CONNECTED" | "DISCONNECTED">("CONNECTING");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
@@ -62,11 +62,11 @@ export default function InventoryPage() {
       );
     }).length;
   }, [alerts]);
-  const lastKnownSensorEvent = useMemo(() => {
-    if (lastSensorEventAt) return new Date(lastSensorEventAt);
+  const lastKnownInventoryEvent = useMemo(() => {
+    if (lastInventoryEventAt) return new Date(lastInventoryEventAt);
     if (alerts.length > 0) return new Date(alerts[0].created_at);
     return null;
-  }, [alerts, lastSensorEventAt]);
+  }, [alerts, lastInventoryEventAt]);
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -179,7 +179,7 @@ export default function InventoryPage() {
           `Sensor updated ${data.item?.name}. Quantity is now ${data.item?.newQuantity}. No replenishment needed.`
         );
       }
-      setLastSensorEventAt(new Date().toISOString());
+      setLastInventoryEventAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sensor simulation failed.");
     } finally {
@@ -311,10 +311,10 @@ export default function InventoryPage() {
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">IoT Monitoring</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Connection</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Live Feed Status</p>
             <p
               className={`mt-1 text-sm font-semibold ${
                 realtimeStatus === "CONNECTED"
@@ -325,16 +325,16 @@ export default function InventoryPage() {
               }`}
             >
               {realtimeStatus === "CONNECTED"
-                ? "Connected (Simulated)"
+                ? "Connected (Inventory Realtime)"
                 : realtimeStatus === "CONNECTING"
                   ? "Connecting..."
                   : "Disconnected"}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Last Sensor Event</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Last Inventory Event</p>
             <p className="mt-1 text-sm font-semibold text-slate-800">
-              {lastKnownSensorEvent ? lastKnownSensorEvent.toLocaleString() : "No event yet"}
+              {lastKnownInventoryEvent ? lastKnownInventoryEvent.toLocaleString() : "No event yet"}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
