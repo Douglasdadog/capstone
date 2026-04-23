@@ -43,8 +43,30 @@ export default function InventoryPage() {
   const [newThreshold, setNewThreshold] = useState("5");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
+  const [lastSensorEventAt, setLastSensorEventAt] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<"CONNECTING" | "CONNECTED" | "DISCONNECTED">("CONNECTING");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
+  const lowStockCount = useMemo(
+    () => items.filter((item) => item.quantity < item.threshold_limit).length,
+    [items]
+  );
+  const alertsTodayCount = useMemo(() => {
+    const today = new Date();
+    return alerts.filter((alert) => {
+      const created = new Date(alert.created_at);
+      return (
+        created.getFullYear() === today.getFullYear() &&
+        created.getMonth() === today.getMonth() &&
+        created.getDate() === today.getDate()
+      );
+    }).length;
+  }, [alerts]);
+  const lastKnownSensorEvent = useMemo(() => {
+    if (lastSensorEventAt) return new Date(lastSensorEventAt);
+    if (alerts.length > 0) return new Date(alerts[0].created_at);
+    return null;
+  }, [alerts, lastSensorEventAt]);
 
   const fetchInventory = useCallback(async () => {
     const response = await fetch("/api/inventory");
@@ -111,9 +133,20 @@ export default function InventoryPage() {
           void fetchAlerts();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeStatus("CONNECTED");
+          return;
+        }
+        if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeStatus("DISCONNECTED");
+          return;
+        }
+        setRealtimeStatus("CONNECTING");
+      });
 
     return () => {
+      setRealtimeStatus("DISCONNECTED");
       void supabase.removeChannel(channel);
     };
   }, [fetchAlerts, fetchInventory, supabase]);
@@ -146,6 +179,7 @@ export default function InventoryPage() {
           `Sensor updated ${data.item?.name}. Quantity is now ${data.item?.newQuantity}. No replenishment needed.`
         );
       }
+      setLastSensorEventAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sensor simulation failed.");
     } finally {
@@ -274,6 +308,46 @@ export default function InventoryPage() {
         >
           Open Mobile Scanner
         </Link>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">IoT Monitoring</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Connection</p>
+            <p
+              className={`mt-1 text-sm font-semibold ${
+                realtimeStatus === "CONNECTED"
+                  ? "text-green-700"
+                  : realtimeStatus === "CONNECTING"
+                    ? "text-amber-700"
+                    : "text-red-700"
+              }`}
+            >
+              {realtimeStatus === "CONNECTED"
+                ? "Connected (Simulated)"
+                : realtimeStatus === "CONNECTING"
+                  ? "Connecting..."
+                  : "Disconnected"}
+            </p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Last Sensor Event</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">
+              {lastKnownSensorEvent ? lastKnownSensorEvent.toLocaleString() : "No event yet"}
+            </p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Alerts Today</p>
+            <p className="mt-1 text-sm font-semibold text-slate-800">{alertsTodayCount}</p>
+          </article>
+          <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Low Stock Items</p>
+            <p className={`mt-1 text-sm font-semibold ${lowStockCount > 0 ? "text-red-700" : "text-green-700"}`}>
+              {lowStockCount}
+            </p>
+          </article>
+        </div>
       </div>
 
       {canManageProducts ? (
