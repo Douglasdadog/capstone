@@ -364,44 +364,6 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
-        <p className="mt-1 text-xs text-slate-600">
-          Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
-        </p>
-        <div className="mt-2 flex flex-wrap items-start gap-3">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
-            {scannerQrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-24 w-24 rounded" />
-            ) : (
-              <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">Generating QR...</div>
-            )}
-          </div>
-          <div className="min-w-[240px] flex-1">
-            <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
-              {scannerUrl ?? "Preparing scanner link..."}
-            </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => void copyScannerLink()}
-                disabled={!scannerUrl}
-                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-              >
-                {copyScannerLinkLabel}
-              </button>
-              <Link
-                href="/inventory/scanning"
-                className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
-              >
-                Open Scanner
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
@@ -472,6 +434,44 @@ export default function InventoryPage() {
               {lowStockCount}
             </p>
           </article>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
+        <p className="mt-1 text-xs text-slate-600">
+          Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
+        </p>
+        <div className="mt-2 flex flex-wrap items-start gap-3">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
+            {scannerQrDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-24 w-24 rounded" />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">Generating QR...</div>
+            )}
+          </div>
+          <div className="min-w-[240px] flex-1">
+            <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
+              {scannerUrl ?? "Preparing scanner link..."}
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => void copyScannerLink()}
+                disabled={!scannerUrl}
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {copyScannerLinkLabel}
+              </button>
+              <Link
+                href="/inventory/scanning"
+                className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+              >
+                Open Scanner
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
