@@ -437,101 +437,134 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
-        <p className="mt-1 text-xs text-slate-600">
-          Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
-        </p>
-        <div className="mt-2 flex flex-wrap items-start gap-3">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
-            {scannerQrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-24 w-24 rounded" />
-            ) : (
-              <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">Generating QR...</div>
-            )}
-          </div>
-          <div className="min-w-[240px] flex-1">
-            <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
-              {scannerUrl ?? "Preparing scanner link..."}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
+            <p className="mt-1 text-xs text-slate-600">
+              Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
             </p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => void copyScannerLink()}
-                disabled={!scannerUrl}
-                className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-              >
-                {copyScannerLinkLabel}
-              </button>
-              <Link
-                href="/inventory/scanning"
-                className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
-              >
-                Open Scanner
-              </Link>
+            <div className="mt-2 flex flex-wrap items-start gap-3">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
+                {scannerQrDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-24 w-24 rounded" />
+                ) : (
+                  <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">
+                    Generating QR...
+                  </div>
+                )}
+              </div>
+              <div className="min-w-[240px] flex-1">
+                <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
+                  {scannerUrl ?? "Preparing scanner link..."}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => void copyScannerLink()}
+                    disabled={!scannerUrl}
+                    className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {copyScannerLinkLabel}
+                  </button>
+                  <Link
+                    href="/inventory/scanning"
+                    className="rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100"
+                  >
+                    Open Scanner
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {canManageProducts ? (
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Manual Add Product</h2>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                  placeholder="Product name"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <select
+                  value={newCategory}
+                  onChange={(event) => setNewCategory(event.target.value as "Maintenance Free" | "Conventional")}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="Maintenance Free">Maintenance Free</option>
+                  <option value="Conventional">Conventional</option>
+                </select>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={newQuantity}
+                  onChange={(event) => setNewQuantity(event.target.value)}
+                  placeholder="Quantity"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={newThreshold}
+                  onChange={(event) => setNewThreshold(event.target.value)}
+                  placeholder="Threshold"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+                <input
+                  type="url"
+                  value={newImageUrl}
+                  onChange={(event) => setNewImageUrl(event.target.value)}
+                  placeholder="Image URL (optional)"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void addProduct()}
+                  disabled={addingProduct}
+                  className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {addingProduct ? "Adding..." : "Add Product"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div>
+          <div className="rounded-lg border border-slate-200 bg-white">
+            <div className="border-b border-slate-200 px-4 py-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+                Auto Replenishment Alerts
+              </h2>
+            </div>
+            <div className="space-y-3 p-4">
+              {alerts.map((alert) => (
+                <article key={alert.id} className="rounded-md border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm font-medium text-red-800">{alert.item_name}</p>
+                  <p className="mt-1 text-xs text-red-700">
+                    Qty {alert.reading_quantity} | Threshold {alert.threshold_limit}
+                  </p>
+                  <p className="mt-1 text-xs text-red-700">{alert.message}</p>
+                  <p className="mt-2 text-[11px] text-red-600">
+                    {new Date(alert.created_at).toLocaleString()}
+                  </p>
+                </article>
+              ))}
+              {!loading && alerts.length === 0 ? (
+                <p className="text-sm text-slate-500">No alerts logged yet.</p>
+              ) : null}
             </div>
           </div>
         </div>
       </div>
-
-      {canManageProducts ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Manual Add Product</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <input
-              type="text"
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              placeholder="Product name"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <select
-              value={newCategory}
-              onChange={(event) => setNewCategory(event.target.value as "Maintenance Free" | "Conventional")}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="Maintenance Free">Maintenance Free</option>
-              <option value="Conventional">Conventional</option>
-            </select>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={newQuantity}
-              onChange={(event) => setNewQuantity(event.target.value)}
-              placeholder="Quantity"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={newThreshold}
-              onChange={(event) => setNewThreshold(event.target.value)}
-              placeholder="Threshold"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-            <input
-              type="url"
-              value={newImageUrl}
-              onChange={(event) => setNewImageUrl(event.target.value)}
-              placeholder="Image URL (optional)"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => void addProduct()}
-              disabled={addingProduct}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-            >
-              {addingProduct ? "Adding..." : "Add Product"}
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {message ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -545,8 +578,8 @@ export default function InventoryPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-6">
+        <div>
           <div className="rounded-lg border border-slate-200 bg-white">
             <div className="border-b border-slate-200 px-4 py-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
@@ -689,33 +722,6 @@ export default function InventoryPage() {
                   ) : null}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="rounded-lg border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 px-4 py-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                Auto Replenishment Alerts
-              </h2>
-            </div>
-            <div className="space-y-3 p-4">
-              {alerts.map((alert) => (
-                <article key={alert.id} className="rounded-md border border-red-200 bg-red-50 p-3">
-                  <p className="text-sm font-medium text-red-800">{alert.item_name}</p>
-                  <p className="mt-1 text-xs text-red-700">
-                    Qty {alert.reading_quantity} | Threshold {alert.threshold_limit}
-                  </p>
-                  <p className="mt-1 text-xs text-red-700">{alert.message}</p>
-                  <p className="mt-2 text-[11px] text-red-600">
-                    {new Date(alert.created_at).toLocaleString()}
-                  </p>
-                </article>
-              ))}
-              {!loading && alerts.length === 0 ? (
-                <p className="text-sm text-slate-500">No alerts logged yet.</p>
-              ) : null}
             </div>
           </div>
         </div>
