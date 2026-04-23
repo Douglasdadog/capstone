@@ -37,49 +37,30 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
+    let reportRows: Array<{
+      id: string;
+      manifest_id: string;
+      reason: string;
+      comments: string | null;
+      reported_by: string;
+      created_at: string;
+      manifests: unknown;
+    }> = [];
+
     const { data, error } = await supabase
       .from("manifest_reports")
       .select("id, manifest_id, reason, comments, reported_by, created_at, manifests(file_name)")
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (error) {
-      if (!isMissingManifestReportsTable(error.message)) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      const { data: manifests, error: manifestError } = await supabase
-        .from("manifests")
-        .select("id, file_name, uploaded_by, discrepancy_notes, updated_at, created_at")
-        .eq("status", "Discrepancies")
-        .order("updated_at", { ascending: false })
-        .limit(100);
-
-      if (manifestError) {
-        return NextResponse.json({ error: manifestError.message }, { status: 500 });
-      }
-
-      const fallbackReports: ReportRow[] = (manifests ?? []).map((manifest) => {
-        const parsed = parseNotes(manifest.discrepancy_notes ?? null);
-        return {
-          id: `fallback-${manifest.id}`,
-          manifest_id: manifest.id,
-          reason: parsed.reason,
-          comments: parsed.comments,
-          reported_by: String(manifest.uploaded_by ?? "Unknown"),
-          created_at: String(manifest.updated_at ?? manifest.created_at ?? new Date().toISOString()),
-          file_name: String(manifest.file_name ?? "")
-        };
-      });
-
-      return NextResponse.json({
-        reports: fallbackReports,
-        warning:
-          "Showing fallback reports from manifest discrepancy notes. Create `manifest_reports` table for full report history."
-      });
+    if (error && !isMissingManifestReportsTable(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!error) {
+      reportRows = (data ?? []) as typeof reportRows;
     }
 
-    const reports: ReportRow[] = (data ?? []).map((row) => {
+    const reports: ReportRow[] = reportRows.map((row) => {
       const manifest = Array.isArray(row.manifests) ? row.manifests[0] : row.manifests;
       return {
         id: row.id,
@@ -94,7 +75,39 @@ export async function GET(request: NextRequest) {
             : null
       };
     });
-    return NextResponse.json({ reports });
+
+    const existingManifestIds = new Set(reports.map((row) => row.manifest_id));
+    const { data: manifests, error: manifestError } = await supabase
+      .from("manifests")
+      .select("id, file_name, uploaded_by, discrepancy_notes, updated_at, created_at")
+      .not("discrepancy_notes", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+
+    if (manifestError) {
+      return NextResponse.json({ error: manifestError.message }, { status: 500 });
+    }
+
+    const fallbackReports: ReportRow[] = (manifests ?? [])
+      .filter((manifest) => String(manifest.discrepancy_notes ?? "").trim().length > 0)
+      .filter((manifest) => !existingManifestIds.has(String(manifest.id)))
+      .map((manifest) => {
+        const parsed = parseNotes(manifest.discrepancy_notes ?? null);
+        return {
+          id: `fallback-${manifest.id}`,
+          manifest_id: manifest.id,
+          reason: parsed.reason,
+          comments: parsed.comments,
+          reported_by: String(manifest.uploaded_by ?? "Unknown"),
+          created_at: String(manifest.updated_at ?? manifest.created_at ?? new Date().toISOString()),
+          file_name: String(manifest.file_name ?? "")
+        };
+      });
+
+    const mergedReports = [...reports, ...fallbackReports].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    return NextResponse.json({ reports: mergedReports });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to load discrepancy reports." },
