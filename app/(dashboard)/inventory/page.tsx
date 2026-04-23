@@ -74,6 +74,7 @@ export default function InventoryPage() {
   const [lastEnvironmentReadingAt, setLastEnvironmentReadingAt] = useState<string | null>(null);
   const [iotConnectionStatus, setIotConnectionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -137,6 +138,18 @@ export default function InventoryPage() {
     setIotConnectionStatus(data.connectionStatus === "connected" ? "connected" : "disconnected");
     setIotStatusNote(typeof data.note === "string" && data.note.length > 0 ? data.note : null);
   }, []);
+
+  async function refreshMonitoringStatus() {
+    try {
+      setRefreshingStatus(true);
+      setError(null);
+      await fetchMonitoring();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refresh monitoring status.");
+    } finally {
+      setRefreshingStatus(false);
+    }
+  }
 
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchInventory(), fetchAlerts(), fetchMonitoring()]);
@@ -370,7 +383,17 @@ export default function InventoryPage() {
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Inventory Monitoring</h2>
+          <button
+            type="button"
+            onClick={() => void refreshMonitoringStatus()}
+            disabled={refreshingStatus}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {refreshingStatus ? "Refreshing..." : "Refresh Status"}
+          </button>
+        </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <article className="rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs uppercase tracking-wide text-slate-500">Live Feed Status</p>
@@ -389,7 +412,7 @@ export default function InventoryPage() {
                   : "Connected (Standby)"
                 : realtimeStatus === "CONNECTING"
                   ? "Connecting..."
-                  : "Disconnected (IoT Not Connected)"}
+                  : "Disconnected (Monitoring Device Not Connected)"}
             </p>
             {iotConnectionStatus === "disconnected" && iotStatusNote ? (
               <p className="mt-1 text-[11px] text-slate-500">{iotStatusNote}</p>
