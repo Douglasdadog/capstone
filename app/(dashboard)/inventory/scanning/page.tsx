@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
+import { feedbackScanSuccess } from "@/lib/feedback/scan-success";
 
 type Manifest = {
   id: string;
@@ -304,9 +305,7 @@ export default function InventoryScanningPage() {
     }
     lastScanNotifyRef.current = { value, at: now };
     setLastScan(value);
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate([80, 40, 120]);
-    }
+    feedbackScanSuccess();
   }
 
   async function startScanner() {

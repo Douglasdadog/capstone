@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
+import { feedbackScanSuccess } from "@/lib/feedback/scan-success";
 
 export default function PublicScannerPage() {
   const params = useParams<{ token: string }>();
@@ -89,9 +90,7 @@ export default function PublicScannerPage() {
     }
     lastScanNotifyRef.current = { value, at: now };
     setLastScan(value);
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate([80, 40, 120]);
-    }
+    feedbackScanSuccess();
   }
 
   async function startScanner() {
