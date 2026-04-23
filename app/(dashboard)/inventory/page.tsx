@@ -75,7 +75,6 @@ export default function InventoryPage() {
   const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
-  const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
   const [copyScannerLinkLabel, setCopyScannerLinkLabel] = useState("Copy Link");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
@@ -211,27 +210,8 @@ export default function InventoryPage() {
   }, [refreshAll]);
 
   useEffect(() => {
-    let active = true;
-    async function generateScannerQr() {
-      if (typeof window === "undefined") return;
-      const url = `${window.location.origin}/inventory/scanning`;
-      setScannerUrl(url);
-      try {
-        const qrcode = await import("qrcode");
-        const dataUrl = await qrcode.toDataURL(url, { width: 220, margin: 1 });
-        if (active) {
-          setScannerQrDataUrl(dataUrl);
-        }
-      } catch {
-        if (active) {
-          setScannerQrDataUrl(null);
-        }
-      }
-    }
-    void generateScannerQr();
-    return () => {
-      active = false;
-    };
+    if (typeof window === "undefined") return;
+    setScannerUrl(`${window.location.origin}/inventory/scanning`);
   }, []);
 
   useEffect(() => {
@@ -621,19 +601,9 @@ export default function InventoryPage() {
           <div className="rounded-lg border border-slate-200 bg-white p-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
             <p className="mt-1 text-xs text-slate-600">
-              Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
+              Open this link on your phone to launch the BYOD barcode scanner instantly.
             </p>
             <div className="mt-2 flex flex-wrap items-start gap-3">
-              <div className="rounded-md border border-slate-200 bg-slate-50 p-1.5">
-                {scannerQrDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-24 w-24 rounded" />
-                ) : (
-                  <div className="flex h-24 w-24 items-center justify-center text-[11px] text-slate-500">
-                    Generating QR...
-                  </div>
-                )}
-              </div>
               <div className="min-w-[220px] flex-1">
                 <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
                   {scannerUrl ?? "Preparing scanner link..."}

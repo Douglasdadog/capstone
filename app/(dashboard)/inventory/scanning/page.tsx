@@ -108,13 +108,27 @@ export default function InventoryScanningPage() {
   async function startScanner() {
     if (cameraOn) return;
     setError(null);
-    const { Html5Qrcode } = await import("html5-qrcode");
+    const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
     const scanner = new Html5Qrcode("manifest-scanner");
     scannerRef.current = scanner;
 
     await scanner.start(
       selectedCameraId || { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 220, height: 120 } },
+      {
+        fps: 10,
+        qrbox: { width: 320, height: 120 },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR
+        ]
+      },
       (decodedText: string) => {
         const code = decodedText.trim();
         setLastScan(code);
@@ -162,14 +176,14 @@ export default function InventoryScanningPage() {
   return (
     <section className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h1 className="text-xl font-black text-slate-900">Mobile Scanning</h1>
+        <h1 className="text-xl font-black text-slate-900">Mobile Barcode Scanning</h1>
         {manifest ? (
           <p className="mt-1 text-xs text-slate-600">
             Manifest: {manifest.file_name} • {new Date(manifest.created_at).toLocaleString()}
           </p>
         ) : (
           <p className="mt-1 text-xs text-slate-600">
-            Quick scan mode is active. Camera scanning works even without a pending manifest.
+            Quick scan mode is active. Barcode scanning works even without a pending manifest.
           </p>
         )}
       </div>
@@ -181,7 +195,7 @@ export default function InventoryScanningPage() {
           </p>
         ) : (
           <p className="text-base font-semibold text-slate-800">
-            Last decoded code: <span className="text-red-600">{activePart || "N/A"}</span>
+            Last decoded barcode: <span className="text-red-600">{activePart || "N/A"}</span>
           </p>
         )}
         {lastScan ? <p className="mt-1 text-xs text-slate-500">Last scan: {lastScan}</p> : null}
