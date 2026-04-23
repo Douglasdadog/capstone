@@ -147,10 +147,10 @@ export default function LogisticsPage() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">Logistics Module</h1>
-        <p className="text-slate-600">
+        <h1 className="text-xl font-bold">Logistics Module</h1>
+        <p className="text-sm text-slate-600">
           Manage shipment statuses. Setting status to In Transit triggers the Communication Module.
         </p>
       </div>
@@ -166,35 +166,51 @@ export default function LogisticsPage() {
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-slate-700">
-            <tr>
-              <th className="px-4 py-3">Tracking #</th>
-              <th className="px-4 py-3">Client</th>
-              <th className="px-4 py-3">Route</th>
-              <th className="px-4 py-3">3PL Provider</th>
-              <th className="px-4 py-3">Waybill/Trucker #</th>
-              <th className="px-4 py-3">ETA</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Tracking Link</th>
-              <th className="px-4 py-3">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shipments.map((shipment) => {
-              const trackingUrl = shipment.tracking_token && origin ? `${origin}/track/${shipment.tracking_token}` : null;
-              return (
-              <tr key={shipment.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-medium text-slate-800">{shipment.tracking_number}</td>
-                <td className="px-4 py-3">
-                  <p>{shipment.client_name}</p>
-                  <p className="text-xs text-slate-500">{shipment.client_email}</p>
-                </td>
-                <td className="px-4 py-3">
-                  {shipment.origin} &rarr; {shipment.destination}
-                </td>
-                <td className="px-4 py-3">
+      <div className="space-y-2.5">
+        {shipments.map((shipment) => {
+          const trackingUrl = shipment.tracking_token && origin ? `${origin}/track/${shipment.tracking_token}` : null;
+          return (
+            <article key={shipment.id} className="rounded-md border border-slate-200 bg-white p-2.5">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
+                <div>
+                  <p className="text-xs text-slate-500">Tracking #</p>
+                  <p className="text-xs font-semibold text-slate-800">{shipment.tracking_number}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Updated</p>
+                  <p className="text-[11px] text-slate-700">{new Date(shipment.updated_at).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <p className="text-xs text-slate-500">Client</p>
+                  <p className="text-xs text-slate-800">{shipment.client_name}</p>
+                  <p className="break-all text-[11px] text-slate-500">{shipment.client_email}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-slate-500">Route</p>
+                  <p className="text-xs text-slate-800">
+                    {shipment.origin} &rarr; {shipment.destination}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">Status</label>
+                  <select
+                    value={shipment.status}
+                    onChange={(event) => void updateStatus(shipment.id, event.target.value as ShipmentStatus)}
+                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Transit">In Transit</option>
+                    <option value="Delivered">Delivered</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">3PL Provider</label>
                   <input
                     value={shipment.provider_name ?? ""}
                     onChange={(event) =>
@@ -205,10 +221,12 @@ export default function LogisticsPage() {
                       )
                     }
                     placeholder="e.g. LBC / J&T / Trucking Co"
-                    className="w-44 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
                   />
-                </td>
-                <td className="px-4 py-3">
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">Waybill / Trucker #</label>
                   <input
                     value={shipment.waybill_number ?? ""}
                     onChange={(event) =>
@@ -219,11 +237,13 @@ export default function LogisticsPage() {
                       )
                     }
                     placeholder="Waybill / Trucker #"
-                    className="w-40 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
                   />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-slate-500">ETA</label>
+                  <div className="flex gap-1.5">
                     <input
                       type="datetime-local"
                       value={shipment.eta ? new Date(shipment.eta).toISOString().slice(0, 16) : ""}
@@ -236,56 +256,37 @@ export default function LogisticsPage() {
                           )
                         )
                       }
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs"
+                      className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-xs"
                     />
                     <button
                       type="button"
                       onClick={() => void saveDetails(shipment)}
                       disabled={rowSavingId === shipment.id}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
                     >
                       {rowSavingId === shipment.id ? "Saving..." : "Save"}
                     </button>
                   </div>
-                </td>
-                <td className="px-4 py-3">
-                  <select
-                    value={shipment.status}
-                    onChange={(event) => void updateStatus(shipment.id, event.target.value as ShipmentStatus)}
-                    className="rounded-md border border-slate-300 px-2 py-1 text-sm"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Transit">In Transit</option>
-                    <option value="Delivered">Delivered</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="space-y-1">
-                    <button
-                      type="button"
-                      onClick={() => void generateTrackingLink(shipment.id)}
-                      className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100"
-                    >
-                      Generate Link
-                    </button>
-                    {trackingUrl ? <p className="max-w-[240px] break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-slate-500">
-                  {new Date(shipment.updated_at).toLocaleString()}
-                </td>
-              </tr>
-              );
-            })}
-            {!loading && shipments.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-slate-500" colSpan={9}>
-                  No shipments found.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+                </div>
+              </div>
+
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                <button
+                  type="button"
+                  onClick={() => void generateTrackingLink(shipment.id)}
+                  className="rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                >
+                  Generate Link
+                </button>
+                {trackingUrl ? <p className="mt-1 break-all text-[11px] text-slate-500">{trackingUrl}</p> : null}
+              </div>
+            </article>
+          );
+        })}
+
+        {!loading && shipments.length === 0 ? (
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">No shipments found.</div>
+        ) : null}
       </div>
     </section>
   );
