@@ -48,7 +48,6 @@ export const SIDEBAR_LINKS: NavLink[] = [
   { href: "/admin/settings", label: "Settings" },
   { href: "/inventory", label: "Inventory", grantable: true },
   { href: "/sales", label: "Sales", grantable: true },
-  { href: "/logistics", label: "Logistics", grantable: true },
   { href: "/client", label: "Client", grantable: true },
   { href: "/settings", label: "Settings" }
 ];

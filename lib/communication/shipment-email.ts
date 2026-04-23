@@ -7,6 +7,9 @@ type ShipmentEmailInput = {
   destination: string;
   eta?: string | null;
   trackingLink?: string | null;
+  providerName?: string | null;
+  waybillNumber?: string | null;
+  itemDetails?: string[];
 };
 
 type ShipmentOrderCreatedEmailInput = {
@@ -31,6 +34,9 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
     `Tracking Number: ${input.trackingNumber}`,
     `Status: ${input.status}`,
     `Route: ${input.origin} -> ${input.destination}`,
+    input.providerName ? `3PL Provider: ${input.providerName}` : null,
+    input.waybillNumber ? `Waybill/Trucker #: ${input.waybillNumber}` : null,
+    input.itemDetails && input.itemDetails.length > 0 ? `Shipment Details: ${input.itemDetails.join(" | ")}` : null,
     input.eta ? `ETA: ${new Date(input.eta).toLocaleString()}` : null,
     "",
     input.trackingLink
@@ -52,6 +58,13 @@ export function buildShipmentStatusEmail(input: ShipmentEmailInput) {
         <tr><td style="padding: 6px 10px; font-weight: 600;">Tracking</td><td style="padding: 6px 10px;">${input.trackingNumber}</td></tr>
         <tr><td style="padding: 6px 10px; font-weight: 600;">Status</td><td style="padding: 6px 10px;">${input.status}</td></tr>
         <tr><td style="padding: 6px 10px; font-weight: 600;">Route</td><td style="padding: 6px 10px;">${input.origin} &rarr; ${input.destination}</td></tr>
+        ${input.providerName ? `<tr><td style="padding: 6px 10px; font-weight: 600;">3PL Provider</td><td style="padding: 6px 10px;">${input.providerName}</td></tr>` : ""}
+        ${input.waybillNumber ? `<tr><td style="padding: 6px 10px; font-weight: 600;">Waybill / Trucker #</td><td style="padding: 6px 10px;">${input.waybillNumber}</td></tr>` : ""}
+        ${
+          input.itemDetails && input.itemDetails.length > 0
+            ? `<tr><td style="padding: 6px 10px; font-weight: 600;">Shipment Details</td><td style="padding: 6px 10px;">${input.itemDetails.join(" | ")}</td></tr>`
+            : ""
+        }
         ${input.eta ? `<tr><td style="padding: 6px 10px; font-weight: 600;">ETA</td><td style="padding: 6px 10px;">${new Date(input.eta).toLocaleString()}</td></tr>` : ""}
       </table>
       ${input.trackingLink ? `<p>Track your shipment (no login required): <a href="${input.trackingLink}">${input.trackingLink}</a></p>` : "<p>You can track your shipment anytime through the WIS Client Portal.</p>"}

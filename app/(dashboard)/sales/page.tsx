@@ -30,6 +30,9 @@ type OrderLine = {
   quantity: string;
 };
 
+const PROVIDER_OPTIONS = ["LBC", "J&T Express", "2GO", "DHL", "Ninja Van", "Flash Express", "Local Trucking"] as const;
+const DEFAULT_ORIGIN = "Imarflex Battery Mfg. Corp. F10, 118 Mercedes Ave, Pasig, Metro Manila";
+
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -50,8 +53,10 @@ export default function SalesPage() {
   const [orderLines, setOrderLines] = useState<OrderLine[]>([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
   const [newClientName, setNewClientName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
-  const [newOrigin, setNewOrigin] = useState("");
+  const [newOrigin, setNewOrigin] = useState(DEFAULT_ORIGIN);
   const [newDestination, setNewDestination] = useState("");
+  const [newProviderName, setNewProviderName] = useState<(typeof PROVIDER_OPTIONS)[number] | "">("");
+  const [newWaybillNumber, setNewWaybillNumber] = useState("");
   const [newEta, setNewEta] = useState("");
   const [origin, setOrigin] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ShipmentStatus>("All");
@@ -134,6 +139,10 @@ export default function SalesPage() {
       setError("Client name, email, origin, and destination are required.");
       return;
     }
+    if (newDestination.trim().length < 20) {
+      setError("Please provide a detailed destination address (house/building, street, city, province).");
+      return;
+    }
 
     const normalizedLines = orderLines
       .map((line) => ({
@@ -175,6 +184,8 @@ export default function SalesPage() {
           client_email: newClientEmail,
           origin: newOrigin,
           destination: newDestination,
+          provider_name: newProviderName || null,
+          waybill_number: newWaybillNumber.trim() || null,
           items: normalizedLines.map((line) => ({
             item_name: line.item_name,
             quantity: line.quantityNum
@@ -197,8 +208,10 @@ export default function SalesPage() {
       setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.${emailNote}`);
       setNewClientName("");
       setNewClientEmail("");
-      setNewOrigin("");
+      setNewOrigin(DEFAULT_ORIGIN);
       setNewDestination("");
+      setNewProviderName("");
+      setNewWaybillNumber("");
       setOrderLines([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
       setNewEta("");
       await Promise.all([fetchShipments(), fetchInventoryOptions()]);
@@ -258,6 +271,10 @@ export default function SalesPage() {
       ),
     [shipments]
   );
+
+  function hoursBetween(dateIso: string): number {
+    return Math.max(0, Math.floor((Date.now() - new Date(dateIso).getTime()) / (1000 * 60 * 60)));
+  }
   const orderableItems = useMemo(
     () => inventoryItems.filter((item) => Number(item.quantity) > 0),
     [inventoryItems]
@@ -308,18 +325,21 @@ export default function SalesPage() {
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Origin</span>
             <input
               value={newOrigin}
-              onChange={(event) => setNewOrigin(event.target.value)}
-              placeholder="Origin"
+              readOnly
+              title="Default origin route for all orders"
               className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Destination</span>
-            <input
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Client Delivery Address
+            </span>
+            <textarea
               value={newDestination}
               onChange={(event) => setNewDestination(event.target.value)}
-              placeholder="Destination"
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+              placeholder="House/Building, Street, Barangay, City, Province, ZIP"
+              rows={2}
+              className="w-full resize-y rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
           <label className="space-y-1">
@@ -342,6 +362,41 @@ export default function SalesPage() {
             {creatingOrder ? "Creating..." : "Create Order"}
           </button>
         </div>
+        <div className="mt-1 grid gap-1.5 md:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">3PL Provider</span>
+            <select
+              value={newProviderName}
+              onChange={(event) => setNewProviderName(event.target.value as (typeof PROVIDER_OPTIONS)[number] | "")}
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            >
+              <option value="">Select provider (optional)</option>
+              {PROVIDER_OPTIONS.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Waybill / Trucker #
+            </span>
+            <input
+              value={newWaybillNumber}
+              onChange={(event) => setNewWaybillNumber(event.target.value)}
+              placeholder="Enter waybill or trucker reference (optional)"
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+            />
+          </label>
+        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Route default: origin is fixed to Imarflex. Destination should be the client&apos;s complete delivery address.
+        </p>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Orders are linked by email. If client email matches an existing account, that shipment appears in that
+          account&apos;s dashboard.
+        </p>
         <div className="mt-2 space-y-1.5">
           {orderLines.map((line, index) => {
             const selectedInventory = inventoryItems.find((item) => item.name === line.item_name);
@@ -510,15 +565,35 @@ export default function SalesPage() {
             {followUps.length === 0 ? (
               <p className="text-sm text-slate-500">No urgent follow-ups right now.</p>
             ) : (
-              followUps.slice(0, 8).map((row) => (
-                <div key={row.id} className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                  <p className="text-xs font-semibold text-amber-900">{row.tracking_number}</p>
-                  <p className="text-xs text-amber-800">
-                    {row.client_name} - {row.destination}
-                  </p>
-                  <p className="text-[11px] text-amber-700">Status: {row.status}</p>
-                </div>
-              ))
+              followUps.slice(0, 8).map((row) => {
+                const stagnantHours = hoursBetween(row.updated_at);
+                const overdueHours = row.eta ? hoursBetween(row.eta) : 0;
+                const overdue = Boolean(row.eta && new Date(row.eta).getTime() < Date.now());
+                return (
+                  <div key={row.id} className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                    <p className="text-xs font-semibold text-amber-900">{row.tracking_number}</p>
+                    <p className="text-xs text-amber-800">
+                      {row.client_name} - {row.destination}
+                    </p>
+                    <p className="text-[11px] text-amber-700">Status: {row.status}</p>
+                    <p className="mt-1 text-[11px] text-amber-800">
+                      Stagnant: <span className="font-semibold">{stagnantHours}h</span> since last update
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      ETA:{" "}
+                      {overdue ? (
+                        <>
+                          overdue by <span className="font-semibold">{overdueHours}h</span>
+                        </>
+                      ) : row.eta ? (
+                        `set (${new Date(row.eta).toLocaleString()})`
+                      ) : (
+                        "not set"
+                      )}
+                    </p>
+                  </div>
+                );
+              })
             )}
           </div>
         </article>

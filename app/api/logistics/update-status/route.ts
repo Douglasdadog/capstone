@@ -10,6 +10,14 @@ function isValidStatus(status: string): status is ShipmentStatus {
   return status === "Pending" || status === "In Transit" || status === "Delivered";
 }
 
+function normalizeStatus(status: string | undefined): ShipmentStatus | null {
+  if (!status) return null;
+  const value = status.trim();
+  if (value === "In-Transit") return "In Transit";
+  if (isValidStatus(value)) return value;
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
@@ -19,19 +27,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { shipmentId, status } = (await request.json()) as {
+  const { shipmentId, status: rawStatus } = (await request.json()) as {
     shipmentId?: string;
     status?: string;
   };
+  const status = normalizeStatus(rawStatus);
 
-  if (!shipmentId || !status || !isValidStatus(status)) {
+  if (!shipmentId || !status) {
     return NextResponse.json({ error: "shipmentId and valid status are required." }, { status: 400 });
   }
 
   const supabase = createAdminClient();
   const { data: shipment, error: fetchError } = await supabase
     .from("shipments")
-    .select("id, tracking_number, client_name, client_email, origin, destination, status, eta, tracking_token")
+    .select("id, tracking_number, client_name, client_email, origin, destination, status, eta, provider_name, waybill_number, tracking_token")
     .eq("id", shipmentId)
     .single();
 
@@ -57,8 +66,17 @@ export async function POST(request: NextRequest) {
 
   let communication: { sent: boolean; message: string } | null = null;
 
-  if (status === "In Transit") {
+  if (status === "In Transit" || status === "Delivered") {
     try {
+      const { data: shipmentItems } = await supabase
+        .from("shipment_items")
+        .select("part_number, quantity")
+        .eq("shipment_id", shipmentId)
+        .order("created_at", { ascending: true });
+      const itemDetails = (shipmentItems ?? [])
+        .map((item) => `${item.part_number} x${item.quantity}`)
+        .filter((value) => value.length > 0);
+
       const emailPayload = buildShipmentStatusEmail({
         clientName: shipment.client_name,
         clientEmail: shipment.client_email,
@@ -67,6 +85,9 @@ export async function POST(request: NextRequest) {
         origin: shipment.origin,
         destination: shipment.destination,
         eta: shipment.eta,
+        providerName: shipment.provider_name ?? null,
+        waybillNumber: shipment.waybill_number ?? null,
+        itemDetails,
         trackingLink: shipment.tracking_token
           ? `${request.nextUrl.origin}/track/${shipment.tracking_token}`
           : null

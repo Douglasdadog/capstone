@@ -124,7 +124,7 @@ export default function DashboardSwitch() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [regionFilter, setRegionFilter] = useState<"All" | "Visayas" | "Mindanao">("All");
+  const [regionFilter, setRegionFilter] = useState<"All" | "Luzon" | "Visayas" | "Mindanao">("All");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [iotEnv, setIotEnv] = useState<IotEnvironmentPayload | null>(null);
   const [iotEnvLoading, setIotEnvLoading] = useState(false);
@@ -708,10 +708,11 @@ export default function DashboardSwitch() {
             </h3>
             <select
               value={regionFilter}
-              onChange={(e) => setRegionFilter(e.target.value as "All" | "Visayas" | "Mindanao")}
+              onChange={(e) => setRegionFilter(e.target.value as "All" | "Luzon" | "Visayas" | "Mindanao")}
               className="rounded-md border border-slate-300 px-2 py-1 text-sm"
             >
               <option value="All">All Regions</option>
+              <option value="Luzon">Luzon</option>
               <option value="Visayas">Visayas</option>
               <option value="Mindanao">Mindanao</option>
             </select>

@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
     client_email?: string;
     origin?: string;
     destination?: string;
+    provider_name?: string | null;
+    waybill_number?: string | null;
     item_name?: string;
     quantity?: number;
     eta?: string | null;
@@ -49,6 +51,8 @@ export async function POST(request: NextRequest) {
   const client_email = normalizeText(body.client_email, 160).toLowerCase();
   const origin = normalizeText(body.origin, 120);
   const destination = normalizeText(body.destination, 120);
+  const provider_name = normalizeText(body.provider_name, 80);
+  const waybill_number = normalizeText(body.waybill_number, 80);
   const item_name = normalizeText(body.item_name, 120);
   const quantity = typeof body.quantity === "number" && Number.isFinite(body.quantity) ? Math.floor(body.quantity) : null;
   const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -58,6 +62,12 @@ export async function POST(request: NextRequest) {
   if (!client_name || !client_email || !origin || !destination) {
     return NextResponse.json(
       { error: "client_name, client_email, origin, and destination are required." },
+      { status: 400 }
+    );
+  }
+  if (destination.length < 20) {
+    return NextResponse.json(
+      { error: "destination must be a detailed delivery address (at least 20 characters)." },
       { status: 400 }
     );
   }
@@ -147,6 +157,8 @@ export async function POST(request: NextRequest) {
         client_email,
         origin,
         destination,
+        provider_name: provider_name || null,
+        waybill_number: waybill_number || null,
         item_name: primaryItemName,
         quantity: totalQuantity,
         eta,
