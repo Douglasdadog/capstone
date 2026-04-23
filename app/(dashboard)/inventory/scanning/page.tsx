@@ -222,29 +222,15 @@ export default function InventoryScanningPage() {
     if (cameraOn) return;
     setError(null);
     try {
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode("manifest-scanner", {
-        verbose: false,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.CODE_93,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.CODABAR
-        ]
-      });
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const scanner = new Html5Qrcode("manifest-scanner", { verbose: false });
       scannerRef.current = scanner;
 
       await scanner.start(
         selectedCameraId || { facingMode: "environment" },
         {
-          fps: 14,
-          aspectRatio: 1.7778,
-          disableFlip: true
+          fps: 10,
+          disableFlip: false
         },
         (decodedText: string, decodedResult: unknown) => {
           const code = decodedText.trim();

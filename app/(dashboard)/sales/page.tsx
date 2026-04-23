@@ -508,7 +508,10 @@ export default function SalesPage() {
                         <p className="text-xs text-slate-500">Tracking #</p>
                         <p className="text-sm font-semibold text-slate-900">{row.tracking_number}</p>
                         <p className="text-xs text-slate-500">
-                          {row.client_name} - {row.destination}
+                          Client: {row.client_name} ({row.client_email})
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Destination: {row.destination}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -566,7 +569,10 @@ export default function SalesPage() {
                   <div key={row.id} className="rounded-md border border-amber-200 bg-amber-50 p-2">
                     <p className="text-xs font-semibold text-amber-900">{row.tracking_number}</p>
                     <p className="text-xs text-amber-800">
-                      {row.client_name} - {row.destination}
+                      Client: {row.client_name} ({row.client_email})
+                    </p>
+                    <p className="text-xs text-amber-800">
+                      Destination: {row.destination}
                     </p>
                     <p className="text-[11px] text-amber-700">Status: {row.status}</p>
                     <p className="mt-1 text-[11px] text-amber-800">
