@@ -22,6 +22,8 @@ export default function InventoryScanningPage() {
   const [loading, setLoading] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraDevices, setCameraDevices] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [items, setItems] = useState<ManifestItem[]>([]);
   const [scanned, setScanned] = useState<Record<string, number>>({});
@@ -45,6 +47,34 @@ export default function InventoryScanningPage() {
       setLoading(false);
     }
     void loadPending();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadCameras() {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        const devices = await Html5Qrcode.getCameras();
+        if (!alive) return;
+
+        const mapped = devices.map((device, index) => ({
+          id: device.id,
+          label: device.label || `Camera ${index + 1}`
+        }));
+        setCameraDevices(mapped);
+        if (mapped.length > 0) {
+          setSelectedCameraId((prev) => prev || mapped[0].id);
+        }
+      } catch {
+        if (alive) {
+          setCameraDevices([]);
+        }
+      }
+    }
+    void loadCameras();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -83,7 +113,7 @@ export default function InventoryScanningPage() {
     scannerRef.current = scanner;
 
     await scanner.start(
-      { facingMode: "environment" },
+      selectedCameraId || { facingMode: "environment" },
       { fps: 10, qrbox: { width: 220, height: 120 } },
       (decodedText: string) => {
         const code = decodedText.trim();
@@ -155,6 +185,26 @@ export default function InventoryScanningPage() {
           </p>
         )}
         {lastScan ? <p className="mt-1 text-xs text-slate-500">Last scan: {lastScan}</p> : null}
+        {cameraDevices.length > 0 ? (
+          <div className="mt-2 max-w-sm">
+            <label htmlFor="camera-device" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Camera Device
+            </label>
+            <select
+              id="camera-device"
+              value={selectedCameraId}
+              onChange={(event) => setSelectedCameraId(event.target.value)}
+              disabled={cameraOn}
+              className="w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-700 disabled:opacity-60"
+            >
+              {cameraDevices.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
