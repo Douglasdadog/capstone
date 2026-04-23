@@ -88,6 +88,10 @@ export default function InventoryScanningPage() {
       (decodedText: string) => {
         const code = decodedText.trim();
         setLastScan(code);
+        if (partKeys.length === 0) {
+          setActivePart(code);
+          return;
+        }
         if (!byPart[code]) return;
         setActivePart(code);
         setScanned((prev) => {
@@ -125,28 +129,31 @@ export default function InventoryScanningPage() {
 
   if (loading) return <section className="rounded-xl border border-slate-200 bg-white p-5">Loading scanner...</section>;
 
-  if (!manifest) {
-    return (
-      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
-        <h1 className="text-xl font-bold text-slate-900">Manifest Scanning</h1>
-        <p className="text-sm text-slate-600">No pending manifest is assigned for verification right now.</p>
-      </section>
-    );
-  }
-
   return (
     <section className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h1 className="text-xl font-black text-slate-900">Mobile Scanning</h1>
-        <p className="mt-1 text-xs text-slate-600">
-          Manifest: {manifest.file_name} • {new Date(manifest.created_at).toLocaleString()}
-        </p>
+        {manifest ? (
+          <p className="mt-1 text-xs text-slate-600">
+            Manifest: {manifest.file_name} • {new Date(manifest.created_at).toLocaleString()}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-slate-600">
+            Quick scan mode is active. Camera scanning works even without a pending manifest.
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <p className="text-base font-semibold text-slate-800">
-          Part: <span className="text-red-600">{activePart || "N/A"}</span> | {activeScanned}/{activeTarget} Scanned
-        </p>
+        {manifest ? (
+          <p className="text-base font-semibold text-slate-800">
+            Part: <span className="text-red-600">{activePart || "N/A"}</span> | {activeScanned}/{activeTarget} Scanned
+          </p>
+        ) : (
+          <p className="text-base font-semibold text-slate-800">
+            Last decoded code: <span className="text-red-600">{activePart || "N/A"}</span>
+          </p>
+        )}
         {lastScan ? <p className="mt-1 text-xs text-slate-500">Last scan: {lastScan}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -170,50 +177,54 @@ export default function InventoryScanningPage() {
         {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Parts Counter</h2>
-        <div className="mt-3 space-y-2">
-          {partKeys.map((part) => {
-            const target = byPart[part];
-            const value = scanned[part] ?? 0;
-            const done = value === target;
-            return (
-              <button
-                key={part}
-                type="button"
-                onClick={() => setActivePart(part)}
-                className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left ${
-                  activePart === part ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
-                }`}
-              >
-                <span className="text-sm font-semibold text-slate-800">{part}</span>
-                <span className={`text-xs font-semibold ${done ? "text-green-600" : "text-slate-600"}`}>
-                  {value}/{target}
-                </span>
-              </button>
-            );
-          })}
+      {manifest ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Parts Counter</h2>
+          <div className="mt-3 space-y-2">
+            {partKeys.map((part) => {
+              const target = byPart[part];
+              const value = scanned[part] ?? 0;
+              const done = value === target;
+              return (
+                <button
+                  key={part}
+                  type="button"
+                  onClick={() => setActivePart(part)}
+                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left ${
+                    activePart === part ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-slate-800">{part}</span>
+                  <span className={`text-xs font-semibold ${done ? "text-green-600" : "text-slate-600"}`}>
+                    {value}/{target}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={() => void completeManifest()}
-          disabled={!allMatched}
-          className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
-        >
-          Complete Verification
-        </button>
-        {!allMatched ? (
-          <Link
-            href={`/inventory/scanning/report?manifestId=${manifest.id}`}
-            className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+      {manifest ? (
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void completeManifest()}
+            disabled={!allMatched}
+            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 disabled:opacity-60"
           >
-            Make Report
-          </Link>
-        ) : null}
-      </div>
+            Complete Verification
+          </button>
+          {!allMatched ? (
+            <Link
+              href={`/inventory/scanning/report?manifestId=${manifest.id}`}
+              className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+            >
+              Make Report
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
