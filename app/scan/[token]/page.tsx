@@ -4,24 +4,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
 
-type ScanToast = {
-  value: string;
-  token: number;
-};
-
 export default function PublicScannerPage() {
   const params = useParams<{ token: string }>();
   const token = useMemo(() => String(params?.token ?? ""), [params]);
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
-  const scanToastTimeoutRef = useRef<number | null>(null);
   const lastScanNotifyRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
   const [allowed, setAllowed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastScan, setLastScan] = useState<string | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraDevices, setCameraDevices] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState("");
-  const [scanToast, setScanToast] = useState<ScanToast | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -85,29 +79,19 @@ export default function PublicScannerPage() {
         void scannerRef.current.stop().catch(() => undefined);
         scannerRef.current.clear();
       }
-      if (scanToastTimeoutRef.current !== null) {
-        window.clearTimeout(scanToastTimeoutRef.current);
-      }
     };
   }, []);
 
-  function showScanToast(value: string) {
+  function recordLastScan(value: string) {
     const now = Date.now();
     if (value === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
       return;
     }
     lastScanNotifyRef.current = { value, at: now };
-
-    setScanToast({ value, token: Date.now() });
+    setLastScan(value);
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       navigator.vibrate([80, 40, 120]);
     }
-    if (scanToastTimeoutRef.current !== null) {
-      window.clearTimeout(scanToastTimeoutRef.current);
-    }
-    scanToastTimeoutRef.current = window.setTimeout(() => {
-      setScanToast(null);
-    }, 1300);
   }
 
   async function startScanner() {
@@ -136,7 +120,7 @@ export default function PublicScannerPage() {
           selectedCameraId || { facingMode: "environment" },
           { fps: 12, disableFlip: true },
           (decodedText) => {
-            showScanToast(decodedText.trim());
+            recordLastScan(decodedText.trim());
           },
           () => undefined
         );
@@ -145,7 +129,7 @@ export default function PublicScannerPage() {
           { facingMode: { ideal: "environment" } },
           { fps: 10, disableFlip: true },
           (decodedText) => {
-            showScanToast(decodedText.trim());
+            recordLastScan(decodedText.trim());
           },
           () => undefined
         );
@@ -186,6 +170,11 @@ export default function PublicScannerPage() {
     <section className="mx-auto max-w-3xl space-y-4 rounded-xl border border-slate-200 bg-white p-4">
       <h1 className="text-xl font-black text-slate-900">Phone Barcode Scanner</h1>
       <p className="text-sm text-slate-600">No login needed. Scan barcodes directly using this camera page.</p>
+      {lastScan ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Last scan: {lastScan}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-end gap-2">
         {cameraDevices.length > 0 ? (
           <select
@@ -220,14 +209,6 @@ export default function PublicScannerPage() {
       </div>
       <div className="relative h-[56vh] min-h-[320px] max-h-[720px] overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
         <Html5QrcodeMount id="public-scanner" />
-        {scanToast ? (
-          <div
-            key={scanToast.token}
-            className="pointer-events-none absolute left-1/2 top-3 z-20 w-[min(92%,420px)] -translate-x-1/2 rounded-md border border-emerald-300 bg-emerald-50/95 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm animate-scan-toast"
-          >
-            Scan successful: <span className="font-black">{scanToast.value}</span>
-          </div>
-        ) : null}
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <style jsx global>{`
@@ -246,27 +227,6 @@ export default function PublicScannerPage() {
           width: 100% !important;
           height: 100% !important;
           object-fit: contain;
-        }
-        @keyframes scan-toast {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, -6px);
-          }
-          15% {
-            opacity: 1;
-            transform: translate(-50%, 0);
-          }
-          85% {
-            opacity: 1;
-            transform: translate(-50%, 0);
-          }
-          100% {
-            opacity: 0;
-            transform: translate(-50%, -4px);
-          }
-        }
-        .animate-scan-toast {
-          animation: scan-toast 1300ms ease-out forwards;
         }
       `}</style>
     </section>
