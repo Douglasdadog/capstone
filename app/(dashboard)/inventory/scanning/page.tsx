@@ -61,6 +61,7 @@ export default function InventoryScanningPage() {
   const scannerViewportRef = useRef<HTMLDivElement | null>(null);
   const highlightTimeoutRef = useRef<number | null>(null);
   const scanToastTimeoutRef = useRef<number | null>(null);
+  const lastScanNotifyRef = useRef<{ value: string; at: number }>({ value: "", at: 0 });
   const [loading, setLoading] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,6 @@ export default function InventoryScanningPage() {
   const [items, setItems] = useState<ManifestItem[]>([]);
   const [scanned, setScanned] = useState<Record<string, number>>({});
   const [activePart, setActivePart] = useState<string>("");
-  const [lastScan, setLastScan] = useState<string | null>(null);
   const [highlightBox, setHighlightBox] = useState<HighlightBox | null>(null);
   const [scanToast, setScanToast] = useState<ScanToast | null>(null);
 
@@ -307,6 +307,12 @@ export default function InventoryScanningPage() {
   }
 
   function showScanToast(value: string) {
+    const now = Date.now();
+    if (value === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
+      return;
+    }
+    lastScanNotifyRef.current = { value, at: now };
+
     setScanToast({ value, token: Date.now() });
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       navigator.vibrate([80, 40, 120]);
@@ -343,7 +349,6 @@ export default function InventoryScanningPage() {
 
       const onScan = (decodedText: string, decodedResult: unknown) => {
         const code = decodedText.trim();
-        setLastScan(code);
         showScanToast(code);
         flashHighlight(decodedResult);
         if (partKeys.length === 0) {
@@ -441,7 +446,6 @@ export default function InventoryScanningPage() {
             Last decoded barcode: <span className="text-red-600">{activePart || "N/A"}</span>
           </p>
         )}
-        {lastScan ? <p className="mt-1 text-xs text-slate-500">Last scan: {lastScan}</p> : null}
         <div className="mt-3 flex flex-wrap items-end gap-2">
           {cameraDevices.length > 0 ? (
             <div className="min-w-[260px] max-w-sm flex-1">
