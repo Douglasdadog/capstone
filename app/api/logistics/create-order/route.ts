@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
   const itemNames = mergedItems.map((row) => row.item_name);
   const { data: inventoryRows, error: inventoryError } = await supabase
     .from("inventory")
-    .select("id, name, quantity")
+    .select("id, name, quantity, threshold_limit")
     .in("name", itemNames);
 
   if (inventoryError) {
@@ -99,17 +99,27 @@ export async function POST(request: NextRequest) {
   }
 
   const inventoryMap = new Map(
-    (inventoryRows ?? []).map((row) => [String(row.name), Number(row.quantity ?? 0)] as const)
+    (inventoryRows ?? []).map(
+      (row) =>
+        [
+          String(row.name),
+          {
+            id: String(row.id),
+            quantity: Number(row.quantity ?? 0),
+            threshold_limit: Number(row.threshold_limit ?? 0)
+          }
+        ] as const
+    )
   );
 
   for (const row of mergedItems) {
-    const available = inventoryMap.get(row.item_name);
-    if (available === undefined) {
+    const inventoryMatch = inventoryMap.get(row.item_name);
+    if (!inventoryMatch) {
       return NextResponse.json({ error: `Item not found in inventory: ${row.item_name}` }, { status: 400 });
     }
-    if (row.quantity > available) {
+    if (row.quantity > inventoryMatch.quantity) {
       return NextResponse.json(
-        { error: `Insufficient stock for ${row.item_name}. Available: ${available}.` },
+        { error: `Insufficient stock for ${row.item_name}. Available: ${inventoryMatch.quantity}.` },
         { status: 400 }
       );
     }
@@ -160,6 +170,54 @@ export async function POST(request: NextRequest) {
           { error: `Order created but items could not be saved: ${itemsError.message}` },
           { status: 500 }
         );
+      }
+
+      for (const row of mergedItems) {
+        const snapshot = inventoryMap.get(row.item_name);
+        if (!snapshot) continue;
+        const nextQty = snapshot.quantity - row.quantity;
+        const nowIso = new Date().toISOString();
+
+        const { data: updatedRows, error: stockError } = await supabase
+          .from("inventory")
+          .update({
+            quantity: nextQty,
+            updated_at: nowIso
+          })
+          .eq("id", snapshot.id)
+          .eq("quantity", snapshot.quantity)
+          .select("id, name, quantity, threshold_limit")
+          .limit(1);
+
+        if (stockError || !updatedRows || updatedRows.length === 0) {
+          return NextResponse.json(
+            {
+              error:
+                stockError?.message ??
+                `Order created but stock update failed for ${row.item_name}. Please refresh and retry.`
+            },
+            { status: 409 }
+          );
+        }
+
+        const updated = updatedRows[0];
+        if (Number(updated.quantity) < Number(updated.threshold_limit)) {
+          const { error: alertError } = await supabase.from("auto_replenishment_alerts").insert({
+            inventory_id: updated.id,
+            item_name: updated.name,
+            reading_quantity: updated.quantity,
+            threshold_limit: updated.threshold_limit,
+            status: "triggered",
+            message: `Auto replenishment triggered for ${updated.name}`
+          });
+
+          if (alertError) {
+            return NextResponse.json(
+              { error: `Order created and stock updated, but alert logging failed: ${alertError.message}` },
+              { status: 500 }
+            );
+          }
+        }
       }
 
       const trackingLink = data.tracking_token ? `${request.nextUrl.origin}/track/${data.tracking_token}` : null;
