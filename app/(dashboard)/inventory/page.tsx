@@ -75,6 +75,9 @@ export default function InventoryPage() {
   const [iotConnectionStatus, setIotConnectionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [scannerUrl, setScannerUrl] = useState<string | null>(null);
+  const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
+  const [copyScannerLinkLabel, setCopyScannerLinkLabel] = useState("Copy Link");
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const lowStockCount = useMemo(
@@ -151,6 +154,18 @@ export default function InventoryPage() {
     }
   }
 
+  async function copyScannerLink() {
+    if (!scannerUrl) return;
+    try {
+      await navigator.clipboard.writeText(scannerUrl);
+      setCopyScannerLinkLabel("Copied!");
+      setTimeout(() => setCopyScannerLinkLabel("Copy Link"), 1500);
+    } catch {
+      setCopyScannerLinkLabel("Copy failed");
+      setTimeout(() => setCopyScannerLinkLabel("Copy Link"), 1500);
+    }
+  }
+
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchInventory(), fetchAlerts(), fetchMonitoring()]);
   }, [fetchAlerts, fetchInventory, fetchMonitoring]);
@@ -175,6 +190,30 @@ export default function InventoryPage() {
 
     void initialLoad();
   }, [refreshAll]);
+
+  useEffect(() => {
+    let active = true;
+    async function generateScannerQr() {
+      if (typeof window === "undefined") return;
+      const url = `${window.location.origin}/inventory/scanning`;
+      setScannerUrl(url);
+      try {
+        const qrcode = await import("qrcode");
+        const dataUrl = await qrcode.toDataURL(url, { width: 220, margin: 1 });
+        if (active) {
+          setScannerQrDataUrl(dataUrl);
+        }
+      } catch {
+        if (active) {
+          setScannerQrDataUrl(null);
+        }
+      }
+    }
+    void generateScannerQr();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -380,6 +419,44 @@ export default function InventoryPage() {
         >
           Open Mobile Scanner
         </Link>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Scan via Phone</h2>
+        <p className="mt-1 text-xs text-slate-600">
+          Open this link on your phone or scan the QR code to launch the BYOD scanner instantly.
+        </p>
+        <div className="mt-3 flex flex-wrap items-start gap-4">
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+            {scannerQrDataUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={scannerQrDataUrl} alt="Scanner URL QR Code" className="h-40 w-40 rounded" />
+            ) : (
+              <div className="flex h-40 w-40 items-center justify-center text-xs text-slate-500">Generating QR...</div>
+            )}
+          </div>
+          <div className="min-w-[260px] flex-1">
+            <p className="break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              {scannerUrl ?? "Preparing scanner link..."}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void copyScannerLink()}
+                disabled={!scannerUrl}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {copyScannerLinkLabel}
+              </button>
+              <Link
+                href="/inventory/scanning"
+                className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+              >
+                Open Scanner Here
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-4">
