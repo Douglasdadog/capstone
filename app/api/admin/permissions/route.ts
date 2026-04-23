@@ -226,8 +226,15 @@ export async function PATCH(request: NextRequest) {
   try {
     if (supabaseMatch) {
       const admin = createAdminClient();
+      const { data: existingUserResult, error: existingUserError } = await admin.auth.admin.getUserById(supabaseMatch.id);
+      if (existingUserError) {
+        throw new Error(existingUserError.message);
+      }
+      const existingUserMetadata =
+        (existingUserResult.user?.user_metadata as Record<string, unknown> | undefined) ?? {};
       await admin.auth.admin.updateUserById(supabaseMatch.id, {
         user_metadata: {
+          ...existingUserMetadata,
           role: normalizedRole
         }
       });

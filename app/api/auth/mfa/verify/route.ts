@@ -8,7 +8,7 @@ import {
   serializeMfaSecrets,
   serializeSession
 } from "@/lib/auth/demo-auth";
-import { getSupabaseMfaMeta, saveSupabaseMfaSecret, verifyTotpToken } from "@/lib/auth/mfa";
+import { getSupabaseMfaMeta, resolveSupabaseUserIdByEmail, saveSupabaseMfaSecret, verifyTotpToken } from "@/lib/auth/mfa";
 import { delayOnFailure, enforceRateLimit } from "@/lib/security/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -29,14 +29,15 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedEmail = session.email.toLowerCase();
+  const supabaseUserId = session.supabaseUserId ?? (await resolveSupabaseUserIdByEmail(normalizedEmail));
   const pendingMap = readMfaSecrets(request.cookies.get(DEMO_MFA_PENDING_COOKIE)?.value);
   const persistedMap = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
 
   let secret: string | null = null;
   let isFirstEnrollment = false;
 
-  if (session.supabaseUserId) {
-    const supabaseMeta = await getSupabaseMfaMeta(session.supabaseUserId);
+  if (supabaseUserId) {
+    const supabaseMeta = await getSupabaseMfaMeta(supabaseUserId);
     if (supabaseMeta.secret) {
       secret = supabaseMeta.secret;
     } else if (persistedMap[normalizedEmail]) {
@@ -66,9 +67,9 @@ export async function POST(request: NextRequest) {
   }
 
   if (isFirstEnrollment) {
-    if (session.supabaseUserId) {
+    if (supabaseUserId) {
       try {
-        await saveSupabaseMfaSecret(session.supabaseUserId, secret);
+        await saveSupabaseMfaSecret(supabaseUserId, secret);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to save MFA secret to Supabase.";
         return NextResponse.json({ error: message }, { status: 500 });
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
     DEMO_SESSION_COOKIE,
     serializeSession({
       ...session,
+      supabaseUserId,
       mfaVerified: true
     }),
     {

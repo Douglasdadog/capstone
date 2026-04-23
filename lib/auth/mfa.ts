@@ -44,6 +44,21 @@ export async function getSupabaseMfaMeta(userId: string): Promise<SupabaseMfaMet
   return { enabled, secret };
 }
 
+export async function resolveSupabaseUserIdByEmail(email: string): Promise<string | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const admin = createAdminClient();
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) return null;
+    const found = (data?.users ?? []).find((user) => user.email?.toLowerCase() === normalizedEmail);
+    if (found?.id) return found.id;
+    if (!data?.users?.length) break;
+  }
+  return null;
+}
+
 export async function saveSupabaseMfaSecret(userId: string, secret: string) {
   const admin = createAdminClient();
   const { data, error: readError } = await admin.auth.admin.getUserById(userId);
