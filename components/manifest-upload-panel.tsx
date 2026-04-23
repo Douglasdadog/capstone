@@ -1,9 +1,17 @@
 "use client";
 
 import { DragEvent, useState } from "react";
+import { toast } from "sonner";
+
+export type ManifestUploadSuccessInfo = {
+  id: string;
+  fileName: string;
+  inserted: number;
+  uploadedBy: string;
+};
 
 type ManifestUploadPanelProps = {
-  onUploadSuccess?: () => void | Promise<void>;
+  onUploadSuccess?: (info: ManifestUploadSuccessInfo) => void | Promise<void>;
   /** Inventory sidebar: tighter typography and padding */
   compact?: boolean;
 };
@@ -25,20 +33,49 @@ export default function ManifestUploadPanel({ onUploadSuccess, compact = false }
       method: "POST",
       body: formData
     });
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as {
+      error?: string;
+      inserted?: number;
+      manifest?: { id: string; file_name: string; uploaded_by: string };
+    };
     if (!response.ok) {
-      setError(payload.error ?? "Manifest upload failed.");
+      const msg = payload.error ?? "Manifest upload failed.";
+      setError(msg);
+      toast.error(msg);
       setUploading(false);
       return;
     }
+
+    const inserted = typeof payload.inserted === "number" ? payload.inserted : 0;
+    const manifest = payload.manifest;
+    const fileLabel = manifest?.file_name ?? file.name;
+
+    setUploading(false);
+    if (manifest?.id) {
+      await onUploadSuccess?.({
+        id: String(manifest.id),
+        fileName: fileLabel,
+        inserted,
+        uploadedBy: manifest.uploaded_by ?? ""
+      });
+    } else {
+      await onUploadSuccess?.({
+        id: "",
+        fileName: fileLabel,
+        inserted,
+        uploadedBy: ""
+      });
+    }
+
+    toast.success(`Excel manifest added: ${fileLabel}`, {
+      description: `${inserted} line(s) imported · Pending verification`
+    });
 
     setSuccess(
       compact
         ? "Manifest uploaded. It is pending verification — an Admin can complete it when ready."
         : "Manifest uploaded and marked as Pending Verification."
     );
-    setUploading(false);
-    await onUploadSuccess?.();
     window.setTimeout(() => setSuccess(null), compact ? 6000 : 5000);
   }
 

@@ -195,7 +195,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       inserted: items.length,
-      message: "Manifest uploaded and marked as Pending Verification."
+      message: "Manifest uploaded and marked as Pending Verification.",
+      manifest: {
+        id: manifest.id,
+        file_name: file.name,
+        uploaded_by: auth.session.email
+      }
     });
   } catch (error) {
     return NextResponse.json(

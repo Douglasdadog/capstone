@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 type Manifest = {
   id: string;
@@ -43,6 +45,16 @@ function asPoint(value: unknown): { x: number; y: number } | null {
   return null;
 }
 
+function manifestItemsToByPart(rows: ManifestItem[]): Record<string, number> {
+  return rows.reduce(
+    (acc, row) => {
+      acc[row.part_number] = (acc[row.part_number] ?? 0) + Number(row.quantity ?? 0);
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+}
+
 export default function InventoryScanningPage() {
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const scannerViewportRef = useRef<HTMLDivElement | null>(null);
@@ -61,24 +73,96 @@ export default function InventoryScanningPage() {
   const [highlightBox, setHighlightBox] = useState<HighlightBox | null>(null);
   const [scanToast, setScanToast] = useState<ScanToast | null>(null);
 
+  const supabase = useMemo(() => createClient(), []);
+  const manifestIdRef = useRef<string | null>(null);
+  const itemsRef = useRef<ManifestItem[]>([]);
+  const scannedRef = useRef<Record<string, number>>({});
+
   useEffect(() => {
-    async function loadPending() {
-      const response = await fetch("/api/inventory/manifests/pending");
-      const payload = (await response.json()) as { error?: string; manifest: Manifest | null; items: ManifestItem[] };
-      if (!response.ok) {
-        setError(payload.error ?? "Unable to fetch pending manifest.");
-        setLoading(false);
-        return;
-      }
-      setManifest(payload.manifest);
-      setItems(payload.items ?? []);
-      if ((payload.items ?? []).length > 0) {
-        setActivePart(payload.items[0].part_number);
-      }
+    itemsRef.current = items;
+  }, [items]);
+  useEffect(() => {
+    scannedRef.current = scanned;
+  }, [scanned]);
+
+  const loadPending = useCallback(async () => {
+    const response = await fetch("/api/inventory/manifests/pending");
+    const payload = (await response.json()) as { error?: string; manifest: Manifest | null; items: ManifestItem[] };
+    if (!response.ok) {
+      setError(payload.error ?? "Unable to fetch pending manifest.");
       setLoading(false);
+      return;
     }
-    void loadPending();
+
+    const nextManifest = payload.manifest;
+    const nextItems = payload.items ?? [];
+    const nextId = nextManifest?.id ?? null;
+    const nextByPart = manifestItemsToByPart(nextItems);
+    const oldId = manifestIdRef.current;
+
+    if (oldId !== null && oldId !== nextId) {
+      const oldByPart = manifestItemsToByPart(itemsRef.current);
+      const oldScanned = scannedRef.current;
+      const carry: Record<string, number> = {};
+      for (const [part, exp] of Object.entries(oldByPart)) {
+        const s = oldScanned[part] ?? 0;
+        if (s > exp) carry[part] = s - exp;
+      }
+
+      if (nextId === null) {
+        setScanned({});
+        toast.success("Manifest completed", {
+          description: "Parts counter cleared. Inventory quantities were updated in real time."
+        });
+      } else {
+        const init: Record<string, number> = {};
+        for (const part of Object.keys(nextByPart)) {
+          const c = carry[part];
+          if (c && c > 0) init[part] = c;
+        }
+        setScanned(init);
+        toast.message("Manifest completed", {
+          description:
+            Object.keys(init).length > 0
+              ? "Excess scan counts carried into the next manifest where part numbers match."
+              : "Showing the next pending manifest on the parts counter."
+        });
+      }
+    } else if (oldId === null) {
+      setScanned({});
+    }
+
+    manifestIdRef.current = nextId;
+    setManifest(nextManifest);
+    setItems(nextItems);
+    if (nextItems.length > 0) {
+      setActivePart((prev) => {
+        const still = nextItems.some((row) => row.part_number === prev);
+        return still ? prev : nextItems[0].part_number;
+      });
+    } else {
+      setActivePart("");
+    }
+    setError(null);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void loadPending();
+  }, [loadPending]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("inventory-scanning-manifests")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manifests" }, () => {
+        void loadPending();
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadPending, supabase]);
 
   useEffect(() => {
     let alive = true;
@@ -124,15 +208,7 @@ export default function InventoryScanningPage() {
     };
   }, []);
 
-  const byPart = useMemo(() => {
-    return items.reduce(
-      (acc, row) => {
-        acc[row.part_number] = (acc[row.part_number] ?? 0) + Number(row.quantity ?? 0);
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, [items]);
+  const byPart = useMemo(() => manifestItemsToByPart(items), [items]);
 
   const partKeys = useMemo(() => Object.keys(byPart), [byPart]);
   const normalizedPartLookup = useMemo(() => {
@@ -278,8 +354,6 @@ export default function InventoryScanningPage() {
         setActivePart(matchedPart);
         setScanned((prev) => {
           const current = prev[matchedPart] ?? 0;
-          const max = byPart[matchedPart];
-          if (current >= max) return prev;
           return { ...prev, [matchedPart]: current + 1 };
         });
       };
@@ -445,6 +519,7 @@ export default function InventoryScanningPage() {
               const target = byPart[part];
               const value = scanned[part] ?? 0;
               const done = value === target;
+              const excess = value > target;
               return (
                 <button
                   key={part}
@@ -455,8 +530,13 @@ export default function InventoryScanningPage() {
                   }`}
                 >
                   <span className="text-sm font-semibold text-slate-800">{part}</span>
-                  <span className={`text-xs font-semibold ${done ? "text-green-600" : "text-slate-600"}`}>
+                  <span
+                    className={`text-xs font-semibold ${
+                      excess ? "text-amber-700" : done ? "text-green-600" : "text-slate-600"
+                    }`}
+                  >
                     {value}/{target}
+                    {excess ? " · excess" : ""}
                   </span>
                 </button>
               );

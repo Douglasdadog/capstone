@@ -29,3 +29,20 @@ create table if not exists public.manifest_reports (
 create index if not exists manifests_status_idx on public.manifests(status);
 create index if not exists manifest_items_manifest_id_idx on public.manifest_items(manifest_id);
 create index if not exists manifest_reports_manifest_id_idx on public.manifest_reports(manifest_id);
+
+-- Realtime: notify Inventory / Admin when a new manifest row is inserted
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_rel pr
+    join pg_class c on c.oid = pr.prrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_publication p on p.oid = pr.prpubid
+    where p.pubname = 'supabase_realtime'
+      and n.nspname = 'public'
+      and c.relname = 'manifests'
+  ) then
+    alter publication supabase_realtime add table public.manifests;
+  end if;
+end $$;

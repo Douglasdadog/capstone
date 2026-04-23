@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import ManifestUploadPanel from "@/components/manifest-upload-panel";
 
 type ManifestRow = {
@@ -28,6 +30,8 @@ function nextStepText(status: ManifestRow["status"]) {
 }
 
 export default function AdminManifestManager() {
+  const supabase = useMemo(() => createClient(), []);
+  const skipManifestInsertToastIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manifests, setManifests] = useState<ManifestRow[]>([]);
@@ -170,7 +174,15 @@ export default function AdminManifestManager() {
   return (
     <section className="space-y-5 rounded-2xl border border-white/60 bg-white/90 p-6 shadow-sm backdrop-blur">
       <ManifestUploadPanel
-        onUploadSuccess={async () => {
+        onUploadSuccess={async (info) => {
+          if (info.id) {
+            skipManifestInsertToastIdRef.current = info.id;
+            window.setTimeout(() => {
+              if (skipManifestInsertToastIdRef.current === info.id) {
+                skipManifestInsertToastIdRef.current = null;
+              }
+            }, 6000);
+          }
           setError(null);
           await loadManifests();
         }}

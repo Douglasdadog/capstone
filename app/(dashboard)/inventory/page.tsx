@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import ManifestUploadPanel from "@/components/manifest-upload-panel";
 
@@ -39,6 +40,8 @@ type MonitoringPayload = {
 type InventorySortKey = "name" | "category" | "quantity" | "threshold" | "status" | "updated";
 type SortDirection = "asc" | "desc";
 
+const MANUAL_ADD_DEFAULT_THRESHOLD = 10;
+
 function formatUptime(seconds: number | null | undefined, showPlaceholder = false): string {
   if (!seconds || seconds <= 0) return showPlaceholder ? "--" : "0m";
   const days = Math.floor(seconds / 86_400);
@@ -65,8 +68,6 @@ export default function InventoryPage() {
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState<"Maintenance Free" | "Conventional">("Maintenance Free");
   const [newQuantity, setNewQuantity] = useState("0");
-  const [newThreshold, setNewThreshold] = useState("5");
-  const [newImageUrl, setNewImageUrl] = useState("");
   const [addingProduct, setAddingProduct] = useState(false);
   const [lastInventoryEventAt, setLastInventoryEventAt] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<"CONNECTING" | "CONNECTED" | "DISCONNECTED">("CONNECTING");
@@ -84,6 +85,7 @@ export default function InventoryPage() {
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
+  const skipManifestInsertToastIdRef = useRef<string | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const canOverrideInventory = role === "SuperAdmin" || role === "Admin";
@@ -312,6 +314,18 @@ export default function InventoryPage() {
           void fetchMonitoring();
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "manifests" },
+        (payload) => {
+          const row = payload.new as { id?: string; file_name?: string; uploaded_by?: string } | undefined;
+          if (!row?.id) return;
+          if (String(row.id) === String(skipManifestInsertToastIdRef.current)) return;
+          toast.success(`New Excel manifest: ${row.file_name ?? "file"}`, {
+            description: row.uploaded_by ? `Uploaded by ${row.uploaded_by}` : undefined
+          });
+        }
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("CONNECTED");
@@ -413,13 +427,12 @@ export default function InventoryPage() {
 
   async function addProduct() {
     const qty = Number.parseInt(newQuantity, 10);
-    const thresh = Number.parseInt(newThreshold, 10);
     if (!newName.trim()) {
       setError("Product name is required.");
       return;
     }
-    if (!Number.isFinite(qty) || qty < 0 || !Number.isFinite(thresh) || thresh < 0) {
-      setError("Enter non-negative whole numbers for quantity and threshold.");
+    if (!Number.isFinite(qty) || qty < 0) {
+      setError("Enter a non-negative whole number for quantity.");
       return;
     }
 
@@ -434,8 +447,7 @@ export default function InventoryPage() {
           name: newName.trim(),
           category: newCategory,
           quantity: qty,
-          threshold_limit: thresh,
-          image_url: newImageUrl.trim() || undefined
+          threshold_limit: MANUAL_ADD_DEFAULT_THRESHOLD
         })
       });
       const data = (await response.json()) as { error?: string; item?: InventoryItem };
@@ -447,8 +459,6 @@ export default function InventoryPage() {
       setNewName("");
       setNewCategory("Maintenance Free");
       setNewQuantity("0");
-      setNewThreshold("5");
-      setNewImageUrl("");
       await fetchInventory();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to add product.");
@@ -798,24 +808,6 @@ export default function InventoryPage() {
                     className="rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={newThreshold}
-                    onChange={(event) => setNewThreshold(event.target.value)}
-                    placeholder="Threshold"
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="url"
-                    value={newImageUrl}
-                    onChange={(event) => setNewImageUrl(event.target.value)}
-                    placeholder="Image URL (optional)"
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
               </div>
               <div className="mt-3">
                 <button
@@ -833,7 +825,15 @@ export default function InventoryPage() {
           {canManageProducts ? (
             <ManifestUploadPanel
               compact
-              onUploadSuccess={() => {
+              onUploadSuccess={(info) => {
+                if (info.id) {
+                  skipManifestInsertToastIdRef.current = info.id;
+                  window.setTimeout(() => {
+                    if (skipManifestInsertToastIdRef.current === info.id) {
+                      skipManifestInsertToastIdRef.current = null;
+                    }
+                  }, 6000);
+                }
                 void fetchInventory();
               }}
             />

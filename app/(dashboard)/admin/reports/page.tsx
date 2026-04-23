@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import TrackingIssueEmailModal, {
+  type TrackingIssueEmailContext
+} from "@/components/tracking-issue-email-modal";
 
 type ManifestReportRow = {
   id: string;
@@ -32,6 +36,8 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<ManifestReportRow[]>([]);
   const [issues, setIssues] = useState<TrackingIssueRow[]>([]);
+  const [emailIssue, setEmailIssue] = useState<TrackingIssueEmailContext | null>(null);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -79,6 +85,18 @@ export default function AdminReportsPage() {
       void supabase.removeChannel(channel);
     };
   }, [loadReports, supabase]);
+
+  function openEmailModal(row: TrackingIssueRow) {
+    setEmailIssue({
+      id: row.id,
+      tracking_number: row.tracking_number,
+      issue_type: row.issue_type,
+      message: row.message,
+      contact_email: row.contact_email,
+      client_name: row.client_name
+    });
+    setEmailOpen(true);
+  }
 
   return (
     <section className="space-y-4 rounded-2xl border border-white/60 bg-white/90 p-6 shadow-sm backdrop-blur">
@@ -152,18 +170,19 @@ export default function AdminReportsPage() {
               <th className="px-3 py-2">Issue</th>
               <th className="px-3 py-2">Message</th>
               <th className="px-3 py-2">Contact</th>
+              <th className="px-3 py-2 w-[1%] whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={6}>
+                <td className="px-3 py-4 text-slate-500" colSpan={7}>
                   Loading customer tracking reports...
                 </td>
               </tr>
             ) : issues.length === 0 ? (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={6}>
+                <td className="px-3 py-4 text-slate-500" colSpan={7}>
                   No customer tracking reports yet.
                 </td>
               </tr>
@@ -179,12 +198,33 @@ export default function AdminReportsPage() {
                   <td className="px-3 py-2 text-amber-700">{row.issue_type}</td>
                   <td className="px-3 py-2 text-slate-700">{row.message || "-"}</td>
                   <td className="px-3 py-2 text-slate-600">{row.contact_email || "-"}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      type="button"
+                      onClick={() => openEmailModal(row)}
+                      disabled={!row.contact_email?.trim()}
+                      title={row.contact_email?.trim() ? "Compose email to customer" : "No contact email on file"}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      <Mail className="h-3.5 w-3.5" aria-hidden />
+                      Email
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <TrackingIssueEmailModal
+        issue={emailIssue}
+        open={emailOpen}
+        onClose={() => {
+          setEmailOpen(false);
+          setEmailIssue(null);
+        }}
+      />
     </section>
   );
 }
