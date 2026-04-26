@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
+import { sendEmail } from "@/lib/communication/mailer";
 
 type ConfigRow = {
   id: boolean;
@@ -146,6 +147,89 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update sensor alert settings." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const guard = ensureSuperAdmin(request);
+  if (!guard.ok) return guard.response;
+
+  let body: { email?: string; deviceId?: string; temperatureC?: number; humidityPct?: number };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    body = {};
+  }
+
+  const explicitEmail = typeof body.email === "string" ? body.email.trim() : "";
+
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("sensor_alert_config")
+      .select("alert_email, warning_threshold_c")
+      .eq("id", true)
+      .maybeSingle();
+
+    if (error && !isMissingRelationError(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const recipient =
+      explicitEmail ||
+      (typeof data?.alert_email === "string" && data.alert_email.trim() ? data.alert_email.trim() : "") ||
+      process.env.WIS_SENSOR_ALERT_EMAIL?.trim() ||
+      process.env.SMTP_USER?.trim() ||
+      "";
+
+    if (!recipient) {
+      return NextResponse.json(
+        { error: "No recipient configured. Set Owner alert email first." },
+        { status: 400 }
+      );
+    }
+
+    const deviceId = typeof body.deviceId === "string" && body.deviceId.trim() ? body.deviceId.trim() : "BAT-01";
+    const temperatureC = Number.isFinite(Number(body.temperatureC)) ? Number(body.temperatureC) : 41.2;
+    const humidityPct = Number.isFinite(Number(body.humidityPct)) ? Number(body.humidityPct) : 56.8;
+    const threshold = Number.isFinite(Number(data?.warning_threshold_c)) ? Number(data?.warning_threshold_c) : 40;
+    const observedAt = new Date().toLocaleString();
+
+    await sendEmail({
+      to: recipient,
+      subject: `[WIS] TEST Sensor Alert - ${deviceId}`,
+      text:
+        `This is a test sensor alert from Super Admin settings.\n\n` +
+        `Device: ${deviceId}\n` +
+        `Temperature: ${temperatureC.toFixed(1)} C\n` +
+        `Humidity: ${humidityPct.toFixed(1)} %RH\n` +
+        `Warning threshold: ${threshold.toFixed(1)} C\n` +
+        `Observed At: ${observedAt}\n`,
+      html: `
+        <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:20px;color:#0f172a">
+          <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+            <div style="padding:14px 18px;background:#0f172a;color:#fff;font-weight:700">
+              Warehouse Information System - Test Sensor Alert
+            </div>
+            <div style="padding:18px">
+              <p>This is a test alert triggered from Super Admin settings.</p>
+              <p><b>Device:</b> ${deviceId}</p>
+              <p><b>Temperature:</b> ${temperatureC.toFixed(1)} C</p>
+              <p><b>Humidity:</b> ${humidityPct.toFixed(1)} %RH</p>
+              <p><b>Warning threshold:</b> ${threshold.toFixed(1)} C</p>
+              <p><b>Observed At:</b> ${observedAt}</p>
+            </div>
+          </div>
+        </div>
+      `
+    });
+
+    return NextResponse.json({ ok: true, message: `Test alert sent to ${recipient}.` });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to send test alert." },
       { status: 500 }
     );
   }

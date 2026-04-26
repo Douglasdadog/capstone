@@ -18,6 +18,7 @@ export default function SuperAdminSensorAlertSettings() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +83,28 @@ export default function SuperAdminSensorAlertSettings() {
     }
   }
 
+  async function sendTestAlert() {
+    setSendingTest(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/sensor-alert-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const payload = (await response.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? "Unable to send test alert.");
+      }
+      setMessage(payload.message ?? "Test alert sent.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to send test alert.");
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
   return (
     <section className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
       <h2 className="text-lg font-semibold text-slate-900">Sensor Alert Thresholds</h2>
@@ -142,14 +165,24 @@ export default function SuperAdminSensorAlertSettings() {
         <p className="text-xs text-slate-500">
           Last updated: {config ? new Date(config.updated_at).toLocaleString() : "—"}
         </p>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saving || loading || setupRequired}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Save threshold settings"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void sendTestAlert()}
+            disabled={sendingTest || saving || loading}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {sendingTest ? "Sending..." : "Send test alert"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving || sendingTest || loading || setupRequired}
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {saving ? "Saving..." : "Save threshold settings"}
+          </button>
+        </div>
       </div>
     </section>
   );
