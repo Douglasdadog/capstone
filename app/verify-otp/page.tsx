@@ -225,11 +225,9 @@ function VerifyOtpContent() {
           </p>
         ) : null}
 
-        {!loading && step === "verify" ? (
+        {!loading && step === "verify" && !enrolled ? (
           <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {enrolled
-              ? "MFA is already enrolled for this account. Enter your current OTP code."
-              : "Step 2: Enter the 6-digit code from Google Authenticator to finish setup."}
+            Step 2: Enter the 6-digit code from Google Authenticator to finish setup.
           </p>
         ) : null}
 
