@@ -4,6 +4,7 @@ import {
   DEMO_MFA_PENDING_COOKIE,
   DEMO_SESSION_COOKIE,
   readMfaSecrets,
+  serializeMfaSecrets,
   readSession
 } from "@/lib/auth/demo-auth";
 import { getSupabaseMfaMeta, resolveSupabaseUserIdByEmail } from "@/lib/auth/mfa";
@@ -20,9 +21,15 @@ export async function GET(request: NextRequest) {
   const pendingMap = readMfaSecrets(request.cookies.get(DEMO_MFA_PENDING_COOKIE)?.value);
   const supabaseUserId = session.supabaseUserId ?? (await resolveSupabaseUserIdByEmail(normalizedEmail));
   let enrolled = false;
+  let shouldRewriteMfaCookie = false;
   if (supabaseUserId) {
     const supabaseMeta = await getSupabaseMfaMeta(supabaseUserId);
-    enrolled = Boolean(supabaseMeta.secret || supabaseMeta.enabled || mfaMap[normalizedEmail]);
+    // Supabase-backed accounts must trust Supabase MFA state, not stale browser cookie secrets.
+    enrolled = Boolean(supabaseMeta.secret || supabaseMeta.enabled);
+    if (mfaMap[normalizedEmail]) {
+      delete mfaMap[normalizedEmail];
+      shouldRewriteMfaCookie = true;
+    }
   } else {
     enrolled = Boolean(mfaMap[normalizedEmail]);
   }
@@ -41,10 +48,20 @@ export async function GET(request: NextRequest) {
     recentlyReset = false;
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     enrolled,
     pendingSetup: Boolean(pendingMap[normalizedEmail]),
     mfaVerified: session.mfaVerified,
     recentlyReset
   });
+
+  if (shouldRewriteMfaCookie) {
+    response.cookies.set(DEMO_MFA_COOKIE, serializeMfaSecrets(mfaMap), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/"
+    });
+  }
+
+  return response;
 }
