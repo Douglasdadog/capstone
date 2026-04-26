@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
 const RUNNING_STALE_THRESHOLD_MS = (() => {
-  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? "90");
-  if (!Number.isFinite(raw) || raw <= 0) return 90 * 1000;
+  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? "300");
+  if (!Number.isFinite(raw) || raw <= 0) return 300 * 1000;
   return Math.round(raw) * 1000;
 })();
 const REMOTE_TIMEOUT_MS = 8000;
