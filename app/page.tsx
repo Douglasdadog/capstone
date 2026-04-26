@@ -4,12 +4,17 @@ export default function HomePage() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      <div className="h-2 w-full bg-gradient-to-r from-red-700 via-red-600 to-amber-500" />
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+      <div className="h-1.5 w-full bg-gradient-to-r from-red-700 via-red-600 to-amber-500" />
 
-      <section className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
-          <p className="text-3xl font-black italic leading-none text-red-600">imarflex.</p>
+          <div className="flex items-center gap-3">
+            <p className="text-3xl font-black italic leading-none text-red-600">imarflex.</p>
+            <span className="hidden rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500 md:inline-flex">
+              Warehouse Operations System
+            </span>
+          </div>
           <Link
             href="/login"
             className="rounded-md border border-red-600 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50"
@@ -17,80 +22,90 @@ export default function HomePage() {
             Secure Login
           </Link>
         </div>
-      </section>
+      </header>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-10 md:grid-cols-2 md:py-14">
-        <div className="space-y-5">
-          <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-800">
-            IMARFLEX Mission Control
-          </span>
+      <section className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-12 md:grid-cols-[1.1fr_0.9fr] md:py-16">
+        <div className="space-y-6">
           <h1 className="text-4xl font-black leading-tight text-slate-950 md:text-6xl">
-            Powering Smarter Warehouse Operations
+            Precision Control for Warehouse and Fulfillment Teams
           </h1>
           <p className="max-w-xl text-base leading-relaxed text-slate-700">
-            Unified visibility for inventory, logistics, and environmental monitoring in one reliable operations
-            platform built for day-to-day warehouse execution.
+            Manage inventory, logistics, and operations monitoring from one secure platform designed for fast decisions
+            and reliable execution.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/login"
-              className="rounded-md bg-amber-400 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-300"
+              className="rounded-md bg-red-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-red-700"
             >
-              Open Dashboard
+              Access Platform
             </Link>
             <Link
               href="/shipment-tracking"
-              className="rounded-md border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 shadow-sm transition-colors hover:bg-red-100"
+              className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:bg-slate-100"
             >
-              Shipment Tracking
+              Track Shipment
             </Link>
+          </div>
+          <div className="grid max-w-xl grid-cols-3 gap-3 pt-2">
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Accuracy</p>
+              <p className="mt-1 text-xl font-black text-slate-900">99.2%</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Uptime</p>
+              <p className="mt-1 text-xl font-black text-slate-900">99.9%</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Visibility</p>
+              <p className="mt-1 text-xl font-black text-slate-900">Real-time</p>
+            </div>
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-          <div className="bg-red-700 px-5 py-3 text-sm font-bold text-white">Live Operations Snapshot</div>
-          <div className="grid grid-cols-2 gap-4 p-5">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Inventory health</p>
-              <p className="mt-2 text-2xl font-black text-slate-900">98.2%</p>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-200 bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
+            Operations Snapshot
+          </div>
+          <div className="space-y-3 p-5">
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Inventory readiness</p>
+              <p className="text-lg font-black text-slate-900">98.2%</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Orders in transit</p>
-              <p className="mt-2 text-2xl font-black text-slate-900">24</p>
+              <p className="text-lg font-black text-slate-900">24</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active alerts</p>
-              <p className="mt-2 text-2xl font-black text-red-600">3</p>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Critical alerts</p>
+              <p className="text-lg font-black text-red-600">3</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">System uptime</p>
-              <p className="mt-2 text-2xl font-black text-amber-600">99.7%</p>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Platform uptime</p>
+              <p className="text-lg font-black text-amber-600">99.7%</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-6 pb-10 md:pb-14">
+      <section className="mx-auto w-full max-w-6xl px-6 pb-12 md:pb-16">
         <div className="grid gap-4 md:grid-cols-3">
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 h-1 w-12 rounded-full bg-red-600" />
-            <h2 className="text-lg font-black text-slate-900">Inventory Intelligence</h2>
+            <h2 className="text-lg font-black text-slate-900">Inventory Management</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Monitor stock levels, thresholds, and adjustments with a clear audit-ready view across storage locations.
+              Full control over stock movement, threshold monitoring, and verification workflows.
             </p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 h-1 w-12 rounded-full bg-amber-500" />
-            <h2 className="text-lg font-black text-slate-900">Sales and Logistics</h2>
+            <h2 className="text-lg font-black text-slate-900">Logistics Visibility</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Keep order fulfillment and delivery status synchronized from dispatch to customer confirmation.
+              Centralized shipment updates from dispatch through final customer delivery.
             </p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-3 h-1 w-12 rounded-full bg-red-600" />
-            <h2 className="text-lg font-black text-slate-900">IoT Environment Ready</h2>
+            <h2 className="text-lg font-black text-slate-900">Environment Monitoring</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Track temperature and humidity telemetry with alerts designed for warehouse compliance workflows.
+              Real-time telemetry and alerts for temperature and humidity-sensitive operations.
             </p>
           </article>
         </div>
@@ -99,7 +114,7 @@ export default function HomePage() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-5 text-xs text-slate-500">
           <p>© {currentYear} IMARFLEX. All rights reserved.</p>
-          <p>Warehouse Operations Platform</p>
+          <p>Enterprise Warehouse Operations Platform</p>
         </div>
       </footer>
     </main>
