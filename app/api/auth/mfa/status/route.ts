@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const supabaseUserId = session.supabaseUserId ?? (await resolveSupabaseUserIdByEmail(normalizedEmail));
   let enrolled = false;
   let shouldRewriteMfaCookie = false;
+  let shouldRewritePendingCookie = false;
   if (supabaseUserId) {
     const supabaseMeta = await getSupabaseMfaMeta(supabaseUserId);
     // Supabase-backed accounts must trust Supabase MFA state, not stale browser cookie secrets.
@@ -29,6 +30,11 @@ export async function GET(request: NextRequest) {
     if (mfaMap[normalizedEmail]) {
       delete mfaMap[normalizedEmail];
       shouldRewriteMfaCookie = true;
+    }
+    if (!enrolled && pendingMap[normalizedEmail]) {
+      // After admin reset, stale pending setup cookie can incorrectly force OTP step.
+      delete pendingMap[normalizedEmail];
+      shouldRewritePendingCookie = true;
     }
   } else {
     enrolled = Boolean(mfaMap[normalizedEmail]);
@@ -57,6 +63,13 @@ export async function GET(request: NextRequest) {
 
   if (shouldRewriteMfaCookie) {
     response.cookies.set(DEMO_MFA_COOKIE, serializeMfaSecrets(mfaMap), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/"
+    });
+  }
+  if (shouldRewritePendingCookie) {
+    response.cookies.set(DEMO_MFA_PENDING_COOKIE, serializeMfaSecrets(pendingMap), {
       httpOnly: true,
       sameSite: "lax",
       path: "/"
