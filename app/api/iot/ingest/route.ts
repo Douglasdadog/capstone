@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 type IngestPayload = {
   device_id?: string;
+  device_secret?: string;
+  secret?: string;
   temperature?: number | string;
   humidity?: number | string;
   unit?: string;
@@ -56,12 +58,24 @@ function toCelsius(temperature: number, unit?: string): number {
   return temperature;
 }
 
-function providedSecrets(request: NextRequest): string[] {
+function expectedSecrets(): string[] {
+  return [process.env.WIS_IOT_INGEST_KEY?.trim(), process.env.DEVICE_SECRET?.trim()].filter(
+    (v): v is string => Boolean(v)
+  );
+}
+
+function providedSecrets(request: NextRequest, body?: IngestPayload): string[] {
   const values: string[] = [];
   const ingestKey = request.headers.get("x-iot-ingest-key")?.trim();
   if (ingestKey) values.push(ingestKey);
   const legacyKey = request.headers.get("x-device-secret")?.trim();
   if (legacyKey) values.push(legacyKey);
+  const querySecret = request.nextUrl.searchParams.get("secret")?.trim();
+  if (querySecret) values.push(querySecret);
+  const bodySecret = typeof body?.device_secret === "string" ? body.device_secret.trim() : "";
+  if (bodySecret) values.push(bodySecret);
+  const altBodySecret = typeof body?.secret === "string" ? body.secret.trim() : "";
+  if (altBodySecret) values.push(altBodySecret);
   const auth = request.headers.get("authorization")?.trim();
   if (auth?.toLowerCase().startsWith("bearer ")) {
     values.push(auth.slice(7).trim());
@@ -69,33 +83,31 @@ function providedSecrets(request: NextRequest): string[] {
   return values;
 }
 
-function authErrorForIngest(request: NextRequest): string | null {
-  const expectedKeys = [process.env.WIS_IOT_INGEST_KEY?.trim(), process.env.DEVICE_SECRET?.trim()].filter(
-    (v): v is string => Boolean(v)
-  );
+function authErrorForIngest(request: NextRequest, body?: IngestPayload): string | null {
+  const expectedKeys = expectedSecrets();
   if (expectedKeys.length === 0) {
     return "IoT ingest key is not configured on server.";
   }
-  const incoming = providedSecrets(request);
+  const incoming = providedSecrets(request, body);
   const ok = incoming.some((value) => expectedKeys.includes(value));
   if (!ok) return "Unauthorized IoT ingest request.";
-  return "";
+  return null;
 }
 
 export async function POST(request: NextRequest) {
-  const authError = authErrorForIngest(request);
-  if (authError === "IoT ingest key is not configured on server.") {
-    return NextResponse.json({ error: authError }, { status: 503 });
-  }
-  if (authError) {
-    return NextResponse.json({ error: authError }, { status: 401 });
-  }
-
   let body: IngestPayload;
   try {
     body = (await request.json()) as IngestPayload;
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+  }
+
+  const authError = authErrorForIngest(request, body);
+  if (authError === "IoT ingest key is not configured on server.") {
+    return NextResponse.json({ error: authError }, { status: 503 });
+  }
+  if (authError) {
+    return NextResponse.json({ error: authError }, { status: 401 });
   }
 
   const rawTemperature = toFiniteNumber(body.temperature);
