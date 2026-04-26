@@ -199,10 +199,10 @@ export async function POST(request: NextRequest) {
 
     await sendEmail({
       to: recipient,
-      subject: `[WIS] Sensor Alert - ${deviceId}`,
+      subject: `[WIS] Manual Sensor Alert - ${deviceId}`,
       text:
-        `A manual sensor alert was triggered from Super Admin settings.\n\n` +
-        `Device: ${deviceId}\n` +
+        `A manual sensor alert has been triggered from device ${deviceId}.\n\n` +
+        `Device Name: ${deviceId}\n` +
         `Temperature: ${temperatureC.toFixed(1)} C\n` +
         `Humidity: ${humidityPct.toFixed(1)} %RH\n` +
         `Warning threshold: ${threshold.toFixed(1)} C\n` +
@@ -211,15 +211,34 @@ export async function POST(request: NextRequest) {
         <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:20px;color:#0f172a">
           <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
             <div style="padding:14px 18px;background:#0f172a;color:#fff;font-weight:700">
-              Warehouse Information System - Sensor Alert
+              Warehouse Information System - Manual Sensor Alert
             </div>
             <div style="padding:18px">
-              <p>A manual alert was triggered from Super Admin settings.</p>
-              <p><b>Device:</b> ${deviceId}</p>
-              <p><b>Temperature:</b> ${temperatureC.toFixed(1)} C</p>
-              <p><b>Humidity:</b> ${humidityPct.toFixed(1)} %RH</p>
-              <p><b>Warning threshold:</b> ${threshold.toFixed(1)} C</p>
-              <p><b>Observed At:</b> ${observedAt}</p>
+              <p style="margin:0 0 14px 0;line-height:1.5">
+                A manual sensor alert has been triggered from device <b>${deviceId}</b>.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">
+                <tr>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;color:#475569">Device Name</td>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;text-align:right;color:#0f172a"><b>${deviceId}</b></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;color:#475569">Temperature</td>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;text-align:right;color:#0f172a"><b>${temperatureC.toFixed(1)} C</b></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;color:#475569">Humidity</td>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;text-align:right;color:#0f172a"><b>${humidityPct.toFixed(1)} %RH</b></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;color:#475569">Warning Threshold</td>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;text-align:right;color:#0f172a"><b>${threshold.toFixed(1)} C</b></td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;color:#475569">Observed At</td>
+                  <td style="padding:8px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;text-align:right;color:#0f172a"><b>${observedAt}</b></td>
+                </tr>
+              </table>
             </div>
           </div>
         </div>
