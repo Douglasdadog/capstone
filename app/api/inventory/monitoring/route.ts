@@ -4,12 +4,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
-const RUNNING_STALE_THRESHOLD_MS = 10 * 60 * 1000;
+const RUNNING_STALE_THRESHOLD_MS = 90 * 1000;
 const REMOTE_TIMEOUT_MS = 8000;
 
 type ReadingRow = {
   temperature: number | null;
   humidity: number | null;
+  created_at: string;
+};
+
+type SensorAlertRow = {
+  id: string;
+  severity: "warning" | "critical";
+  message: string;
+  device_id: string;
   created_at: string;
 };
 
@@ -36,13 +44,13 @@ async function probeIotHealthUrl(): Promise<{ configured: boolean; ok: boolean; 
     return {
       configured: true,
       ok: response.ok,
-      message: response.ok ? "IoT endpoint reachable" : `HTTP ${response.status}`
+      message: response.ok ? "Sensor endpoint reachable" : `HTTP ${response.status}`
     };
   } catch (error) {
     return {
       configured: true,
       ok: false,
-      message: error instanceof Error ? error.message : "IoT endpoint request failed"
+      message: error instanceof Error ? error.message : "Sensor endpoint request failed"
     };
   }
 }
@@ -61,11 +69,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
-      .from("sensor_logs")
-      .select("temperature, humidity, created_at")
-      .gte("created_at", since)
-      .order("created_at", { ascending: true });
+    const [{ data, error }, { data: latestAlerts }] = await Promise.all([
+      supabase
+        .from("sensor_logs")
+        .select("temperature, humidity, created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("sensor_alert_notifications")
+        .select("id, severity, message, device_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
+    ]);
+
+    const latestSensorAlert = (latestAlerts?.[0] ?? null) as SensorAlertRow | null;
 
     if (error) {
       return NextResponse.json({
@@ -76,6 +93,7 @@ export async function GET(request: NextRequest) {
         uptimeSeconds: 0,
         isRunning: false,
         connectionStatus: "disconnected" as const,
+        latestSensorAlert,
         note: `No device data: ${error.message}`
       });
     }
@@ -98,7 +116,8 @@ export async function GET(request: NextRequest) {
         uptimeSeconds: 0,
         isRunning: false,
         connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
-        note: remote.ok ? "IoT endpoint reachable, waiting for first sensor reading." : remote.message
+        latestSensorAlert,
+        note: remote.ok ? "Sensor endpoint reachable, waiting for first reading." : remote.message
       });
     }
 
@@ -114,6 +133,7 @@ export async function GET(request: NextRequest) {
         uptimeSeconds: 0,
         isRunning: false,
         connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
+        latestSensorAlert,
         note: remote.message
       });
     }
@@ -140,6 +160,7 @@ export async function GET(request: NextRequest) {
       uptimeSeconds,
       isRunning,
       connectionStatus,
+      latestSensorAlert,
       note: remote.message
     });
   } catch (error) {

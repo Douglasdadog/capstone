@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { maybeTriggerSensorThresholdAlert } from "@/lib/iot/sensor-alerts";
 
 type SensorPayload = {
   device_id?: string;
@@ -149,6 +150,13 @@ export async function POST(request: NextRequest) {
       created_at: createdAt
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await maybeTriggerSensorThresholdAlert({
+      deviceId: body.device_id,
+      temperatureC,
+      humidityPct: humidity,
+      observedAtIso: createdAt
+    });
 
     return NextResponse.json(
       {

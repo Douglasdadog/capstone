@@ -34,6 +34,13 @@ type MonitoringPayload = {
   uptimeSeconds?: number | null;
   isRunning?: boolean;
   connectionStatus?: "connected" | "disconnected";
+  latestSensorAlert?: {
+    id: string;
+    severity: "warning" | "critical";
+    message: string;
+    device_id: string;
+    created_at: string;
+  } | null;
   note?: string;
   error?: string;
 };
@@ -78,6 +85,7 @@ export default function InventoryPage() {
   const [lastEnvironmentReadingAt, setLastEnvironmentReadingAt] = useState<string | null>(null);
   const [iotConnectionStatus, setIotConnectionStatus] = useState<"connected" | "disconnected">("disconnected");
   const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
+  const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
@@ -199,6 +207,7 @@ export default function InventoryPage() {
     setLastEnvironmentReadingAt(typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
     setIotConnectionStatus(data.connectionStatus === "connected" ? "connected" : "disconnected");
     setIotStatusNote(typeof data.note === "string" && data.note.length > 0 ? data.note : null);
+    setLatestSensorAlert(data.latestSensorAlert ?? null);
   }, []);
 
   async function refreshMonitoringStatus() {
@@ -492,7 +501,7 @@ export default function InventoryPage() {
         </div>
         <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7">
           <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Live Feed Status</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Live Sensor Status</p>
             <p
               className={`mt-1 text-xs font-semibold leading-tight ${
                 realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
@@ -504,11 +513,11 @@ export default function InventoryPage() {
             >
               {realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
                 ? iotRunning
-                  ? "Connected (IoT Running)"
+                  ? "Connected (Live Readings)"
                   : "Connected (Standby)"
                 : realtimeStatus === "CONNECTING"
                   ? "Connecting..."
-                  : "Disconnected (Monitoring Device Not Connected)"}
+                  : "Disconnected (Sensor Device Offline)"}
             </p>
             {iotConnectionStatus === "disconnected" && iotStatusNote ? (
               <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-slate-500">{iotStatusNote}</p>
@@ -527,7 +536,7 @@ export default function InventoryPage() {
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">IoT Uptime</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">Sensor Uptime</p>
             <p className={`mt-1 text-xs font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
               {formatUptime(iotUptimeSeconds, iotConnectionStatus !== "connected")}
             </p>
@@ -554,6 +563,23 @@ export default function InventoryPage() {
       {message ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {message}
+        </div>
+      ) : null}
+
+      {latestSensorAlert ? (
+        <div
+          className={`rounded-md border px-4 py-3 text-sm ${
+            latestSensorAlert.severity === "critical"
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-amber-200 bg-amber-50 text-amber-800"
+          }`}
+        >
+          <p className="font-semibold">
+            {latestSensorAlert.severity === "critical" ? "Critical sensor alert" : "Sensor warning alert"}
+          </p>
+          <p className="mt-1">
+            {latestSensorAlert.message} • {new Date(latestSensorAlert.created_at).toLocaleString()}
+          </p>
         </div>
       ) : null}
 

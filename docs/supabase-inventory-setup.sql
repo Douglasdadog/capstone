@@ -36,6 +36,21 @@ create table if not exists public.sensor_logs (
   created_at timestamptz not null default now()
 );
 
+-- Sensor threshold notifications (email + in-app alert trail)
+create table if not exists public.sensor_alert_notifications (
+  id uuid primary key default gen_random_uuid(),
+  device_id text not null,
+  severity text not null check (severity in ('warning', 'critical')),
+  temperature_c numeric not null,
+  humidity_pct numeric not null,
+  message text not null,
+  email_to text,
+  email_sent boolean not null default false,
+  email_error text,
+  observed_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 -- Seed sample inventory rows
 insert into public.inventory (category, name, image_url, quantity, threshold_limit)
 values
@@ -68,6 +83,20 @@ begin
       and tablename = 'inventory'
   ) then
     alter publication supabase_realtime add table public.inventory;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'sensor_alert_notifications'
+  ) then
+    alter publication supabase_realtime add table public.sensor_alert_notifications;
   end if;
 end
 $$;
