@@ -33,6 +33,46 @@ function resolveAlertRecipient(): string | null {
   return null;
 }
 
+type SensorAlertConfig = {
+  warningThresholdC: number;
+  criticalThresholdC: number;
+  cooldownMinutes: number;
+  recipient: string | null;
+};
+
+async function resolveSensorAlertConfig(supabase: ReturnType<typeof createAdminClient>): Promise<SensorAlertConfig> {
+  const fallback = {
+    warningThresholdC: warningThresholdC(),
+    criticalThresholdC: criticalThresholdC(),
+    cooldownMinutes: cooldownMinutes(),
+    recipient: resolveAlertRecipient()
+  };
+  try {
+    const { data, error } = await supabase
+      .from("sensor_alert_config")
+      .select("warning_threshold_c, critical_threshold_c, cooldown_minutes, alert_email")
+      .eq("id", true)
+      .maybeSingle();
+    if (error || !data) return fallback;
+
+    const warning = Number(data.warning_threshold_c ?? fallback.warningThresholdC);
+    const critical = Number(data.critical_threshold_c ?? fallback.criticalThresholdC);
+    const cooldown = Number(data.cooldown_minutes ?? fallback.cooldownMinutes);
+    const recipient = typeof data.alert_email === "string" && data.alert_email.trim()
+      ? data.alert_email.trim()
+      : fallback.recipient;
+
+    return {
+      warningThresholdC: Number.isFinite(warning) ? warning : fallback.warningThresholdC,
+      criticalThresholdC: Number.isFinite(critical) ? critical : fallback.criticalThresholdC,
+      cooldownMinutes: Number.isFinite(cooldown) && cooldown > 0 ? cooldown : fallback.cooldownMinutes,
+      recipient
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 function classifySeverity(temperatureC: number): SensorAlertSeverity | null {
   if (temperatureC >= criticalThresholdC()) return "critical";
   if (temperatureC >= warningThresholdC()) return "warning";
@@ -101,11 +141,16 @@ function buildAlertEmail(args: {
 }
 
 export async function maybeTriggerSensorThresholdAlert(args: TriggerArgs): Promise<void> {
-  const severity = classifySeverity(args.temperatureC);
-  if (!severity) return;
-
   const supabase = createAdminClient();
-  const cooldownSinceIso = new Date(Date.now() - cooldownMinutes() * 60_000).toISOString();
+  const config = await resolveSensorAlertConfig(supabase);
+  const severity =
+    args.temperatureC >= config.criticalThresholdC
+      ? "critical"
+      : args.temperatureC >= config.warningThresholdC
+        ? "warning"
+        : null;
+  if (!severity) return;
+  const cooldownSinceIso = new Date(Date.now() - config.cooldownMinutes * 60_000).toISOString();
 
   // De-duplicate noisy sensor streams: only one alert per device+severity within cooldown.
   const { data: existing, error: existingError } = await supabase
@@ -120,8 +165,8 @@ export async function maybeTriggerSensorThresholdAlert(args: TriggerArgs): Promi
   if (existingError) return;
   if (existing && existing.length > 0) return;
 
-  const recipient = resolveAlertRecipient();
-  const threshold = severity === "critical" ? criticalThresholdC() : warningThresholdC();
+  const recipient = config.recipient;
+  const threshold = severity === "critical" ? config.criticalThresholdC : config.warningThresholdC;
   const title = severity === "critical" ? "Critical sensor alert" : "Sensor warning alert";
   const message = `${title}: ${args.deviceId} at ${args.temperatureC.toFixed(1)} C (threshold ${threshold.toFixed(1)} C).`;
 

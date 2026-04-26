@@ -2,6 +2,7 @@ import AdminCreateUserForm from "@/components/admin-create-user-form";
 import AdminUserPermissions from "@/components/admin-user-permissions";
 import SuperAdminGovernancePanel from "@/components/super-admin-governance-panel";
 import SuperAdminIotProvisioningPanel from "@/components/super-admin-iot-provisioning-panel";
+import SuperAdminSensorAlertSettings from "@/components/super-admin-sensor-alert-settings";
 
 export default function SuperAdminPage() {
   return (
@@ -16,6 +17,7 @@ export default function SuperAdminPage() {
       </div>
 
       <SuperAdminGovernancePanel />
+      <SuperAdminSensorAlertSettings />
       <SuperAdminIotProvisioningPanel />
       <AdminCreateUserForm />
       <AdminUserPermissions />

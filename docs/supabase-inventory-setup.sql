@@ -51,6 +51,28 @@ create table if not exists public.sensor_alert_notifications (
   created_at timestamptz not null default now()
 );
 
+-- SuperAdmin-configurable sensor alert thresholds
+create table if not exists public.sensor_alert_config (
+  id boolean primary key default true,
+  warning_threshold_c numeric not null default 40,
+  critical_threshold_c numeric not null default 50,
+  cooldown_minutes integer not null default 10,
+  alert_email text,
+  updated_at timestamptz not null default now(),
+  constraint sensor_alert_config_singleton check (id = true),
+  constraint sensor_alert_thresholds_valid check (critical_threshold_c >= warning_threshold_c)
+);
+
+insert into public.sensor_alert_config (
+  id,
+  warning_threshold_c,
+  critical_threshold_c,
+  cooldown_minutes,
+  alert_email
+)
+values (true, 40, 50, 10, null)
+on conflict (id) do nothing;
+
 -- Seed sample inventory rows
 insert into public.inventory (category, name, image_url, quantity, threshold_limit)
 values
