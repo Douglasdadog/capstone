@@ -4,10 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
+const MIN_STALE_SECONDS = 300;
 const RUNNING_STALE_THRESHOLD_MS = (() => {
-  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? "300");
-  if (!Number.isFinite(raw) || raw <= 0) return 300 * 1000;
-  return Math.round(raw) * 1000;
+  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? String(MIN_STALE_SECONDS));
+  if (!Number.isFinite(raw) || raw <= 0) return MIN_STALE_SECONDS * 1000;
+  return Math.max(MIN_STALE_SECONDS, Math.round(raw)) * 1000;
 })();
 const REMOTE_TIMEOUT_MS = 8000;
 
