@@ -28,6 +28,14 @@ create table if not exists public.auto_replenishment_alerts (
   created_at timestamptz not null default now()
 );
 
+-- IoT environment readings for dashboard monitoring/chart
+create table if not exists public.sensor_logs (
+  id uuid primary key default gen_random_uuid(),
+  temperature numeric not null,
+  humidity numeric not null,
+  created_at timestamptz not null default now()
+);
+
 -- Seed sample inventory rows
 insert into public.inventory (category, name, image_url, quantity, threshold_limit)
 values
@@ -60,6 +68,20 @@ begin
       and tablename = 'inventory'
   ) then
     alter publication supabase_realtime add table public.inventory;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'sensor_logs'
+  ) then
+    alter publication supabase_realtime add table public.sensor_logs;
   end if;
 end
 $$;

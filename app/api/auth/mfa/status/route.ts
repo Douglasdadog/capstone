@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEMO_MFA_COOKIE, DEMO_SESSION_COOKIE, readMfaSecrets, readSession } from "@/lib/auth/demo-auth";
+import {
+  DEMO_MFA_COOKIE,
+  DEMO_MFA_PENDING_COOKIE,
+  DEMO_SESSION_COOKIE,
+  readMfaSecrets,
+  readSession
+} from "@/lib/auth/demo-auth";
 import { getSupabaseMfaMeta, resolveSupabaseUserIdByEmail } from "@/lib/auth/mfa";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,6 +17,7 @@ export async function GET(request: NextRequest) {
 
   const normalizedEmail = session.email.toLowerCase();
   const mfaMap = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);
+  const pendingMap = readMfaSecrets(request.cookies.get(DEMO_MFA_PENDING_COOKIE)?.value);
   const supabaseUserId = session.supabaseUserId ?? (await resolveSupabaseUserIdByEmail(normalizedEmail));
   let enrolled = false;
   if (supabaseUserId) {
@@ -36,6 +43,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     enrolled,
+    pendingSetup: Boolean(pendingMap[normalizedEmail]),
     mfaVerified: session.mfaVerified,
     recentlyReset
   });
