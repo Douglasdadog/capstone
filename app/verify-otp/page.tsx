@@ -231,7 +231,8 @@ function VerifyOtpContent() {
           </p>
         ) : null}
 
-        <form onSubmit={handleVerify} className={`mt-5 space-y-4 ${step === "setup" ? "opacity-60" : ""}`}>
+        {step === "verify" ? (
+          <form onSubmit={handleVerify} className="mt-5 space-y-4">
           <div>
             <label htmlFor="otp" className="mb-1 block text-sm font-medium text-slate-700">
               One-Time Password
@@ -244,7 +245,7 @@ function VerifyOtpContent() {
               pattern="[0-9]{6}"
               placeholder="123456"
               required
-              disabled={step !== "verify" || (!enrolled && !pendingSetup)}
+              disabled={!enrolled && !pendingSetup}
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-amber-500 transition focus:ring-2"
             />
           </div>
@@ -253,13 +254,13 @@ function VerifyOtpContent() {
 
           <button
             type="submit"
-            disabled={submitting || step !== "verify" || (!enrolled && !pendingSetup)}
+            disabled={submitting || (!enrolled && !pendingSetup)}
             className="w-full rounded-md bg-gradient-to-r from-yellow-500 to-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 shadow-lg shadow-amber-300/50 transition-all hover:from-yellow-400 hover:to-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {submitting ? "Verifying..." : "Verify and continue"}
           </button>
 
-          {step === "verify" && !enrolled ? (
+          {!enrolled ? (
             <button
               type="button"
               onClick={goToSetupStep}
@@ -294,7 +295,20 @@ function VerifyOtpContent() {
           >
             Back to Home Page
           </button>
-        </form>
+          </form>
+        ) : (
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={() => {
+                void handleBackToHome();
+              }}
+              className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Back to Home Page
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );
