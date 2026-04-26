@@ -4,7 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
-const RUNNING_STALE_THRESHOLD_MS = 90 * 1000;
+const RUNNING_STALE_THRESHOLD_MS = (() => {
+  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? "90");
+  if (!Number.isFinite(raw) || raw <= 0) return 90 * 1000;
+  return Math.round(raw) * 1000;
+})();
 const REMOTE_TIMEOUT_MS = 8000;
 
 type ReadingRow = {
@@ -151,6 +155,12 @@ export async function GET(request: NextRequest) {
     const isRunning = Date.now() - latestMs <= RUNNING_STALE_THRESHOLD_MS;
     const remote = await probeIotHealthUrl();
     const connectionStatus = isRunning || remote.ok ? ("connected" as const) : ("disconnected" as const);
+    const staleSeconds = Math.max(0, Math.floor((Date.now() - latestMs) / 1000));
+    const staleNote = isRunning
+      ? remote.message
+      : `Last reading ${staleSeconds}s ago (offline threshold ${Math.floor(
+          RUNNING_STALE_THRESHOLD_MS / 1000
+        )}s).`;
 
     return NextResponse.json({
       source: "live" as const,
@@ -161,7 +171,7 @@ export async function GET(request: NextRequest) {
       isRunning,
       connectionStatus,
       latestSensorAlert,
-      note: remote.message
+      note: staleNote
     });
   } catch (error) {
     return NextResponse.json(

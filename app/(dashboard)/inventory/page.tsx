@@ -504,14 +504,14 @@ export default function InventoryPage() {
             <p className="text-[11px] uppercase tracking-wide text-slate-500">Live Sensor Status</p>
             <p
               className={`mt-1 text-xs font-semibold leading-tight ${
-                realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
+                iotConnectionStatus === "connected"
                   ? "text-green-700"
                   : realtimeStatus === "CONNECTING"
                     ? "text-amber-700"
                     : "text-red-700"
               }`}
             >
-              {realtimeStatus === "CONNECTED" && iotConnectionStatus === "connected"
+              {iotConnectionStatus === "connected"
                 ? iotRunning
                   ? "Connected (Live Readings)"
                   : "Connected (Standby)"
