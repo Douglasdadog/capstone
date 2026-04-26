@@ -98,8 +98,8 @@ export default function ManifestUploadPanel({ onUploadSuccess, compact = false }
       <div>
         <h2 className={titleClass}>Excel Manifest Upload</h2>
         <p className={descClass}>
-          Upload `.xlsx` or `.csv` with either (Part Number, Quantity, Batch ID) or (Product, Brand, Battery Type,
-          Product Serial ID, Quantity).
+          Upload `.xlsx` or `.csv` with either (Part Number, Batch ID) or (Product, Brand, Battery Type, Product Serial
+          ID). Each serial row is counted as 1 quantity.
         </p>
       </div>
 

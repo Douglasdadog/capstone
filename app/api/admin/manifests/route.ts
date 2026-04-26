@@ -11,13 +11,6 @@ type ParsedRow = {
   batchId: string;
 };
 
-function toPositiveInt(value: unknown): number | null {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
-  const rounded = Math.floor(n);
-  return rounded > 0 ? rounded : null;
-}
-
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .replace(/\u00a0/g, " ")
@@ -35,8 +28,9 @@ function parseWorksheetRows(rows: Record<string, unknown>[]): ParsedRow[] {
   const parsed: ParsedRow[] = [];
   for (const row of rows) {
     // Supported manifest formats:
-    // - Legacy: Part Number + Quantity + Batch ID
-    // - New: Product + Brand + Battery Type + Product Serial ID + Quantity
+    // - Legacy: Part Number + Batch ID
+    // - New: Product + Brand + Battery Type + Product Serial ID
+    // Quantity is always implied as 1 unit per serial/batch row.
     const partRaw = pickValue(row, [
       "part number",
       "part no",
@@ -47,7 +41,6 @@ function parseWorksheetRows(rows: Record<string, unknown>[]): ParsedRow[] {
       "item",
       "item name"
     ]);
-    const qtyRaw = pickValue(row, ["quantity", "qty", "qty pcs", "pieces"]);
     const batchRaw = pickValue(row, [
       "batch id",
       "batch",
@@ -60,9 +53,7 @@ function parseWorksheetRows(rows: Record<string, unknown>[]): ParsedRow[] {
 
     const partNumber = String(partRaw ?? "").trim();
     const serialOrBatch = String(batchRaw ?? "").trim();
-    const explicitQuantity = toPositiveInt(qtyRaw);
-    // Support per-unit serial format: Product + Product Serial ID, with implied qty=1.
-    const quantity = explicitQuantity ?? (partNumber && serialOrBatch ? 1 : null);
+    const quantity = partNumber && serialOrBatch ? 1 : null;
     const batchId = serialOrBatch;
 
     if (!partNumber || !batchId || quantity === null) continue;
@@ -144,7 +135,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "No valid rows found. Use either (Part Number, Quantity, Batch ID) or (Product, Product Serial ID, Quantity)."
+          "No valid rows found. Use either (Part Number, Batch ID) or (Product, Product Serial ID). Quantity is auto-set to 1 per row."
       },
       { status: 400 }
     );

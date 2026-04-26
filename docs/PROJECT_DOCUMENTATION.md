@@ -21,8 +21,8 @@ Main capability groups:
 - Upload manifest files in Excel or CSV format.
 - Parse and store manifest rows with required fields:
   - Part Number
-  - Quantity
   - Batch ID
+  - Quantity is auto-derived as 1 per serial/batch row
 - Manage manifest lifecycle statuses:
   - Pending Verification
   - Completed

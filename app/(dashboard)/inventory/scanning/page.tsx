@@ -21,6 +21,12 @@ type ManifestItem = {
   batch_id: string;
 };
 
+type CounterRow = {
+  serialId: string;
+  productCode: string;
+  quantity: number;
+};
+
 type HighlightBox = {
   left: number;
   top: number;
@@ -42,14 +48,21 @@ function asPoint(value: unknown): { x: number; y: number } | null {
   return null;
 }
 
-function manifestItemsToByPart(rows: ManifestItem[]): Record<string, number> {
-  return rows.reduce(
-    (acc, row) => {
-      acc[row.part_number] = (acc[row.part_number] ?? 0) + Number(row.quantity ?? 0);
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+function manifestItemsToCounterRows(rows: ManifestItem[]): CounterRow[] {
+  const bySerial = new Map<string, CounterRow>();
+  for (const row of rows) {
+    const serialId = String(row.batch_id ?? "").trim();
+    const productCode = String(row.part_number ?? "").trim();
+    const quantity = Number(row.quantity ?? 0);
+    if (!serialId || !productCode || !Number.isFinite(quantity) || quantity <= 0) continue;
+    const existing = bySerial.get(serialId);
+    if (existing) {
+      existing.quantity += quantity;
+      continue;
+    }
+    bySerial.set(serialId, { serialId, productCode, quantity });
+  }
+  return Array.from(bySerial.values());
 }
 
 export default function InventoryScanningPage() {
@@ -94,16 +107,18 @@ export default function InventoryScanningPage() {
     const nextManifest = payload.manifest;
     const nextItems = payload.items ?? [];
     const nextId = nextManifest?.id ?? null;
-    const nextByPart = manifestItemsToByPart(nextItems);
+    const nextCounterRows = manifestItemsToCounterRows(nextItems);
+    const nextBySerial = Object.fromEntries(nextCounterRows.map((row) => [row.serialId, row.quantity]));
     const oldId = manifestIdRef.current;
 
     if (oldId !== null && oldId !== nextId) {
-      const oldByPart = manifestItemsToByPart(itemsRef.current);
+      const oldRows = manifestItemsToCounterRows(itemsRef.current);
+      const oldBySerial = Object.fromEntries(oldRows.map((row) => [row.serialId, row.quantity]));
       const oldScanned = scannedRef.current;
       const carry: Record<string, number> = {};
-      for (const [part, exp] of Object.entries(oldByPart)) {
-        const s = oldScanned[part] ?? 0;
-        if (s > exp) carry[part] = s - exp;
+      for (const [serial, exp] of Object.entries(oldBySerial)) {
+        const s = oldScanned[serial] ?? 0;
+        if (s > exp) carry[serial] = s - exp;
       }
 
       if (nextId === null) {
@@ -113,15 +128,15 @@ export default function InventoryScanningPage() {
         });
       } else {
         const init: Record<string, number> = {};
-        for (const part of Object.keys(nextByPart)) {
-          const c = carry[part];
-          if (c && c > 0) init[part] = c;
+        for (const serial of Object.keys(nextBySerial)) {
+          const c = carry[serial];
+          if (c && c > 0) init[serial] = c;
         }
         setScanned(init);
         toast.message("Manifest completed", {
           description:
             Object.keys(init).length > 0
-              ? "Excess scan counts carried into the next manifest where part numbers match."
+              ? "Excess scan counts carried into the next manifest where serial IDs match."
               : "Showing the next pending manifest on the parts counter."
         });
       }
@@ -134,8 +149,8 @@ export default function InventoryScanningPage() {
     setItems(nextItems);
     if (nextItems.length > 0) {
       setActivePart((prev) => {
-        const still = nextItems.some((row) => row.part_number === prev);
-        return still ? prev : nextItems[0].part_number;
+        const still = nextItems.some((row) => row.batch_id === prev);
+        return still ? prev : String(nextItems[0].batch_id ?? "");
       });
     } else {
       setActivePart("");
@@ -202,25 +217,32 @@ export default function InventoryScanningPage() {
     };
   }, []);
 
-  const byPart = useMemo(() => manifestItemsToByPart(items), [items]);
-
-  const partKeys = useMemo(() => Object.keys(byPart), [byPart]);
-  const normalizedPartLookup = useMemo(() => {
-    return partKeys.reduce(
-      (acc, part) => {
-        acc[normalizeBarcodeValue(part)] = part;
+  const counterRows = useMemo(() => manifestItemsToCounterRows(items), [items]);
+  const bySerial = useMemo(
+    () => Object.fromEntries(counterRows.map((row) => [row.serialId, row.quantity])),
+    [counterRows]
+  );
+  const serialToProduct = useMemo(
+    () => Object.fromEntries(counterRows.map((row) => [row.serialId, row.productCode])),
+    [counterRows]
+  );
+  const serialKeys = useMemo(() => Object.keys(bySerial), [bySerial]);
+  const normalizedSerialLookup = useMemo(() => {
+    return serialKeys.reduce(
+      (acc, serial) => {
+        acc[normalizeBarcodeValue(serial)] = serial;
         return acc;
       },
       {} as Record<string, string>
     );
-  }, [partKeys]);
-  const activeTarget = byPart[activePart] ?? 0;
+  }, [serialKeys]);
+  const activeTarget = bySerial[activePart] ?? 0;
   const activeScanned = scanned[activePart] ?? 0;
 
   const allMatched = useMemo(() => {
-    if (partKeys.length === 0) return false;
-    return partKeys.every((part) => (scanned[part] ?? 0) === byPart[part]);
-  }, [byPart, partKeys, scanned]);
+    if (serialKeys.length === 0) return false;
+    return serialKeys.every((serial) => (scanned[serial] ?? 0) === bySerial[serial]);
+  }, [bySerial, scanned, serialKeys]);
 
   function flashHighlight(decodedResult?: unknown) {
     const viewport = scannerViewportRef.current;
@@ -285,15 +307,15 @@ export default function InventoryScanningPage() {
     }, 520);
   }
 
-  function matchScannedPart(rawCode: string): string | null {
+  function matchScannedSerial(rawCode: string): string | null {
     const normalizedCode = normalizeBarcodeValue(rawCode);
     if (!normalizedCode) return null;
-    if (normalizedPartLookup[normalizedCode]) return normalizedPartLookup[normalizedCode];
+    if (normalizedSerialLookup[normalizedCode]) return normalizedSerialLookup[normalizedCode];
 
-    // Supplier labels commonly include part code with extra suffix/prefix (e.g., serial chunks).
-    for (const [normalizedPart, originalPart] of Object.entries(normalizedPartLookup)) {
-      if (normalizedCode.includes(normalizedPart) || normalizedPart.includes(normalizedCode)) {
-        return originalPart;
+    // Some scanners prepend/append extra characters around serial IDs.
+    for (const [normalizedSerial, originalSerial] of Object.entries(normalizedSerialLookup)) {
+      if (normalizedCode.includes(normalizedSerial) || normalizedSerial.includes(normalizedCode)) {
+        return originalSerial;
       }
     }
     return null;
@@ -326,23 +348,23 @@ export default function InventoryScanningPage() {
         flashHighlight(decodedResult);
 
         // Manifest mode: parts counter only until "Complete Verification" applies manifest quantities to inventory.
-        if (partKeys.length > 0) {
+        if (serialKeys.length > 0) {
           const now = Date.now();
           if (code === lastScanNotifyRef.current.value && now - lastScanNotifyRef.current.at < 1600) {
             return;
           }
-          const matchedPart = matchScannedPart(code);
-          if (!matchedPart) {
+          const matchedSerial = matchScannedSerial(code);
+          if (!matchedSerial) {
             setLastScan(code);
             return;
           }
           lastScanNotifyRef.current = { value: code, at: now };
           setLastScan(code);
           feedbackScanSuccess();
-          setActivePart(matchedPart);
+          setActivePart(matchedSerial);
           setScanned((prev) => {
-            const current = prev[matchedPart] ?? 0;
-            return { ...prev, [matchedPart]: current + 1 };
+            const current = prev[matchedSerial] ?? 0;
+            return { ...prev, [matchedSerial]: current + 1 };
           });
           return;
         }
@@ -455,7 +477,7 @@ export default function InventoryScanningPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         {manifest ? (
           <p className="text-base font-semibold text-slate-800">
-            Part: <span className="text-red-600">{activePart || "N/A"}</span> | {activeScanned}/{activeTarget} Scanned
+            Serial: <span className="text-red-600">{activePart || "N/A"}</span> | {activeScanned}/{activeTarget} Scanned
           </p>
         ) : (
           <p className="text-base font-semibold text-slate-800">
@@ -529,21 +551,25 @@ export default function InventoryScanningPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">Parts Counter</h2>
           <div className="mt-3 space-y-2">
-            {partKeys.map((part) => {
-              const target = byPart[part];
-              const value = scanned[part] ?? 0;
+            {serialKeys.map((serialId) => {
+              const target = bySerial[serialId];
+              const value = scanned[serialId] ?? 0;
               const done = value === target;
               const excess = value > target;
+              const productCode = serialToProduct[serialId] ?? "N/A";
               return (
                 <button
-                  key={part}
+                  key={serialId}
                   type="button"
-                  onClick={() => setActivePart(part)}
+                  onClick={() => setActivePart(serialId)}
                   className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left ${
-                    activePart === part ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
+                    activePart === serialId ? "border-red-300 bg-red-50" : "border-slate-200 bg-white"
                   }`}
                 >
-                  <span className="text-sm font-semibold text-slate-800">{part}</span>
+                  <span className="text-sm font-semibold text-slate-800">
+                    {serialId}
+                    <span className="ml-2 text-xs font-medium text-slate-500">({productCode})</span>
+                  </span>
                   <span
                     className={`text-xs font-semibold ${
                       excess ? "text-amber-700" : done ? "text-green-600" : "text-slate-600"
