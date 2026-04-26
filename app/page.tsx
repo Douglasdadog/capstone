@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 export default function HomePage() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <div className="h-2 w-full bg-gradient-to-r from-red-700 via-red-600 to-amber-500" />
@@ -26,21 +28,21 @@ export default function HomePage() {
             Powering Smarter Warehouse Operations
           </h1>
           <p className="max-w-xl text-base leading-relaxed text-slate-700">
-            A clean and fast command center for inventory, sales, logistics, and live environment monitoring using
-            the IMARFLEX brand experience.
+            Unified visibility for inventory, logistics, and environmental monitoring in one reliable operations
+            platform built for day-to-day warehouse execution.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/login"
               className="rounded-md bg-amber-400 px-5 py-2.5 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-300"
             >
-              Sign In
+              Open Dashboard
             </Link>
             <Link
               href="/shipment-tracking"
               className="rounded-md border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 shadow-sm transition-colors hover:bg-red-100"
             >
-              Track Shipment
+              Shipment Tracking
             </Link>
           </div>
         </div>
@@ -74,25 +76,32 @@ export default function HomePage() {
             <div className="mb-3 h-1 w-12 rounded-full bg-red-600" />
             <h2 className="text-lg font-black text-slate-900">Inventory Intelligence</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Monitor quantities, thresholds, and overrides with full clarity for every stock location.
+              Monitor stock levels, thresholds, and adjustments with a clear audit-ready view across storage locations.
             </p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 h-1 w-12 rounded-full bg-amber-500" />
             <h2 className="text-lg font-black text-slate-900">Sales and Logistics</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Keep shipments and order statuses in sync from dispatch through delivery.
+              Keep order fulfillment and delivery status synchronized from dispatch to customer confirmation.
             </p>
           </article>
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 h-1 w-12 rounded-full bg-red-600" />
             <h2 className="text-lg font-black text-slate-900">IoT Environment Ready</h2>
             <p className="mt-2 text-sm leading-relaxed text-slate-700">
-              Connect temperature and humidity streams with diagnostics ready for deployment.
+              Track temperature and humidity telemetry with alerts designed for warehouse compliance workflows.
             </p>
           </article>
         </div>
       </section>
+
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-5 text-xs text-slate-500">
+          <p>© {currentYear} IMARFLEX. All rights reserved.</p>
+          <p>Warehouse Operations Platform</p>
+        </div>
+      </footer>
     </main>
   );
 }
