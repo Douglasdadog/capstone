@@ -199,9 +199,9 @@ export async function POST(request: NextRequest) {
 
     await sendEmail({
       to: recipient,
-      subject: `[WIS] TEST Sensor Alert - ${deviceId}`,
+      subject: `[WIS] Sensor Alert - ${deviceId}`,
       text:
-        `This is a test sensor alert from Super Admin settings.\n\n` +
+        `A manual sensor alert was triggered from Super Admin settings.\n\n` +
         `Device: ${deviceId}\n` +
         `Temperature: ${temperatureC.toFixed(1)} C\n` +
         `Humidity: ${humidityPct.toFixed(1)} %RH\n` +
@@ -211,10 +211,10 @@ export async function POST(request: NextRequest) {
         <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:20px;color:#0f172a">
           <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
             <div style="padding:14px 18px;background:#0f172a;color:#fff;font-weight:700">
-              Warehouse Information System - Test Sensor Alert
+              Warehouse Information System - Sensor Alert
             </div>
             <div style="padding:18px">
-              <p>This is a test alert triggered from Super Admin settings.</p>
+              <p>A manual alert was triggered from Super Admin settings.</p>
               <p><b>Device:</b> ${deviceId}</p>
               <p><b>Temperature:</b> ${temperatureC.toFixed(1)} C</p>
               <p><b>Humidity:</b> ${humidityPct.toFixed(1)} %RH</p>
@@ -226,10 +226,10 @@ export async function POST(request: NextRequest) {
       `
     });
 
-    return NextResponse.json({ ok: true, message: `Test alert sent to ${recipient}.` });
+    return NextResponse.json({ ok: true, message: `Alert sent to ${recipient}.` });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to send test alert." },
+      { error: error instanceof Error ? error.message : "Unable to send alert." },
       { status: 500 }
     );
   }

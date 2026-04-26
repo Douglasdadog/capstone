@@ -18,7 +18,7 @@ export default function SuperAdminSensorAlertSettings() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [sendingTest, setSendingTest] = useState(false);
+  const [sendingAlert, setSendingAlert] = useState(false);
   const [setupRequired, setSetupRequired] = useState(false);
   const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +83,8 @@ export default function SuperAdminSensorAlertSettings() {
     }
   }
 
-  async function sendTestAlert() {
-    setSendingTest(true);
+  async function sendAlert() {
+    setSendingAlert(true);
     setError(null);
     setMessage(null);
     try {
@@ -95,13 +95,13 @@ export default function SuperAdminSensorAlertSettings() {
       });
       const payload = (await response.json()) as { ok?: boolean; message?: string; error?: string };
       if (!response.ok || !payload.ok) {
-        throw new Error(payload.error ?? "Unable to send test alert.");
+        throw new Error(payload.error ?? "Unable to send alert.");
       }
-      setMessage(payload.message ?? "Test alert sent.");
+      setMessage(payload.message ?? "Alert sent.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to send test alert.");
+      setError(e instanceof Error ? e.message : "Unable to send alert.");
     } finally {
-      setSendingTest(false);
+      setSendingAlert(false);
     }
   }
 
@@ -168,16 +168,16 @@ export default function SuperAdminSensorAlertSettings() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => void sendTestAlert()}
-            disabled={sendingTest || saving || loading}
+            onClick={() => void sendAlert()}
+            disabled={sendingAlert || saving || loading}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
           >
-            {sendingTest ? "Sending..." : "Send test alert"}
+            {sendingAlert ? "Sending..." : "Send alert"}
           </button>
           <button
             type="button"
             onClick={() => void save()}
-            disabled={saving || sendingTest || loading || setupRequired}
+            disabled={saving || sendingAlert || loading || setupRequired}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save threshold settings"}
