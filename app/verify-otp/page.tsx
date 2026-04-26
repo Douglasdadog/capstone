@@ -176,9 +176,9 @@ function VerifyOtpContent() {
 
         {loading ? <p className="mt-4 text-sm text-slate-500">Loading MFA setup...</p> : null}
 
-        {!loading ? (
+        {!loading && step === "setup" ? (
           <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-            Step {step === "setup" ? "1 of 2" : "2 of 2"} - {step === "setup" ? "Setup Authenticator" : "Verify OTP"}
+            Setup Authenticator
           </div>
         ) : null}
 
