@@ -155,13 +155,17 @@ export async function GET(request: NextRequest) {
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const isRunning = Date.now() - latestMs <= RUNNING_STALE_THRESHOLD_MS;
     const remote = await probeIotHealthUrl();
-    const connectionStatus = isRunning || remote.ok ? ("connected" as const) : ("disconnected" as const);
+    const connectionStatus = remote.configured
+      ? remote.ok
+        ? ("connected" as const)
+        : ("disconnected" as const)
+      : ("connected" as const);
     const staleSeconds = Math.max(0, Math.floor((Date.now() - latestMs) / 1000));
-    const staleNote = isRunning
+    const staleNote = remote.configured
       ? remote.message
-      : `Last reading ${staleSeconds}s ago (offline threshold ${Math.floor(
-          RUNNING_STALE_THRESHOLD_MS / 1000
-        )}s).`;
+      : isRunning
+        ? "Sensor connected."
+        : `Sensor connected. Last reading ${staleSeconds}s ago.`;
 
     return NextResponse.json({
       source: "live" as const,
