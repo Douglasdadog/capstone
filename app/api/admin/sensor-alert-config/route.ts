@@ -11,6 +11,11 @@ type ConfigRow = {
   updated_at: string;
 };
 
+function isMissingRelationError(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("could not find the table") || m.includes("relation") && m.includes("does not exist");
+}
+
 function parseNumber(value: unknown): number | null {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -49,10 +54,18 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
+      if (isMissingRelationError(error.message)) {
+        return NextResponse.json({
+          config: normalizeConfigRow(null),
+          setupRequired: true,
+          setupMessage:
+            "Sensor alert config table is missing. Run the latest Supabase inventory setup SQL to enable saved thresholds."
+        });
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ config: normalizeConfigRow(data as Partial<ConfigRow> | null) });
+    return NextResponse.json({ config: normalizeConfigRow(data as Partial<ConfigRow> | null), setupRequired: false });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to load sensor alert settings." },
@@ -117,6 +130,15 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (error) {
+      if (isMissingRelationError(error.message)) {
+        return NextResponse.json(
+          {
+            error:
+              "Sensor alert config table is missing. Run the latest Supabase inventory setup SQL, then save again."
+          },
+          { status: 409 }
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

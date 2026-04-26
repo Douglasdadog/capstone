@@ -18,6 +18,8 @@ export default function SuperAdminSensorAlertSettings() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [setupMessage, setSetupMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -27,11 +29,18 @@ export default function SuperAdminSensorAlertSettings() {
       setError(null);
       try {
         const response = await fetch("/api/admin/sensor-alert-config");
-        const payload = (await response.json()) as { error?: string; config?: SensorAlertConfig };
+        const payload = (await response.json()) as {
+          error?: string;
+          config?: SensorAlertConfig;
+          setupRequired?: boolean;
+          setupMessage?: string;
+        };
         if (!response.ok || !payload.config) {
           throw new Error(payload.error ?? "Unable to load sensor alert settings.");
         }
         setConfig(payload.config);
+        setSetupRequired(Boolean(payload.setupRequired));
+        setSetupMessage(payload.setupMessage ?? null);
         setWarning(String(payload.config.warning_threshold_c));
         setCritical(String(payload.config.critical_threshold_c));
         setCooldown(String(payload.config.cooldown_minutes));
@@ -81,6 +90,11 @@ export default function SuperAdminSensorAlertSettings() {
       </p>
 
       {loading ? <p className="mt-3 text-sm text-slate-500">Loading settings...</p> : null}
+      {setupRequired && setupMessage ? (
+        <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {setupMessage}
+        </p>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       {message ? <p className="mt-3 text-sm text-green-700">{message}</p> : null}
 
@@ -131,7 +145,7 @@ export default function SuperAdminSensorAlertSettings() {
         <button
           type="button"
           onClick={() => void save()}
-          disabled={saving || loading}
+          disabled={saving || loading || setupRequired}
           className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
         >
           {saving ? "Saving..." : "Save threshold settings"}
