@@ -32,6 +32,11 @@ function parseCreatedAt(input?: string): string {
   return new Date(ms).toISOString();
 }
 
+function normalizeEpochMs(value: number): number {
+  // Common embedded payloads send Unix seconds (10 digits); normalize to ms.
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+}
+
 function toCelsius(temperature: number, unit?: string): number {
   if (typeof unit === "string" && unit.trim().toUpperCase() === "F") {
     return (temperature - 32) * (5 / 9);
@@ -44,7 +49,13 @@ function parseCreatedAtFromPayload(body: SensorPayload): string {
     return parseCreatedAt(body.created_at.trim());
   }
   const ts = toFiniteNumber(body.ts);
-  if (ts !== null) return new Date(ts).toISOString();
+  if (ts !== null) {
+    const normalizedTs = normalizeEpochMs(ts);
+    // Guard against bogus epoch values that would make readings look stale forever.
+    if (normalizedTs >= Date.parse("2020-01-01T00:00:00Z")) {
+      return new Date(normalizedTs).toISOString();
+    }
+  }
   return new Date().toISOString();
 }
 

@@ -31,13 +31,20 @@ function parseCreatedAt(input?: string): string {
   return new Date(ms).toISOString();
 }
 
+function normalizeEpochMs(value: number): number {
+  return value < 1_000_000_000_000 ? value * 1000 : value;
+}
+
 function parseCreatedAtFromPayload(body: IngestPayload): string {
   if (typeof body.created_at === "string" && body.created_at.trim()) {
     return parseCreatedAt(body.created_at.trim());
   }
   const ts = toFiniteNumber(body.ts);
   if (ts !== null) {
-    return new Date(ts).toISOString();
+    const normalizedTs = normalizeEpochMs(ts);
+    if (normalizedTs >= Date.parse("2020-01-01T00:00:00Z")) {
+      return new Date(normalizedTs).toISOString();
+    }
   }
   return new Date().toISOString();
 }
