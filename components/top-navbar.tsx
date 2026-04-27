@@ -108,6 +108,115 @@ export default function TopNavbar() {
     exportDataAsJson(snapshot, `wis-local-write-backup-snapshot-${snapshot.id}`);
   }
 
+  function handleExportFullBackup() {
+    const latest = getLocalWriteBackupSnapshots().slice().reverse()[0];
+    if (!latest?.serverData?.fullBackupPayload) {
+      setBackupNotice("No full backup payload found yet. Click 'Backup now' first.");
+      return;
+    }
+    exportDataAsJson(latest.serverData.fullBackupPayload, "wis-full-backup");
+    setBackupNotice("Full backup exported successfully.");
+  }
+
+  async function handleExportFullBackupExcel() {
+    const latest = getLocalWriteBackupSnapshots().slice().reverse()[0];
+    const payload = latest?.serverData?.fullBackupPayload as
+      | {
+          backupVersion?: string;
+          capturedAt?: string;
+          warnings?: string[];
+          counts?: Record<string, number>;
+          modules?: {
+            auth?: Record<string, unknown>;
+            inventory?: Record<string, unknown>;
+            logistics?: Record<string, unknown>;
+            iot?: Record<string, unknown>;
+            system?: Record<string, unknown>;
+          };
+        }
+      | undefined;
+
+    if (!payload) {
+      setBackupNotice("No full backup payload found yet. Click 'Backup now' first.");
+      return;
+    }
+
+    try {
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.utils.book_new();
+
+      const summaryRows = [
+        { field: "backupVersion", value: payload.backupVersion ?? "unknown" },
+        { field: "capturedAt", value: payload.capturedAt ?? "unknown" },
+        { field: "warningsCount", value: String(payload.warnings?.length ?? 0) }
+      ];
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Summary");
+
+      const countRows = Object.entries(payload.counts ?? {}).map(([key, value]) => ({
+        metric: key,
+        value
+      }));
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(countRows.length > 0 ? countRows : [{ metric: "none", value: 0 }]),
+        "Counts"
+      );
+
+      const warningsRows = (payload.warnings ?? []).map((warning) => ({ warning }));
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(warningsRows.length > 0 ? warningsRows : [{ warning: "none" }]),
+        "Warnings"
+      );
+
+      const modules = payload.modules ?? {};
+      const toRows = (value: unknown): unknown[] =>
+        Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
+
+      const sheets: Array<{ name: string; rows: unknown[] }> = [
+        { name: "Auth_SupabaseUsers", rows: toRows(modules.auth?.supabaseUsers) },
+        { name: "Auth_SampleUsers", rows: toRows(modules.auth?.sampleUsers) },
+        { name: "Auth_RegisteredUsers", rows: toRows(modules.auth?.registeredUsers) },
+        { name: "Auth_MFARequests", rows: toRows(modules.auth?.mfaResetRequests) },
+        { name: "Inventory", rows: toRows(modules.inventory?.inventory) },
+        { name: "Manifests", rows: toRows(modules.inventory?.manifests) },
+        { name: "Manifest_Items", rows: toRows(modules.inventory?.manifestItems) },
+        { name: "Manifest_Reports", rows: toRows(modules.inventory?.manifestReports) },
+        { name: "Manifest_ScanEvents", rows: toRows(modules.inventory?.manifestScanEvents) },
+        { name: "Alerts", rows: toRows(modules.inventory?.alerts) },
+        { name: "Sales_Orders", rows: toRows(modules.logistics?.salesOrders) },
+        { name: "Shipments", rows: toRows(modules.logistics?.shipments) },
+        { name: "Shipment_Items", rows: toRows(modules.logistics?.shipmentItems) },
+        { name: "Tracking_Issues", rows: toRows(modules.logistics?.trackingIssues) },
+        { name: "Sensor_Logs", rows: toRows(modules.iot?.sensorLogs) },
+        { name: "Sensor_Alerts", rows: toRows(modules.iot?.sensorAlertNotifications) },
+        { name: "Sensor_Config", rows: toRows(modules.iot?.sensorAlertConfig) },
+        { name: "Idempotency_Keys", rows: toRows(modules.system?.idempotencyKeys) },
+        {
+          name: "Auth_Permissions",
+          rows:
+            modules.auth?.permissions && typeof modules.auth.permissions === "object"
+              ? Object.entries(modules.auth.permissions as Record<string, unknown>).map(([email, routes]) => ({
+                  email,
+                  routes: JSON.stringify(routes)
+                }))
+              : []
+        }
+      ];
+
+      for (const sheet of sheets) {
+        const rows = sheet.rows.length > 0 ? sheet.rows : [{ notice: "No data" }];
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), sheet.name);
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      XLSX.writeFile(workbook, `wis-full-backup-${timestamp}.xlsx`);
+      setBackupNotice("Full backup Excel exported successfully.");
+    } catch {
+      setBackupNotice("Unable to export Excel backup. Please try again.");
+    }
+  }
+
   function handleClearBackups() {
     clearLocalWriteBackups();
     setBackups([]);
@@ -266,6 +375,20 @@ export default function TopNavbar() {
                       className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       Export JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportFullBackup}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-100"
+                    >
+                      Export Full Backup
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleExportFullBackupExcel()}
+                      className="rounded-md border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-100"
+                    >
+                      Export Excel
                     </button>
                     <button
                       type="button"
