@@ -97,7 +97,12 @@ export default function InventoryScanningPage() {
 
   const loadPending = useCallback(async () => {
     const response = await fetch("/api/inventory/manifests/pending");
-    const payload = (await response.json()) as { error?: string; manifest: Manifest | null; items: ManifestItem[] };
+    const payload = (await response.json()) as {
+      error?: string;
+      manifest: Manifest | null;
+      items: ManifestItem[];
+      scanCounts?: Record<string, number>;
+    };
     if (!response.ok) {
       setError(payload.error ?? "Unable to fetch pending manifest.");
       setLoading(false);
@@ -106,6 +111,7 @@ export default function InventoryScanningPage() {
 
     const nextManifest = payload.manifest;
     const nextItems = payload.items ?? [];
+    const nextScanCounts = payload.scanCounts ?? {};
     const nextId = nextManifest?.id ?? null;
     const nextCounterRows = manifestItemsToCounterRows(nextItems);
     const nextBySerial = Object.fromEntries(nextCounterRows.map((row) => [row.serialId, row.quantity]));
@@ -141,7 +147,9 @@ export default function InventoryScanningPage() {
         });
       }
     } else if (oldId === null) {
-      setScanned({});
+      setScanned(nextScanCounts);
+    } else if (oldId === nextId) {
+      setScanned(nextScanCounts);
     }
 
     manifestIdRef.current = nextId;
@@ -167,6 +175,9 @@ export default function InventoryScanningPage() {
     const channel = supabase
       .channel("inventory-scanning-manifests")
       .on("postgres_changes", { event: "*", schema: "public", table: "manifests" }, () => {
+        void loadPending();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "manifest_scan_events" }, () => {
         void loadPending();
       })
       .subscribe();

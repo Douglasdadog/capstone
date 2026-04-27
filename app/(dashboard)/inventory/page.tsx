@@ -87,6 +87,7 @@ export default function InventoryPage() {
   const [iotStatusNote, setIotStatusNote] = useState<string | null>(null);
   const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const [refreshingInventory, setRefreshingInventory] = useState(false);
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
   const [scannerLinkCopied, setScannerLinkCopied] = useState(false);
@@ -241,6 +242,18 @@ export default function InventoryPage() {
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchInventory(), fetchAlerts(), fetchMonitoring()]);
   }, [fetchAlerts, fetchInventory, fetchMonitoring]);
+
+  async function refreshInventoryData() {
+    try {
+      setRefreshingInventory(true);
+      setError(null);
+      await refreshAll();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to refresh inventory data.");
+    } finally {
+      setRefreshingInventory(false);
+    }
+  }
 
   useEffect(() => {
     async function initialLoad() {
@@ -485,6 +498,14 @@ export default function InventoryPage() {
             Live warehouse stock with manual quantity/threshold overrides and auto replenishment alerts.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => void refreshInventoryData()}
+          disabled={refreshingInventory}
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+        >
+          {refreshingInventory ? "Refreshing inventory..." : "Refresh Inventory"}
+        </button>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">

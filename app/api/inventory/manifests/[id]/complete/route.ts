@@ -58,6 +58,9 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Cleanup scan event logs for this manifest after successful completion.
+    await supabase.from("manifest_scan_events").delete().eq("manifest_id", id);
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json(

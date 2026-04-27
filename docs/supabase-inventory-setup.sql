@@ -150,6 +150,19 @@ create table if not exists public.scanner_access_tokens (
 create index if not exists idx_scanner_access_tokens_active
   on public.scanner_access_tokens (used_at, expires_at, created_at desc);
 
+-- Live manifest scan events (shared by phone scanner and laptop parts counter)
+create table if not exists public.manifest_scan_events (
+  id uuid primary key default gen_random_uuid(),
+  manifest_id uuid not null references public.manifests(id) on delete cascade,
+  serial_id text not null,
+  product_code text not null,
+  source text not null default 'phone',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists manifest_scan_events_manifest_id_idx
+  on public.manifest_scan_events(manifest_id, created_at desc);
+
 -- Discrepancy reports table for scanner "Make Report" submissions
 create table if not exists public.manifest_reports (
   id uuid primary key default gen_random_uuid(),
@@ -159,6 +172,20 @@ create table if not exists public.manifest_reports (
   comments text,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'manifest_scan_events'
+  ) then
+    alter publication supabase_realtime add table public.manifest_scan_events;
+  end if;
+end
+$$;
 
 do $$
 begin

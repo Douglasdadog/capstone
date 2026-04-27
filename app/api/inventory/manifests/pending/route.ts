@@ -37,9 +37,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
+    let scanCounts: Record<string, number> = {};
+    const { data: scanEvents, error: scanError } = await supabase
+      .from("manifest_scan_events")
+      .select("serial_id")
+      .eq("manifest_id", manifest.id);
+    if (scanError) {
+      const missingTable = scanError.message.toLowerCase().includes("manifest_scan_events");
+      if (!missingTable) {
+        return NextResponse.json({ error: scanError.message }, { status: 500 });
+      }
+    } else {
+      scanCounts = (scanEvents ?? []).reduce(
+        (acc, row) => {
+          const serial = String(row.serial_id ?? "").trim();
+          if (!serial) return acc;
+          acc[serial] = (acc[serial] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+    }
+
     return NextResponse.json({
       manifest,
-      items: items ?? []
+      items: items ?? [],
+      scanCounts
     });
   } catch (error) {
     return NextResponse.json(
