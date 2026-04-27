@@ -230,7 +230,7 @@ export default function TopNavbar() {
     }
   }
 
-  async function handleBackupNow() {
+  async function handleBackupNowAndExport() {
     setBackupNowSaving(true);
     try {
       const fullBackupRes = await fetch("/api/admin/backup/full");
@@ -281,8 +281,9 @@ export default function TopNavbar() {
         fullBackupPayload: fullBackup
       });
       setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+      exportDataAsJson(fullBackup, "wis-full-backup");
       setBackupNotice(
-        `Backup saved: ${snapshot.entries.length} local writes, ${snapshot.serverData?.salesOrders?.length ?? 0} sales orders, ${snapshot.serverData?.inventory?.length ?? 0} inventory rows, ${snapshot.serverData?.manifestReports?.length ?? 0} reports.`
+        `Backup saved and exported: ${snapshot.entries.length} local writes, ${snapshot.serverData?.salesOrders?.length ?? 0} sales orders, ${snapshot.serverData?.inventory?.length ?? 0} inventory rows, ${snapshot.serverData?.manifestReports?.length ?? 0} reports.`
       );
     } catch {
       const snapshot = createLocalWriteBackupSnapshot();
@@ -358,18 +359,11 @@ export default function TopNavbar() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void handleBackupNow()}
+                      onClick={() => void handleBackupNowAndExport()}
                       disabled={backupNowSaving}
                       className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
                     >
-                      {backupNowSaving ? "Backing up..." : "Backup now"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportFullBackup}
-                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-100"
-                    >
-                      Export Full Backup
+                      {backupNowSaving ? "Backing up..." : "Backup + Export JSON"}
                     </button>
                     <button
                       type="button"
