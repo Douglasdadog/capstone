@@ -4,11 +4,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
-const MIN_STALE_SECONDS = 300;
+const DEFAULT_EXPECTED_INTERVAL_SECONDS = 5;
+const EXPECTED_READING_INTERVAL_SECONDS = (() => {
+  const raw = Number(process.env.WIS_SENSOR_EXPECTED_INTERVAL_SECONDS ?? String(DEFAULT_EXPECTED_INTERVAL_SECONDS));
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_EXPECTED_INTERVAL_SECONDS;
+  return Math.round(raw);
+})();
 const RUNNING_STALE_THRESHOLD_MS = (() => {
-  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? String(MIN_STALE_SECONDS));
-  if (!Number.isFinite(raw) || raw <= 0) return MIN_STALE_SECONDS * 1000;
-  return Math.max(MIN_STALE_SECONDS, Math.round(raw)) * 1000;
+  const raw = Number(process.env.WIS_SENSOR_RUNNING_STALE_SECONDS ?? "");
+  if (Number.isFinite(raw) && raw > 0) {
+    return Math.round(raw) * 1000;
+  }
+  // Default grace: allow up to 3 missed intervals (min 10s) for transient jitter.
+  return Math.max(10, EXPECTED_READING_INTERVAL_SECONDS * 3) * 1000;
 })();
 
 type ReadingRow = {
@@ -168,13 +176,16 @@ export async function GET(request: NextRequest) {
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const ageMs = Date.now() - latestMs;
     const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= RUNNING_STALE_THRESHOLD_MS;
-    const isRunning = ageMs <= RUNNING_STALE_THRESHOLD_MS || hasFreshAlert;
+    const hasAnyTelemetry = Number.isFinite(displayTemperature) && Number.isFinite(displayHumidity);
+    const isRunning = hasAnyTelemetry || ageMs <= RUNNING_STALE_THRESHOLD_MS || hasFreshAlert;
     const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
     const staleSeconds = Math.max(0, Math.floor(telemetryAgeMs / 1000));
     const staleNote = isRunning
-      ? hasFreshAlert && ageMs > RUNNING_STALE_THRESHOLD_MS
-        ? "Sensor connected. Alert heartbeat is active; waiting for next sensor log upload."
-        : "Sensor connected. Live readings are updating."
+      ? staleSeconds > EXPECTED_READING_INTERVAL_SECONDS * 3
+        ? `Sensor active. Last reading ${staleSeconds}s ago.`
+        : hasFreshAlert && ageMs > RUNNING_STALE_THRESHOLD_MS
+          ? "Sensor connected. Alert heartbeat is active; waiting for next sensor log upload."
+          : "Sensor connected. Live readings are updating."
       : `Sensor disconnected. Last reading ${staleSeconds}s ago.`;
 
     return NextResponse.json({
@@ -188,7 +199,8 @@ export async function GET(request: NextRequest) {
       latestSensorAlert,
       localIotEndpoint: configuredIotEndpoint,
       note: staleNote,
-      staleSeconds
+      staleSeconds,
+      expectedIntervalSeconds: EXPECTED_READING_INTERVAL_SECONDS
     });
   } catch (error) {
     return NextResponse.json(
