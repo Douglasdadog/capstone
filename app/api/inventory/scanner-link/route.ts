@@ -43,6 +43,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { token, expiresAt } = createSessionScannerToken(auth.session.email);
+  try {
+    // Optional persistence so laptop can detect when BYOD QR was consumed.
+    const supabaseModule = await import("@/lib/supabase/admin");
+    const supabase = supabaseModule.createAdminClient();
+    await supabase.from("scanner_access_tokens").insert({
+      token,
+      created_by: auth.session.email,
+      expires_at: expiresAt
+    });
+  } catch {
+    // Non-blocking fallback: token still works via signature validation.
+  }
 
   return NextResponse.json({
     url: buildScannerUrl(request, token),

@@ -91,6 +91,7 @@ export default function InventoryPage() {
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
   const [scannerLinkCopied, setScannerLinkCopied] = useState(false);
+  const [scannerActivated, setScannerActivated] = useState(false);
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
@@ -303,6 +304,42 @@ export default function InventoryPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!scannerUrl || scannerActivated) return;
+    let active = true;
+    const parsed = (() => {
+      try {
+        return new URL(scannerUrl);
+      } catch {
+        return null;
+      }
+    })();
+    const token = parsed?.pathname.split("/").filter(Boolean).pop() ?? "";
+    if (!token) return;
+
+    async function checkStatus() {
+      const response = await fetch(`/api/inventory/scanner-link/status?token=${encodeURIComponent(token)}`);
+      const payload = (await response.json()) as { used?: boolean };
+      if (!active || !response.ok) return;
+      if (payload.used) {
+        setScannerActivated(true);
+        toast.success("Phone scanner connected", {
+          description: "Opening manifest scanning view..."
+        });
+        window.location.href = "/inventory/scanning";
+      }
+    }
+
+    void checkStatus();
+    const intervalId = window.setInterval(() => {
+      void checkStatus();
+    }, 2000);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [scannerActivated, scannerUrl]);
 
   useEffect(() => {
     return () => {
