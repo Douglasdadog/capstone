@@ -12,6 +12,17 @@ export type LocalWriteBackupSnapshot = {
   id: string;
   createdAt: string;
   entries: LocalWriteBackupEntry[];
+  serverData?: {
+    capturedAt: string;
+    inventory?: unknown[];
+    shipments?: unknown[];
+    salesOrders?: unknown[];
+    alerts?: unknown[];
+    sensorLogs?: unknown[];
+    manifestReports?: unknown[];
+    trackingIssues?: unknown[];
+    fullBackupPayload?: unknown;
+  };
 };
 
 const STORAGE_KEY = "wis_local_write_backup_v1";
@@ -149,13 +160,14 @@ function writeSnapshots(snapshots: LocalWriteBackupSnapshot[]) {
   window.localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(trimmed));
 }
 
-export function createLocalWriteBackupSnapshot(): LocalWriteBackupSnapshot {
+export function createLocalWriteBackupSnapshot(serverData?: LocalWriteBackupSnapshot["serverData"]): LocalWriteBackupSnapshot {
   const entries = readBackups();
   const snapshots = readSnapshots();
   const snapshot: LocalWriteBackupSnapshot = {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    entries
+    entries,
+    serverData
   };
   snapshots.push(snapshot);
   writeSnapshots(snapshots);

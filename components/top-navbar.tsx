@@ -26,6 +26,7 @@ export default function TopNavbar() {
   const [backupSearch, setBackupSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [backupNotice, setBackupNotice] = useState<string | null>(null);
+  const [backupNowSaving, setBackupNowSaving] = useState(false);
 
   useEffect(() => {
     async function loadSession() {
@@ -125,12 +126,69 @@ export default function TopNavbar() {
     }
   }
 
-  function handleBackupNow() {
-    const snapshot = createLocalWriteBackupSnapshot();
-    setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
-    setBackupNotice(
-      `Manual backup saved locally at ${new Date(snapshot.createdAt).toLocaleString()} (${snapshot.entries.length} entries).`
-    );
+  async function handleBackupNow() {
+    setBackupNowSaving(true);
+    try {
+      const fullBackupRes = await fetch("/api/admin/backup/full");
+      if (!fullBackupRes.ok) {
+        const snapshot = createLocalWriteBackupSnapshot();
+        setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+        setBackupNotice(
+          `Backup saved locally at ${new Date(snapshot.createdAt).toLocaleString()} (${snapshot.entries.length} local write entries). Server snapshot unavailable.`
+        );
+        return;
+      }
+      const fullBackup = (await fullBackupRes.json()) as {
+        capturedAt?: string;
+        modules?: {
+          inventory?: {
+            inventory?: unknown[];
+            alerts?: unknown[];
+            manifestReports?: unknown[];
+          };
+          logistics?: {
+            shipments?: unknown[];
+            salesOrders?: unknown[];
+            trackingIssues?: unknown[];
+          };
+          iot?: {
+            sensorLogs?: unknown[];
+          };
+        };
+      };
+      const capturedAt = fullBackup.capturedAt ?? new Date().toISOString();
+      const inventory = fullBackup.modules?.inventory?.inventory ?? [];
+      const alerts = fullBackup.modules?.inventory?.alerts ?? [];
+      const manifestReports = fullBackup.modules?.inventory?.manifestReports ?? [];
+      const shipments = fullBackup.modules?.logistics?.shipments ?? [];
+      const salesOrders = fullBackup.modules?.logistics?.salesOrders ?? [];
+      const trackingIssues = fullBackup.modules?.logistics?.trackingIssues ?? [];
+      const sensorLogs = fullBackup.modules?.iot?.sensorLogs ?? [];
+
+      const snapshot = createLocalWriteBackupSnapshot({
+        capturedAt,
+        inventory,
+        shipments,
+        salesOrders,
+        alerts,
+        sensorLogs,
+        manifestReports,
+        trackingIssues,
+        fullBackupPayload: fullBackup
+      });
+      setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+      setBackupNotice(
+        `Backup saved: ${snapshot.entries.length} local writes, ${snapshot.serverData?.salesOrders?.length ?? 0} sales orders, ${snapshot.serverData?.inventory?.length ?? 0} inventory rows, ${snapshot.serverData?.manifestReports?.length ?? 0} reports.`
+      );
+    } catch {
+      const snapshot = createLocalWriteBackupSnapshot();
+      setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+      setBackupNotice(
+        `Backup saved locally at ${new Date(snapshot.createdAt).toLocaleString()} (${snapshot.entries.length} local write entries). Server snapshot failed.`
+      );
+    } finally {
+      setBackupNowSaving(false);
+    }
   }
 
   return (
@@ -196,10 +254,11 @@ export default function TopNavbar() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={handleBackupNow}
+                      onClick={() => void handleBackupNow()}
+                      disabled={backupNowSaving}
                       className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
                     >
-                      Backup now
+                      {backupNowSaving ? "Backing up..." : "Backup now"}
                     </button>
                     <button
                       type="button"
@@ -241,7 +300,10 @@ export default function TopNavbar() {
                             className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1"
                           >
                             <span className="text-xs text-slate-700">
-                              {new Date(snapshot.createdAt).toLocaleString()} ({snapshot.entries.length} entries)
+                          {new Date(snapshot.createdAt).toLocaleString()} ({snapshot.entries.length} local,{" "}
+                          {snapshot.serverData?.salesOrders?.length ?? 0} sales,{" "}
+                          {snapshot.serverData?.inventory?.length ?? 0} inventory,{" "}
+                          {snapshot.serverData?.manifestReports?.length ?? 0} reports)
                             </span>
                             <button
                               type="button"
