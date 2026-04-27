@@ -29,8 +29,23 @@ function parseMfaApprovalMessage(message: string | undefined) {
   return { approvedFor, approvedBy, reason };
 }
 
+function parseMfaDenialMessage(message: string | undefined) {
+  const text = message ?? "";
+  const deniedFor = text.match(/MFA reset denied for (.+?) by /i)?.[1] ?? "—";
+  const deniedBy = text.match(/ by (.+?)\. Reason:/i)?.[1] ?? "—";
+  const reason = text.match(/Reason:\s*(.+?)(?:\sEmail warning:|$)/i)?.[1] ?? "—";
+  return { deniedFor, deniedBy, reason };
+}
+
 function formatRoleLabel(role: string) {
   return role === "SuperAdmin" ? "Super Admin" : role;
+}
+
+function getMfaDecisionTag(message: string | undefined): "Approved" | "Denied" | null {
+  const text = (message ?? "").toLowerCase();
+  if (text.includes("mfa reset approved")) return "Approved";
+  if (text.includes("mfa reset denied")) return "Denied";
+  return null;
 }
 
 export default function SuperAdminGovernancePanel() {
@@ -40,8 +55,11 @@ export default function SuperAdminGovernancePanel() {
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<SecurityRequestRow | null>(null);
+  const [selectedDenyRequest, setSelectedDenyRequest] = useState<SecurityRequestRow | null>(null);
   const [reason, setReason] = useState("");
   const [confirmationText, setConfirmationText] = useState("");
+  const [denyReason, setDenyReason] = useState("");
+  const [denyConfirmationText, setDenyConfirmationText] = useState("");
   const [modalError, setModalError] = useState<string | null>(null);
 
   async function loadGovernanceData() {
@@ -128,15 +146,83 @@ export default function SuperAdminGovernancePanel() {
     }
   }
 
+  async function denyRequest() {
+    if (!selectedDenyRequest) return;
+    setActionId(selectedDenyRequest.id);
+    setError(null);
+    setModalError(null);
+    try {
+      const payloadBody = {
+        requestId: selectedDenyRequest.id,
+        reason: denyReason,
+        confirmationText: denyConfirmationText
+      };
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/security-requests/deny",
+          method: "POST",
+          body: payloadBody
+        });
+        setSelectedDenyRequest(null);
+        setDenyReason("");
+        setDenyConfirmationText("");
+        setError(null);
+        setModalError("Offline: deny action queued. Sync when online.");
+        return;
+      }
+      const response = await fetch("/api/admin/security-requests/deny", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to deny request.");
+      }
+      setSelectedDenyRequest(null);
+      setDenyReason("");
+      setDenyConfirmationText("");
+      await loadGovernanceData();
+    } catch (err) {
+      if (err instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/security-requests/deny",
+          method: "POST",
+          body: {
+            requestId: selectedDenyRequest.id,
+            reason: denyReason,
+            confirmationText: denyConfirmationText
+          }
+        });
+        setSelectedDenyRequest(null);
+        setDenyReason("");
+        setDenyConfirmationText("");
+        setModalError("Network issue: deny action queued. Sync when online.");
+        return;
+      }
+      setModalError(err instanceof Error ? err.message : "Unable to deny request.");
+    } finally {
+      setActionId(null);
+    }
+  }
+
   const mfaApprovalEntries = useMemo(
     () =>
       alerts.filter((row) => (row.message ?? "").toLowerCase().includes("mfa reset approved")).slice(0, 10),
     [alerts]
   );
+  const mfaDenialEntries = useMemo(
+    () => alerts.filter((row) => (row.message ?? "").toLowerCase().includes("mfa reset denied")).slice(0, 10),
+    [alerts]
+  );
   const confirmationValid = confirmationText.trim() === "APPROVE";
   const reasonLength = reason.trim().length;
   const reasonValid = reasonLength >= 8 && reasonLength <= 240;
+  const denyConfirmationValid = denyConfirmationText.trim() === "DENY";
+  const denyReasonLength = denyReason.trim().length;
+  const denyReasonValid = denyReasonLength >= 8 && denyReasonLength <= 240;
   const canConfirmApproval = Boolean(selectedRequest) && confirmationValid && reasonValid;
+  const canConfirmDeny = Boolean(selectedDenyRequest) && denyConfirmationValid && denyReasonValid;
 
   useEffect(() => {
     void loadGovernanceData();
@@ -167,19 +253,34 @@ export default function SuperAdminGovernancePanel() {
                   <td className="px-4 py-3">{formatRoleLabel(row.role)}</td>
                   <td className="px-4 py-3">{new Date(row.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      disabled={actionId === row.id}
-                      onClick={() => {
-                        setSelectedRequest(row);
-                        setReason("");
-                        setConfirmationText("");
-                        setModalError(null);
-                      }}
-                      className="rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:from-amber-800 hover:to-red-700 disabled:opacity-60"
-                    >
-                      {actionId === row.id ? "Processing..." : "Approve & Reset"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={actionId === row.id}
+                        onClick={() => {
+                          setSelectedRequest(row);
+                          setReason("");
+                          setConfirmationText("");
+                          setModalError(null);
+                        }}
+                        className="rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:from-amber-800 hover:to-red-700 disabled:opacity-60"
+                      >
+                        {actionId === row.id ? "Processing..." : "Approve & Reset"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionId === row.id}
+                        onClick={() => {
+                          setSelectedDenyRequest(row);
+                          setDenyReason("");
+                          setDenyConfirmationText("");
+                          setModalError(null);
+                        }}
+                        className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-60"
+                      >
+                        {actionId === row.id ? "Processing..." : "Deny"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -223,7 +324,27 @@ export default function SuperAdminGovernancePanel() {
                   <td className="px-4 py-3">
                     <AuditActionBadge status={row.status} message={row.message} />
                   </td>
-                  <td className="px-4 py-3">{row.message ?? row.item_name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span>{row.message ?? row.item_name ?? "—"}</span>
+                      {getMfaDecisionTag(row.message) === "Approved" ? (
+                        <a
+                          href="#mfa-approval-history"
+                          className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200/80 hover:bg-emerald-200"
+                        >
+                          Approved
+                        </a>
+                      ) : null}
+                      {getMfaDecisionTag(row.message) === "Denied" ? (
+                        <a
+                          href="#mfa-denial-history"
+                          className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 ring-1 ring-red-200/80 hover:bg-red-200"
+                        >
+                          Denied
+                        </a>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!loading && alerts.length === 0 ? (
@@ -245,7 +366,7 @@ export default function SuperAdminGovernancePanel() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+      <div id="mfa-approval-history" className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
         <h2 className="text-lg font-semibold text-slate-900">MFA approval history</h2>
         <p className="mt-1 text-sm text-slate-600">
           Focused trail showing who approved MFA resets and why.
@@ -283,6 +404,52 @@ export default function SuperAdminGovernancePanel() {
                 <tr>
                   <td className="px-4 py-5 text-slate-500" colSpan={4}>
                     Loading MFA approval history...
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="mfa-denial-history" className="rounded-2xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur">
+        <h2 className="text-lg font-semibold text-slate-900">MFA denial history</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Focused trail showing who denied MFA reset requests and why.
+        </p>
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-700">
+              <tr>
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Denied For</th>
+                <th className="px-4 py-3">Denied By</th>
+                <th className="px-4 py-3">Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mfaDenialEntries.map((row) => {
+                const parsed = parseMfaDenialMessage(row.message);
+                return (
+                  <tr key={row.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3">{new Date(row.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-3">{parsed.deniedFor}</td>
+                    <td className="px-4 py-3">{parsed.deniedBy}</td>
+                    <td className="px-4 py-3">{parsed.reason}</td>
+                  </tr>
+                );
+              })}
+              {!loading && mfaDenialEntries.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-5 text-slate-500" colSpan={4}>
+                    No MFA denials logged yet.
+                  </td>
+                </tr>
+              ) : null}
+              {loading ? (
+                <tr>
+                  <td className="px-4 py-5 text-slate-500" colSpan={4}>
+                    Loading MFA denial history...
                   </td>
                 </tr>
               ) : null}
@@ -339,6 +506,61 @@ export default function SuperAdminGovernancePanel() {
                 className="rounded-md bg-gradient-to-r from-amber-700 to-red-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:from-amber-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {actionId === selectedRequest.id ? "Processing..." : "Confirm approval"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectedDenyRequest ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-900">Confirm MFA reset denial</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              This action denies MFA reset for <span className="font-semibold">{selectedDenyRequest.email}</span> and
+              sends a formal email notice. Type
+              <span className="mx-1 rounded bg-slate-100 px-1.5 py-0.5 font-semibold">DENY</span> and provide a reason.
+            </p>
+            <div className="mt-4 space-y-3">
+              <input
+                value={denyConfirmationText}
+                onChange={(event) => setDenyConfirmationText(event.target.value)}
+                placeholder="Type DENY"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-slate-500">Confirmation is case-sensitive.</p>
+              <textarea
+                value={denyReason}
+                onChange={(event) => setDenyReason(event.target.value)}
+                placeholder="Reason for denial (min 8 characters)"
+                rows={3}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-slate-500">{denyReasonLength}/240 characters</p>
+              {modalError ? <p className="text-sm text-red-600">{modalError}</p> : null}
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDenyRequest(null);
+                  setDenyReason("");
+                  setDenyConfirmationText("");
+                  setModalError(null);
+                }}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionId === selectedDenyRequest.id || !canConfirmDeny}
+                onClick={() => {
+                  void denyRequest();
+                }}
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionId === selectedDenyRequest.id ? "Processing..." : "Confirm denial"}
               </button>
             </div>
           </div>

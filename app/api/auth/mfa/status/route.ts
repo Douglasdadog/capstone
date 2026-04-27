@@ -25,9 +25,13 @@ export async function GET(request: NextRequest) {
   let shouldRewritePendingCookie = false;
   if (supabaseUserId) {
     const supabaseMeta = await getSupabaseMfaMeta(supabaseUserId);
-    // Supabase-backed accounts must trust Supabase MFA state, not stale browser cookie secrets.
-    enrolled = Boolean(supabaseMeta.secret || supabaseMeta.enabled);
-    if (mfaMap[normalizedEmail]) {
+    const hasLegacyCookieSecret = Boolean(mfaMap[normalizedEmail]);
+    // Backward compatibility: preserve previously enrolled users whose secret was stored in cookie
+    // before Supabase metadata migration. They can verify once and we'll migrate automatically.
+    enrolled = Boolean(supabaseMeta.secret || supabaseMeta.enabled || hasLegacyCookieSecret);
+    if (!supabaseMeta.secret && hasLegacyCookieSecret) {
+      shouldRewriteMfaCookie = false;
+    } else if (mfaMap[normalizedEmail]) {
       delete mfaMap[normalizedEmail];
       shouldRewriteMfaCookie = true;
     }

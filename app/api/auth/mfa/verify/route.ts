@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     const supabaseMeta = await getSupabaseMfaMeta(supabaseUserId);
     if (supabaseMeta.secret) {
       secret = supabaseMeta.secret;
+    } else if (persistedMap[normalizedEmail]) {
+      // Legacy users may still have a cookie-backed secret; verify once then migrate to Supabase metadata.
+      secret = persistedMap[normalizedEmail];
+      isFirstEnrollment = true;
     } else if (pendingMap[normalizedEmail]) {
       secret = pendingMap[normalizedEmail];
       isFirstEnrollment = true;
