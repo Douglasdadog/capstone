@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { sendSmtpEmail } from "@/lib/communication/mailer";
 import { buildShipmentOrderCreatedEmail } from "@/lib/communication/shipment-email";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -95,6 +96,10 @@ export async function POST(request: NextRequest) {
   if (normalizedItems.length === 0) {
     return NextResponse.json({ error: "At least one valid item and quantity is required." }, { status: 400 });
   }
+
+  const idempotency = await beginIdempotentRequest(request, "logistics:create-order");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const mergedItems = Array.from(
     normalizedItems.reduce((map, row) => {
@@ -266,7 +271,9 @@ export async function POST(request: NextRequest) {
         };
       }
 
-      return NextResponse.json({ ok: true, shipment: data, communication }, { status: 201 });
+      const responseBody = { ok: true, shipment: data, communication };
+      await completeIdempotentRequest(idempotency.key, 201, responseBody);
+      return NextResponse.json(responseBody, { status: 201 });
     }
 
     lastError = error.message;

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AuditActionBadge from "@/components/audit-action-badge";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type AlertRow = {
   id: string;
@@ -73,14 +74,28 @@ export default function SuperAdminGovernancePanel() {
     setError(null);
     setModalError(null);
     try {
+      const payloadBody = {
+        requestId: selectedRequest.id,
+        reason,
+        confirmationText
+      };
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/security-requests/approve",
+          method: "POST",
+          body: payloadBody
+        });
+        setSelectedRequest(null);
+        setReason("");
+        setConfirmationText("");
+        setError(null);
+        setModalError("Offline: approval queued. Sync when online.");
+        return;
+      }
       const response = await fetch("/api/admin/security-requests/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId: selectedRequest.id,
-          reason,
-          confirmationText
-        })
+        body: JSON.stringify(payloadBody)
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -91,6 +106,22 @@ export default function SuperAdminGovernancePanel() {
       setConfirmationText("");
       await loadGovernanceData();
     } catch (err) {
+      if (err instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/security-requests/approve",
+          method: "POST",
+          body: {
+            requestId: selectedRequest.id,
+            reason,
+            confirmationText
+          }
+        });
+        setSelectedRequest(null);
+        setReason("");
+        setConfirmationText("");
+        setModalError("Network issue: approval queued. Sync when online.");
+        return;
+      }
       setModalError(err instanceof Error ? err.message : "Unable to approve request.");
     } finally {
       setActionId(null);

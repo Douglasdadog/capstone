@@ -23,6 +23,13 @@ export default function ManifestUploadPanel({ onUploadSuccess, compact = false }
   const [success, setSuccess] = useState<string | null>(null);
 
   async function uploadFile(file: File) {
+    if (!window.navigator.onLine) {
+      const msg = "Manifest upload requires an internet connection. Reconnect, then upload.";
+      setError(msg);
+      setSuccess(null);
+      toast.error(msg);
+      return;
+    }
     setUploading(true);
     setError(null);
     setSuccess(null);

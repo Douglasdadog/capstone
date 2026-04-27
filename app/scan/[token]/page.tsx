@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
 import { feedbackScanSuccess } from "@/lib/feedback/scan-success";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 export default function PublicScannerPage() {
   const params = useParams<{ token: string }>();
@@ -94,6 +95,18 @@ export default function PublicScannerPage() {
       if (scanInFlightRef.current === value) return;
       scanInFlightRef.current = value;
       try {
+        if (!window.navigator.onLine) {
+          queueOfflineTransaction({
+            path: "/api/inventory/scan-increment",
+            method: "POST",
+            body: { barcode: value, scannerToken: token }
+          });
+          setError("Offline: scan queued. Sync when online.");
+          lastScanNotifyRef.current = { value, at: Date.now() };
+          setLastScan(value);
+          feedbackScanSuccess();
+          return;
+        }
         const response = await fetch("/api/inventory/scan-increment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -104,6 +117,16 @@ export default function PublicScannerPage() {
           setError(payload.error ?? "Could not update inventory.");
           return;
         }
+        lastScanNotifyRef.current = { value, at: Date.now() };
+        setLastScan(value);
+        feedbackScanSuccess();
+      } catch {
+        queueOfflineTransaction({
+          path: "/api/inventory/scan-increment",
+          method: "POST",
+          body: { barcode: value, scannerToken: token }
+        });
+        setError("Network issue: scan queued. Sync when online.");
         lastScanNotifyRef.current = { value, at: Date.now() };
         setLastScan(value);
         feedbackScanSuccess();

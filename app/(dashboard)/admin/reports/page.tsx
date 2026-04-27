@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import TrackingIssueEmailModal, {
   type TrackingIssueEmailContext
 } from "@/components/tracking-issue-email-modal";
@@ -31,7 +30,6 @@ type TrackingIssueRow = {
 };
 
 export default function AdminReportsPage() {
-  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<ManifestReportRow[]>([]);
@@ -70,21 +68,20 @@ export default function AdminReportsPage() {
   }, []);
 
   useEffect(() => {
-    void loadReports();
+    const timeoutId = window.setTimeout(() => {
+      void loadReports();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [loadReports]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("tracking-issues-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tracking_issues" }, () => {
-        void loadReports();
-      })
-      .subscribe();
-
+    const intervalId = window.setInterval(() => {
+      void loadReports();
+    }, 5000);
     return () => {
-      void supabase.removeChannel(channel);
+      window.clearInterval(intervalId);
     };
-  }, [loadReports, supabase]);
+  }, [loadReports]);
 
   function openEmailModal(row: TrackingIssueRow) {
     setEmailIssue({

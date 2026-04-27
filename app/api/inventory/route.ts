@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 const CATEGORY_OPTIONS = ["Maintenance Free", "Conventional"] as const;
 
@@ -134,6 +135,10 @@ export async function POST(request: NextRequest) {
       ? body.image_url.trim()
       : resolveDefaultImageUrl(category);
 
+  const idempotency = await beginIdempotentRequest(request, "inventory:create-item");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
+
   try {
     const supabase = createAdminClient();
     const modernInsert = await supabase
@@ -174,17 +179,16 @@ export async function POST(request: NextRequest) {
         threshold_limit: legacyInsert.data.threshold_limit
       });
 
-      return NextResponse.json(
-        {
-          item: {
-            ...(legacyInsert.data ?? {}),
-            category: null,
-            image_url: null
-          },
-          warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
+      const responseBody = {
+        item: {
+          ...(legacyInsert.data ?? {}),
+          category: null,
+          image_url: null
         },
-        { status: 201 }
-      );
+        warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
+      };
+      await completeIdempotentRequest(idempotency.key, 201, responseBody);
+      return NextResponse.json(responseBody, { status: 201 });
     }
 
     const lowStockAlertError = modernInsert.data
@@ -196,13 +200,12 @@ export async function POST(request: NextRequest) {
         })
       : null;
 
-    return NextResponse.json(
-      {
-        item: modernInsert.data,
-        warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
-      },
-      { status: 201 }
-    );
+    const responseBody = {
+      item: modernInsert.data,
+      warning: lowStockAlertError ? `Inventory created, but alert logging failed: ${lowStockAlertError}` : null
+    };
+    await completeIdempotentRequest(idempotency.key, 201, responseBody);
+    return NextResponse.json(responseBody, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       {
@@ -244,6 +247,10 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const idempotency = await beginIdempotentRequest(request, "inventory:update-item");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const supabase = createAdminClient();
@@ -289,14 +296,16 @@ export async function PATCH(request: NextRequest) {
         threshold_limit: legacyUpdate.data.threshold_limit
       });
 
-      return NextResponse.json({
+      const responseBody = {
         item: {
           ...legacyUpdate.data,
           category: null,
           image_url: null
         },
         warning: lowStockAlertError ? `Inventory updated, but alert logging failed: ${lowStockAlertError}` : null
-      });
+      };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody);
     }
 
     if (!modernUpdate.data) {
@@ -310,10 +319,12 @@ export async function PATCH(request: NextRequest) {
       threshold_limit: modernUpdate.data.threshold_limit
     });
 
-    return NextResponse.json({
+    const responseBody = {
       item: modernUpdate.data,
       warning: lowStockAlertError ? `Inventory updated, but alert logging failed: ${lowStockAlertError}` : null
-    });
+    };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       {
@@ -339,6 +350,9 @@ export async function DELETE(request: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: "id query parameter is required." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, `inventory:delete-item:${id}`);
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const supabase = createAdminClient();
@@ -352,7 +366,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Inventory item not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true });
+    const responseBody = { ok: true };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       {

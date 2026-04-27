@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import ManifestUploadPanel from "@/components/manifest-upload-panel";
 
 type ManifestRow = {
@@ -30,7 +28,6 @@ function nextStepText(status: ManifestRow["status"]) {
 }
 
 export default function AdminManifestManager() {
-  const supabase = useMemo(() => createClient(), []);
   const skipManifestInsertToastIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

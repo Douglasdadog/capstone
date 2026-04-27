@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { applyManifestItemsToInventory } from "@/lib/inventory/apply-manifest-to-inventory";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 export async function POST(
   request: NextRequest,
@@ -16,6 +17,10 @@ export async function POST(
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Manifest id is required." }, { status: 400 });
 
+  const idempotency = await beginIdempotentRequest(request, `inventory:manifest-complete:${id}`);
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
+
   try {
     const supabase = createAdminClient();
     const { data: manifestRow, error: manifestReadError } = await supabase
@@ -29,7 +34,9 @@ export async function POST(
     }
 
     if (manifestRow.status === "Completed") {
-      return NextResponse.json({ ok: true, alreadyCompleted: true });
+      const responseBody = { ok: true, alreadyCompleted: true };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody);
     }
 
     if (manifestRow.status === "Discrepancies") {
@@ -61,7 +68,9 @@ export async function POST(
     // Cleanup scan event logs for this manifest after successful completion.
     await supabase.from("manifest_scan_events").delete().eq("manifest_id", id);
 
-    return NextResponse.json({ ok: true });
+    const responseBody = { ok: true };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to complete manifest." },

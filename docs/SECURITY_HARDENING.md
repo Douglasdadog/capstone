@@ -132,6 +132,42 @@ Recommended:
 
 ---
 
+## Database Hardening (Supabase/PostgreSQL)
+
+Added hardening scripts:
+
+- `docs/supabase-idempotency-setup.sql`
+- `docs/supabase-security-hardening.sql`
+
+What the production hardening script does:
+
+- Enforces **RLS** on business tables.
+- Forces strict deny posture for `anon` and `authenticated`.
+- Revokes broad default table/sequence/function privileges.
+- Locks future object defaults to least privilege.
+
+Important impact:
+
+- This strict mode blocks direct browser reads/realtime via anon key.
+- In production, use backend API/service-role access as the primary data plane.
+
+---
+
+## Pentest-Readiness Note
+
+No system can be honestly labeled "pen-test proof."  
+Target state is **pentest-hardened with monitored residual risk**:
+
+- least-privilege DB access + RLS
+- strong auth/MFA + rate limiting
+- secure secrets handling/rotation
+- logging/alerting + incident response
+- repeatable patching and periodic retesting
+
+Use this wording in documentation/presentations rather than "proof."
+
+---
+
 ## Verification Checklist
 
 - [x] Build passes after hardening changes
@@ -139,4 +175,5 @@ Recommended:
 - [ ] Cloud WAF/rules configured
 - [ ] Distributed rate limiter configured
 - [ ] Security monitoring dashboard enabled
+- [ ] `docs/supabase-security-hardening.sql` applied in production
 

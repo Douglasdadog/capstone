@@ -10,7 +10,6 @@ const RUNNING_STALE_THRESHOLD_MS = (() => {
   if (!Number.isFinite(raw) || raw <= 0) return MIN_STALE_SECONDS * 1000;
   return Math.max(MIN_STALE_SECONDS, Math.round(raw)) * 1000;
 })();
-const REMOTE_TIMEOUT_MS = 8000;
 
 type ReadingRow = {
   temperature: number | null;
@@ -29,35 +28,6 @@ type SensorAlertRow = {
 function toMillis(value: string): number | null {
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : null;
-}
-
-async function probeIotHealthUrl(): Promise<{ configured: boolean; ok: boolean; message?: string }> {
-  const healthUrl = process.env.WIS_IOT_HEALTH_URL?.trim();
-  if (!healthUrl) {
-    return { configured: false, ok: false, message: "Health URL not configured" };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REMOTE_TIMEOUT_MS);
-    const response = await fetch(healthUrl, {
-      method: "GET",
-      signal: controller.signal,
-      headers: { Accept: "application/json, text/plain, */*" }
-    });
-    clearTimeout(timeoutId);
-    return {
-      configured: true,
-      ok: response.ok,
-      message: response.ok ? "Sensor endpoint reachable" : `HTTP ${response.status}`
-    };
-  } catch (error) {
-    return {
-      configured: true,
-      ok: false,
-      message: error instanceof Error ? error.message : "Sensor endpoint request failed"
-    };
-  }
 }
 
 export async function GET(request: NextRequest) {
@@ -112,7 +82,6 @@ export async function GET(request: NextRequest) {
     });
 
     if (readings.length === 0) {
-      const remote = await probeIotHealthUrl();
       return NextResponse.json({
         source: "live" as const,
         temperatureC: null,
@@ -120,16 +89,15 @@ export async function GET(request: NextRequest) {
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
         isRunning: false,
-        connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
+        connectionStatus: "disconnected" as const,
         latestSensorAlert,
-        note: remote.ok ? "Sensor endpoint reachable, waiting for first reading." : remote.message
+        note: "No IoT readings received yet. Device may be disconnected."
       });
     }
 
     const latest = readings[readings.length - 1];
     const latestMs = toMillis(latest.created_at);
     if (latestMs === null) {
-      const remote = await probeIotHealthUrl();
       return NextResponse.json({
         source: "live" as const,
         temperatureC: Number(latest.temperature),
@@ -137,9 +105,9 @@ export async function GET(request: NextRequest) {
         lastReadingAt: null as string | null,
         uptimeSeconds: 0,
         isRunning: false,
-        connectionStatus: remote.ok ? ("connected" as const) : ("disconnected" as const),
+        connectionStatus: "disconnected" as const,
         latestSensorAlert,
-        note: remote.message
+        note: "Latest reading has invalid timestamp. Sensor is treated as disconnected."
       });
     }
 
@@ -153,19 +121,13 @@ export async function GET(request: NextRequest) {
     }
 
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
-    const isRunning = Date.now() - latestMs <= RUNNING_STALE_THRESHOLD_MS;
-    const remote = await probeIotHealthUrl();
-    const connectionStatus = remote.configured
-      ? remote.ok
-        ? ("connected" as const)
-        : ("disconnected" as const)
-      : ("connected" as const);
+    const ageMs = Date.now() - latestMs;
+    const isRunning = ageMs <= RUNNING_STALE_THRESHOLD_MS;
+    const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
     const staleSeconds = Math.max(0, Math.floor((Date.now() - latestMs) / 1000));
-    const staleNote = remote.configured
-      ? remote.message
-      : isRunning
-        ? "Sensor connected."
-        : `Sensor connected. Last reading ${staleSeconds}s ago.`;
+    const staleNote = isRunning
+      ? "Sensor connected. Live readings are updating."
+      : `Sensor disconnected. Last reading ${staleSeconds}s ago.`;
 
     return NextResponse.json({
       source: "live" as const,
@@ -176,7 +138,8 @@ export async function GET(request: NextRequest) {
       isRunning,
       connectionStatus,
       latestSensorAlert,
-      note: staleNote
+      note: staleNote,
+      staleSeconds
     });
   } catch (error) {
     return NextResponse.json(

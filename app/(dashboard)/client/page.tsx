@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type Shipment = {
   id: string;
@@ -70,25 +71,51 @@ export default function ClientPage() {
     setIssueSubmitting(true);
     setIssueResult(null);
     setError(null);
-    const response = await fetch("/api/portal/shipments/issue", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shipmentId: selectedShipment.id,
-        issueType,
-        message: issueMessage
-      })
-    });
-    const payload = (await response.json()) as { error?: string; ticketId?: string };
-    if (!response.ok) {
-      setError(payload.error ?? "Unable to submit issue.");
+    const payloadBody = {
+      shipmentId: selectedShipment.id,
+      issueType,
+      message: issueMessage
+    };
+    if (!window.navigator.onLine) {
+      queueOfflineTransaction({
+        path: "/api/portal/shipments/issue",
+        method: "POST",
+        body: payloadBody
+      });
+      setIssueResult("Offline: issue report queued. Sync when online.");
+      setIssueMessage("");
+      setShowIssueModal(false);
       setIssueSubmitting(false);
       return;
     }
-    setIssueResult(`Issue submitted successfully. Ticket ${payload.ticketId ?? ""}`.trim());
-    setIssueMessage("");
-    setShowIssueModal(false);
-    setIssueSubmitting(false);
+    try {
+      const response = await fetch("/api/portal/shipments/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const payload = (await response.json()) as { error?: string; ticketId?: string };
+      if (!response.ok) {
+        setError(payload.error ?? "Unable to submit issue.");
+        setIssueSubmitting(false);
+        return;
+      }
+      setIssueResult(`Issue submitted successfully. Ticket ${payload.ticketId ?? ""}`.trim());
+      setIssueMessage("");
+      setShowIssueModal(false);
+      setIssueSubmitting(false);
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/portal/shipments/issue",
+        method: "POST",
+        body: payloadBody
+      });
+      setError(null);
+      setIssueResult("Network issue: issue report queued. Sync when online.");
+      setIssueMessage("");
+      setShowIssueModal(false);
+      setIssueSubmitting(false);
+    }
   }
 
   return (

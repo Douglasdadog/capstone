@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/communication/mailer";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 type ConfigRow = {
   id: boolean;
@@ -111,6 +112,9 @@ export async function PATCH(request: NextRequest) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Alert email is invalid." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:sensor-alert-config-patch");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const supabase = createAdminClient();
@@ -143,7 +147,9 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, config: normalizeConfigRow(data as ConfigRow) });
+    const responseBody = { ok: true, config: normalizeConfigRow(data as ConfigRow) };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update sensor alert settings." },
@@ -164,6 +170,9 @@ export async function POST(request: NextRequest) {
   }
 
   const explicitEmail = typeof body.email === "string" ? body.email.trim() : "";
+  const idempotency = await beginIdempotentRequest(request, "admin:sensor-alert-config-post");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const supabase = createAdminClient();
@@ -245,7 +254,9 @@ export async function POST(request: NextRequest) {
       `
     });
 
-    return NextResponse.json({ ok: true, message: `Alert sent to ${recipient}.` });
+    const responseBody = { ok: true, message: `Alert sent to ${recipient}.` };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to send alert." },

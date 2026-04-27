@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import { Html5QrcodeMount } from "@/components/html5-qrcode-mount";
 import { feedbackScanSuccess } from "@/lib/feedback/scan-success";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type Manifest = {
   id: string;
@@ -84,7 +84,6 @@ export default function InventoryScanningPage() {
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [highlightBox, setHighlightBox] = useState<HighlightBox | null>(null);
 
-  const supabase = useMemo(() => createClient(), []);
   const manifestIdRef = useRef<string | null>(null);
   const itemsRef = useRef<ManifestItem[]>([]);
   const scannedRef = useRef<Record<string, number>>({});
@@ -173,30 +172,13 @@ export default function InventoryScanningPage() {
   }, [loadPending]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("inventory-scanning-manifests")
-      .on("postgres_changes", { event: "*", schema: "public", table: "manifests" }, () => {
-        void loadPending();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "manifest_scan_events" }, () => {
-        void loadPending();
-      })
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [loadPending, supabase]);
-
-  useEffect(() => {
-    if (!manifest) return;
     const intervalId = window.setInterval(() => {
       void loadPending();
     }, 2000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [loadPending, manifest]);
+  }, [loadPending]);
 
   useEffect(() => {
     let alive = true;
@@ -401,6 +383,18 @@ export default function InventoryScanningPage() {
 
           scanInFlightRef.current = code;
           try {
+            if (!window.navigator.onLine) {
+              queueOfflineTransaction({
+                path: "/api/inventory/scan-increment",
+                method: "POST",
+                body: { barcode: code }
+              });
+              toast.message("Offline: scan queued for sync.");
+              lastScanNotifyRef.current = { value: code, at: Date.now() };
+              setLastScan(code);
+              setActivePart(code);
+              return;
+            }
             const incRes = await fetch("/api/inventory/scan-increment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -415,6 +409,16 @@ export default function InventoryScanningPage() {
             lastScanNotifyRef.current = { value: code, at: Date.now() };
             setLastScan(code);
             feedbackScanSuccess();
+            setActivePart(code);
+          } catch {
+            queueOfflineTransaction({
+              path: "/api/inventory/scan-increment",
+              method: "POST",
+              body: { barcode: code }
+            });
+            toast.message("Network issue: scan queued for sync.");
+            lastScanNotifyRef.current = { value: code, at: Date.now() };
+            setLastScan(code);
             setActivePart(code);
           } finally {
             if (scanInFlightRef.current === code) {
@@ -468,6 +472,15 @@ export default function InventoryScanningPage() {
 
   async function completeManifest() {
     if (!manifest) return;
+    if (!window.navigator.onLine) {
+      queueOfflineTransaction({
+        path: `/api/inventory/manifests/${manifest.id}/complete`,
+        method: "POST",
+        body: {}
+      });
+      setError("Offline: complete verification queued. Sync when online.");
+      return;
+    }
     const response = await fetch(`/api/inventory/manifests/${manifest.id}/complete`, {
       method: "POST"
     });
@@ -481,6 +494,15 @@ export default function InventoryScanningPage() {
 
   async function completeWithAutoReport() {
     if (!manifest) return;
+    if (!window.navigator.onLine) {
+      queueOfflineTransaction({
+        path: `/api/inventory/manifests/${manifest.id}/auto-report`,
+        method: "POST",
+        body: { scannedCounts: scanned }
+      });
+      setError("Offline: auto-report completion queued. Sync when online.");
+      return;
+    }
     const response = await fetch(`/api/inventory/manifests/${manifest.id}/auto-report`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

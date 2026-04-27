@@ -12,6 +12,7 @@ export default function AccountSettingsForm() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +68,7 @@ export default function AccountSettingsForm() {
     const response = await fetch("/api/account/change-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword, otpCode })
     });
     const data = (await response.json()) as { error?: string; warning?: string };
     if (!response.ok) {
@@ -79,6 +80,7 @@ export default function AccountSettingsForm() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setOtpCode("");
     setChangingPassword(false);
     setMessage(data.warning ?? "Password changed successfully. Use your new password next login.");
   }
@@ -187,6 +189,20 @@ export default function AccountSettingsForm() {
               pattern="(?=.*[A-Z])(?=.*[^A-Za-z0-9]).{8,}"
               title="Use at least 8 characters, with one uppercase letter and one special character."
               autoComplete="new-password"
+              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">MFA Code (Google Authenticator)</label>
+            <input
+              type="text"
+              value={otpCode}
+              onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              title="Enter the 6-digit code from your authenticator app."
+              placeholder="123456"
               className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             />
           </div>

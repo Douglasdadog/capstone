@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { verifyScannerLinkToken } from "@/lib/auth/scanner-link-token";
 import { incrementInventoryByBarcodeScan } from "@/lib/inventory/increment-inventory-by-scan";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 function normalizeKey(value: string): string {
   // Normalize scanner variants: spaces, hyphens and symbols should not break serial matching.
@@ -67,6 +68,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const idempotency = await beginIdempotentRequest(request, "inventory:scan-increment");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
+
   try {
     const supabase = createAdminClient();
     const mapped = await resolveProductCodeFromPendingManifestSerial(supabase, barcode);
@@ -89,12 +94,14 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      return NextResponse.json({
+      const responseBody = {
         ok: true,
         mode: "manifest",
         serialId: mapped.serialId,
         productCode: mapped.productCode
-      });
+      };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody);
     }
 
     const inventoryKey = mapped?.productCode ?? barcode;
@@ -102,13 +109,15 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
-    return NextResponse.json({
+    const responseBody = {
       ok: true,
       name: result.name,
       quantity: result.quantity,
       resolvedFromSerial: Boolean(mapped?.productCode),
       productCode: mapped?.productCode ?? null
-    });
+    };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update inventory." },

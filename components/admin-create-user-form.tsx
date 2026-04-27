@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 const roles = ["SuperAdmin", "Admin", "Inventory", "Sales", "Client"] as const;
 const roleLabels: Record<(typeof roles)[number], string> = {
@@ -31,24 +32,34 @@ export default function AdminCreateUserForm() {
     setSendingCode(true);
     setError(null);
     setMessage(null);
-    const response = await fetch("/api/admin/users/send-verification-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalizedEmail })
-    });
-    const payload = (await response.json()) as {
-      error?: string;
-      communication?: { sent: boolean; message: string } | null;
-    };
-    if (!response.ok) {
-      setError(payload.error ?? "Unable to send code.");
+    try {
+      if (!window.navigator.onLine) {
+        setError("Verification code requires internet connection.");
+        setSendingCode(false);
+        return;
+      }
+      const response = await fetch("/api/admin/users/send-verification-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail })
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        communication?: { sent: boolean; message: string } | null;
+      };
+      if (!response.ok) {
+        setError(payload.error ?? "Unable to send code.");
+        setSendingCode(false);
+        return;
+      }
+      setEmailVerifiedFor(normalizedEmail);
+      setVerificationCode("");
+      setMessage(`Verification code sent to ${normalizedEmail}`);
       setSendingCode(false);
-      return;
+    } catch {
+      setError("Network error while sending verification code.");
+      setSendingCode(false);
     }
-    setEmailVerifiedFor(normalizedEmail);
-    setVerificationCode("");
-    setMessage(`Verification code sent to ${normalizedEmail}`);
-    setSendingCode(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -64,32 +75,62 @@ export default function AdminCreateUserForm() {
       setLoading(false);
       return;
     }
-    const response = await fetch("/api/admin/users/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: normalizedEmail, password, role, verificationCode })
-    });
-    const payload = (await response.json()) as {
-      error?: string;
-      communication?: { sent: boolean; message: string } | null;
-    };
-    if (!response.ok) {
-      setError(payload.error ?? "Unable to create account.");
-      setLoading(false);
-      return;
-    }
+    const payloadBody = { email: normalizedEmail, password, role, verificationCode };
+    try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/users/create",
+          method: "POST",
+          body: payloadBody
+        });
+        setMessage(`Offline: account creation queued for ${normalizedEmail}. Sync when online.`);
+        setEmail("");
+        setPassword("");
+        setVerificationCode("");
+        setEmailVerifiedFor(null);
+        setLoading(false);
+        return;
+      }
+      const response = await fetch("/api/admin/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        communication?: { sent: boolean; message: string } | null;
+      };
+      if (!response.ok) {
+        setError(payload.error ?? "Unable to create account.");
+        setLoading(false);
+        return;
+      }
 
-    const emailNote = payload.communication?.sent
-      ? " Login details sent via email."
-      : payload.communication
-        ? ` Email not sent: ${payload.communication.message}`
-        : "";
-    setMessage(`Created ${roleLabels[role]} account: ${normalizedEmail}.${emailNote}`);
-    setEmail("");
-    setPassword("");
-    setVerificationCode("");
-    setEmailVerifiedFor(null);
-    setLoading(false);
+      const emailNote = payload.communication?.sent
+        ? " Login details sent via email."
+        : payload.communication
+          ? ` Email not sent: ${payload.communication.message}`
+          : "";
+      setMessage(`Created ${roleLabels[role]} account: ${normalizedEmail}.${emailNote}`);
+      setEmail("");
+      setPassword("");
+      setVerificationCode("");
+      setEmailVerifiedFor(null);
+      setLoading(false);
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/admin/users/create",
+        method: "POST",
+        body: payloadBody
+      });
+      setError(null);
+      setMessage(`Network issue: account creation queued for ${normalizedEmail}.`);
+      setEmail("");
+      setPassword("");
+      setVerificationCode("");
+      setEmailVerifiedFor(null);
+      setLoading(false);
+    }
   }
 
   return (

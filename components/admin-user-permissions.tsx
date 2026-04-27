@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ROLE_ACCESS, UserRole } from "@/lib/auth/roles";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type UserRow = {
   email: string;
@@ -51,35 +52,75 @@ export default function AdminUserPermissions() {
       ? [...new Set([...current, route])]
       : current.filter((entry) => entry !== route);
 
-    const response = await fetch("/api/admin/permissions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, extraRoutes: nextRoutes })
-    });
-    const data = (await response.json()) as { error?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Unable to update permissions.");
-      return;
+    const payloadBody = { email, extraRoutes: nextRoutes };
+    try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/permissions",
+          method: "POST",
+          body: payloadBody
+        });
+        setMessage(`Offline: permission change queued for ${email}.`);
+        return;
+      }
+      const response = await fetch("/api/admin/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Unable to update permissions.");
+        return;
+      }
+      setMessage(`Permissions updated for ${email}`);
+      await load();
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/admin/permissions",
+        method: "POST",
+        body: payloadBody
+      });
+      setError(null);
+      setMessage(`Network issue: permission change queued for ${email}.`);
     }
-    setMessage(`Permissions updated for ${email}`);
-    await load();
   }
 
   async function updateRole(email: string, role: UserRole) {
     setMessage(null);
     setError(null);
-    const response = await fetch("/api/admin/permissions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "updateRole", email, role })
-    });
-    const data = (await response.json()) as { error?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Unable to update role.");
-      return;
+    const payloadBody = { action: "updateRole", email, role };
+    try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/permissions",
+          method: "PATCH",
+          body: payloadBody
+        });
+        setMessage(`Offline: role update queued for ${email}.`);
+        return;
+      }
+      const response = await fetch("/api/admin/permissions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Unable to update role.");
+        return;
+      }
+      setMessage(`Role updated for ${email}`);
+      await load();
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/admin/permissions",
+        method: "PATCH",
+        body: payloadBody
+      });
+      setError(null);
+      setMessage(`Network issue: role update queued for ${email}.`);
     }
-    setMessage(`Role updated for ${email}`);
-    await load();
   }
 
   async function deleteAccount(email: string) {
@@ -88,20 +129,44 @@ export default function AdminUserPermissions() {
 
     setMessage(null);
     setError(null);
-    const response = await fetch("/api/admin/permissions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "deleteUser", email })
-    });
-    const data = (await response.json()) as { error?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Unable to delete account.");
-      return;
+    const payloadBody = { action: "deleteUser", email };
+    try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/permissions",
+          method: "PATCH",
+          body: payloadBody
+        });
+        setMessage(`Offline: delete for ${email} queued.`);
+        setPendingDeleteEmail(null);
+        setDeleteConfirmInput("");
+        return;
+      }
+      const response = await fetch("/api/admin/permissions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadBody)
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Unable to delete account.");
+        return;
+      }
+      setMessage(`Deleted account: ${email}`);
+      setPendingDeleteEmail(null);
+      setDeleteConfirmInput("");
+      await load();
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/admin/permissions",
+        method: "PATCH",
+        body: payloadBody
+      });
+      setError(null);
+      setMessage(`Network issue: delete for ${email} queued.`);
+      setPendingDeleteEmail(null);
+      setDeleteConfirmInput("");
     }
-    setMessage(`Deleted account: ${email}`);
-    setPendingDeleteEmail(null);
-    setDeleteConfirmInput("");
-    await load();
   }
 
   async function resetAllCustomPermissions() {
@@ -112,16 +177,35 @@ export default function AdminUserPermissions() {
 
     setMessage(null);
     setError(null);
-    const response = await fetch("/api/admin/permissions", {
-      method: "DELETE"
-    });
-    const data = (await response.json()) as { error?: string };
-    if (!response.ok) {
-      setError(data.error ?? "Unable to reset custom permissions.");
-      return;
+    try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/permissions",
+          method: "DELETE",
+          body: {}
+        });
+        setMessage("Offline: reset all custom permissions queued.");
+        return;
+      }
+      const response = await fetch("/api/admin/permissions", {
+        method: "DELETE"
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Unable to reset custom permissions.");
+        return;
+      }
+      setMessage("All custom permissions have been reset.");
+      await load();
+    } catch {
+      queueOfflineTransaction({
+        path: "/api/admin/permissions",
+        method: "DELETE",
+        body: {}
+      });
+      setError(null);
+      setMessage("Network issue: reset all custom permissions queued.");
     }
-    setMessage("All custom permissions have been reset.");
-    await load();
   }
 
   return (

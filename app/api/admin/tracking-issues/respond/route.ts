@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/communication/mailer";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 const MAX_SUBJECT = 200;
 const MAX_BODY = 8000;
@@ -55,6 +56,9 @@ export async function POST(request: NextRequest) {
   if (!message || message.length > MAX_BODY) {
     return NextResponse.json({ error: "Message is required (max 8000 characters)." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:tracking-issue-respond");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const supabase = createAdminClient();
   const { data: issue, error } = await supabase
@@ -127,5 +131,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  const responseBody = { ok: true };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  return NextResponse.json(responseBody);
 }

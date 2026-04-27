@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { buildShipmentStatusEmail } from "@/lib/communication/shipment-email";
 import { sendSmtpEmail } from "@/lib/communication/mailer";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 type ShipmentStatus = "Pending" | "In Transit" | "Delivered";
 
@@ -36,6 +37,10 @@ export async function POST(request: NextRequest) {
   if (!shipmentId || !status) {
     return NextResponse.json({ error: "shipmentId and valid status are required." }, { status: 400 });
   }
+
+  const idempotency = await beginIdempotentRequest(request, "logistics:update-status");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const supabase = createAdminClient();
   const { data: shipment, error: fetchError } = await supabase
@@ -103,9 +108,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  const responseBody = {
     ok: true,
     shipment: updated,
     communication
-  });
+  };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  return NextResponse.json(responseBody);
 }

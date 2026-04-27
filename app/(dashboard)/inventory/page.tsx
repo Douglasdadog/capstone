@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
 import ManifestUploadPanel from "@/components/manifest-upload-panel";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type InventoryItem = {
   id: string;
@@ -42,6 +42,7 @@ type MonitoringPayload = {
     created_at: string;
   } | null;
   note?: string;
+  staleSeconds?: number;
   error?: string;
 };
 type InventorySortKey = "name" | "category" | "quantity" | "threshold" | "status" | "updated";
@@ -60,7 +61,6 @@ function formatUptime(seconds: number | null | undefined, showPlaceholder = fals
 }
 
 export default function InventoryPage() {
-  const supabase = useMemo(() => createClient(), []);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [role, setRole] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<ReplenishmentAlert[]>([]);
@@ -88,6 +88,7 @@ export default function InventoryPage() {
   const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [refreshingInventory, setRefreshingInventory] = useState(false);
+  const [clockTick, setClockTick] = useState(() => Date.now());
   const [scannerUrl, setScannerUrl] = useState<string | null>(null);
   const [scannerQrDataUrl, setScannerQrDataUrl] = useState<string | null>(null);
   const [scannerLinkCopied, setScannerLinkCopied] = useState(false);
@@ -95,7 +96,6 @@ export default function InventoryPage() {
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
-  const skipManifestInsertToastIdRef = useRef<string | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const canOverrideInventory = role === "SuperAdmin" || role === "Admin";
@@ -141,6 +141,17 @@ export default function InventoryPage() {
     if (effectiveAlerts.length > 0) return new Date(effectiveAlerts[0].created_at);
     return null;
   }, [effectiveAlerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
+  const sensorLastUpdatedLabel = useMemo(() => {
+    if (!lastEnvironmentReadingAt) return "No reading yet";
+    const readingMs = Date.parse(lastEnvironmentReadingAt);
+    if (!Number.isFinite(readingMs)) return "Timestamp unavailable";
+    const secondsAgo = Math.max(0, Math.floor((clockTick - readingMs) / 1000));
+    if (secondsAgo < 60) return `${secondsAgo}s ago`;
+    const minutesAgo = Math.floor(secondsAgo / 60);
+    if (minutesAgo < 60) return `${minutesAgo}m ago`;
+    const hoursAgo = Math.floor(minutesAgo / 60);
+    return `${hoursAgo}h ago`;
+  }, [clockTick, lastEnvironmentReadingAt]);
   const sortedItems = useMemo(() => {
     const statusRank = (item: InventoryItem) => {
       if (item.quantity <= 0) return 0;
@@ -177,22 +188,23 @@ export default function InventoryPage() {
     if (!response.ok) {
       throw new Error(data.error ?? "Unable to fetch inventory.");
     }
-    setItems(data.items ?? []);
+    const nextItems = data.items ?? [];
+    setItems(nextItems);
+    const latest = nextItems
+      .map((row) => row.updated_at)
+      .filter((value) => typeof value === "string")
+      .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+    if (latest) setLastInventoryEventAt(latest);
   }, []);
 
   const fetchAlerts = useCallback(async () => {
-    const { data, error: queryError } = await supabase
-      .from("auto_replenishment_alerts")
-      .select("id, item_name, reading_quantity, threshold_limit, status, message, created_at")
-      .order("created_at", { ascending: false })
-      .limit(6);
-
-    if (queryError) {
-      throw new Error(queryError.message);
+    const response = await fetch("/api/inventory/alerts");
+    const data = (await response.json()) as { alerts?: ReplenishmentAlert[]; error?: string };
+    if (!response.ok) {
+      throw new Error(data.error ?? "Unable to fetch replenishment alerts.");
     }
-
-    setAlerts((data ?? []) as ReplenishmentAlert[]);
-  }, [supabase]);
+    setAlerts(data.alerts ?? []);
+  }, []);
 
   const fetchMonitoring = useCallback(async () => {
     const response = await fetch("/api/inventory/monitoring");
@@ -210,6 +222,7 @@ export default function InventoryPage() {
     setIotConnectionStatus(data.connectionStatus === "connected" ? "connected" : "disconnected");
     setIotStatusNote(typeof data.note === "string" && data.note.length > 0 ? data.note : null);
     setLatestSensorAlert(data.latestSensorAlert ?? null);
+    setRealtimeStatus(data.connectionStatus === "connected" ? "CONNECTED" : "DISCONNECTED");
   }, []);
 
   async function refreshMonitoringStatus() {
@@ -350,58 +363,45 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("inventory-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "inventory" },
-        () => {
-          void fetchInventory();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "auto_replenishment_alerts" },
-        () => {
-          void fetchAlerts();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "sensor_logs" },
-        () => {
-          void fetchMonitoring();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "manifests" },
-        (payload) => {
-          const row = payload.new as { id?: string; file_name?: string; uploaded_by?: string } | undefined;
-          if (!row?.id) return;
-          if (String(row.id) === String(skipManifestInsertToastIdRef.current)) return;
-          toast.success(`New Excel manifest: ${row.file_name ?? "file"}`, {
-            description: row.uploaded_by ? `Uploaded by ${row.uploaded_by}` : undefined
-          });
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          setRealtimeStatus("CONNECTED");
-          return;
-        }
-        if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setRealtimeStatus("DISCONNECTED");
-          return;
-        }
-        setRealtimeStatus("CONNECTING");
+    const intervalId = window.setInterval(() => {
+      void refreshAll().catch(() => {
+        setRealtimeStatus("DISCONNECTED");
       });
-
+    }, 5000);
     return () => {
-      setRealtimeStatus("DISCONNECTED");
-      void supabase.removeChannel(channel);
+      window.clearInterval(intervalId);
     };
-  }, [fetchAlerts, fetchInventory, fetchMonitoring, supabase]);
+  }, [refreshAll]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void fetchMonitoring();
+    }, 5000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchMonitoring]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setClockTick(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void fetchMonitoring();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchMonitoring]);
 
   function startOverride(item: InventoryItem) {
     if (!canOverrideInventory) return;
@@ -432,6 +432,15 @@ export default function InventoryPage() {
       setError(null);
       setMessage(null);
       setRowDeletingId(item.id);
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: `/api/inventory?id=${encodeURIComponent(item.id)}`,
+          method: "DELETE",
+          body: {}
+        });
+        setMessage(`Offline: delete for ${item.name} queued. Sync when online.`);
+        return;
+      }
       const response = await fetch(`/api/inventory?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -441,6 +450,16 @@ export default function InventoryPage() {
       if (editingId === item.id) cancelOverride();
       await fetchInventory();
     } catch (err) {
+      if (err instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: `/api/inventory?id=${encodeURIComponent(item.id)}`,
+          method: "DELETE",
+          body: {}
+        });
+        setMessage(`Network issue: delete for ${item.name} queued.`);
+        setError(null);
+        return;
+      }
       setError(err instanceof Error ? err.message : "Unable to delete item.");
     } finally {
       setRowDeletingId(null);
@@ -459,6 +478,20 @@ export default function InventoryPage() {
       setError(null);
       setMessage(null);
       setRowSavingId(itemId);
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/inventory",
+          method: "PATCH",
+          body: {
+            id: itemId,
+            quantity: qty,
+            threshold_limit: thresh
+          }
+        });
+        cancelOverride();
+        setMessage("Offline: inventory override queued. Sync when online.");
+        return;
+      }
       const response = await fetch("/api/inventory", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -478,6 +511,21 @@ export default function InventoryPage() {
       cancelOverride();
       await fetchInventory();
     } catch (err) {
+      if (err instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/inventory",
+          method: "PATCH",
+          body: {
+            id: itemId,
+            quantity: qty,
+            threshold_limit: thresh
+          }
+        });
+        cancelOverride();
+        setError(null);
+        setMessage("Network issue: inventory override queued.");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Unable to save manual override.");
     } finally {
       setRowSavingId(null);
@@ -499,15 +547,28 @@ export default function InventoryPage() {
       setAddingProduct(true);
       setError(null);
       setMessage(null);
+      const payload = {
+        name: newName.trim(),
+        category: newCategory,
+        quantity: qty,
+        threshold_limit: MANUAL_ADD_DEFAULT_THRESHOLD
+      };
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/inventory",
+          method: "POST",
+          body: payload
+        });
+        setMessage(`Offline: add product "${payload.name}" queued. Sync when online.`);
+        setNewName("");
+        setNewCategory("Maintenance Free");
+        setNewQuantity("0");
+        return;
+      }
       const response = await fetch("/api/inventory", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newName.trim(),
-          category: newCategory,
-          quantity: qty,
-          threshold_limit: MANUAL_ADD_DEFAULT_THRESHOLD
-        })
+        body: JSON.stringify(payload)
       });
       const data = (await response.json()) as { error?: string; item?: InventoryItem };
       if (!response.ok) {
@@ -520,6 +581,24 @@ export default function InventoryPage() {
       setNewQuantity("0");
       await fetchInventory();
     } catch (err) {
+      if (err instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/inventory",
+          method: "POST",
+          body: {
+            name: newName.trim(),
+            category: newCategory,
+            quantity: qty,
+            threshold_limit: MANUAL_ADD_DEFAULT_THRESHOLD
+          }
+        });
+        setError(null);
+        setMessage(`Network issue: add product "${newName.trim()}" queued.`);
+        setNewName("");
+        setNewCategory("Maintenance Free");
+        setNewQuantity("0");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Unable to add product.");
     } finally {
       setAddingProduct(false);
@@ -577,6 +656,7 @@ export default function InventoryPage() {
                   ? "Connecting..."
                   : "Disconnected (Sensor Device Offline)"}
             </p>
+            <p className="mt-1 text-[10px] leading-tight text-slate-500">Last updated: {sensorLastUpdatedLabel}</p>
             {iotConnectionStatus === "disconnected" && iotStatusNote ? (
               <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-slate-500">{iotStatusNote}</p>
             ) : null}
@@ -909,15 +989,7 @@ export default function InventoryPage() {
           {canManageProducts ? (
             <ManifestUploadPanel
               compact
-              onUploadSuccess={(info) => {
-                if (info.id) {
-                  skipManifestInsertToastIdRef.current = info.id;
-                  window.setTimeout(() => {
-                    if (skipManifestInsertToastIdRef.current === info.id) {
-                      skipManifestInsertToastIdRef.current = null;
-                    }
-                  }, 6000);
-                }
+              onUploadSuccess={() => {
                 void fetchInventory();
               }}
             />

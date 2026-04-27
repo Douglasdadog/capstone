@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Mail, X } from "lucide-react";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 export type TrackingIssueEmailContext = {
   id: number;
@@ -28,11 +29,13 @@ export default function TrackingIssueEmailModal({ issue, open, onClose, onSent }
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   useEffect(() => {
     if (!open || !issue) return;
     setError(null);
     setSuccess(false);
+    setQueued(false);
     const tn = issue.tracking_number?.trim() || `report #${issue.id}`;
     setSubject(`Re: Your shipment report — ${tn}`);
     setBody(
@@ -76,6 +79,24 @@ export default function TrackingIssueEmailModal({ issue, open, onClose, onSent }
     setError(null);
     setSuccess(false);
     try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/tracking-issues/respond",
+          method: "POST",
+          body: {
+            issueId: issue.id,
+            subject: subject.trim(),
+            message: body.trim()
+          }
+        });
+        setQueued(true);
+        setSuccess(true);
+        onSent?.();
+        window.setTimeout(() => {
+          onClose();
+        }, 1200);
+        return;
+      }
       const response = await fetch("/api/admin/tracking-issues/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -92,12 +113,28 @@ export default function TrackingIssueEmailModal({ issue, open, onClose, onSent }
         return;
       }
       setSuccess(true);
+      setQueued(false);
       onSent?.();
       window.setTimeout(() => {
         onClose();
       }, 1200);
     } catch {
-      setError("Network error. Try again.");
+      queueOfflineTransaction({
+        path: "/api/admin/tracking-issues/respond",
+        method: "POST",
+        body: {
+          issueId: issue.id,
+          subject: subject.trim(),
+          message: body.trim()
+        }
+      });
+      setError(null);
+      setQueued(true);
+      setSuccess(true);
+      onSent?.();
+      window.setTimeout(() => {
+        onClose();
+      }, 1200);
     } finally {
       setSending(false);
     }
@@ -210,7 +247,7 @@ export default function TrackingIssueEmailModal({ issue, open, onClose, onSent }
           ) : null}
           {success ? (
             <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
-              Email sent successfully.
+              {queued ? "Offline: email response queued for sync." : "Email sent successfully."}
             </p>
           ) : null}
         </div>

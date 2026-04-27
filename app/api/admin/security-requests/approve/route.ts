@@ -9,6 +9,7 @@ import {
   readMfaSecrets,
   serializeMfaSecrets
 } from "@/lib/auth/demo-auth";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 type SecurityRequestRow = {
   id: number;
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:approve-security-request");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const supabase = createAdminClient();
@@ -205,7 +209,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: approveError.message }, { status: 500 });
     }
 
-    const response = NextResponse.json({ ok: true, emailWarning });
+    const responseBody = { ok: true, emailWarning };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    const response = NextResponse.json(responseBody);
     if (resetMode === "demo-local") {
       const normalizedEmail = requestRow.email.toLowerCase();
       const persistedMfa = readMfaSecrets(request.cookies.get(DEMO_MFA_COOKIE)?.value);

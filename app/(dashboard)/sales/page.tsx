@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import {
+  flushQueuedTransactions,
+  getQueuedTransactionCount,
+  queueOfflineTransaction
+} from "@/lib/offline/transaction-queue";
 
 type ShipmentStatus = "Pending" | "In Transit" | "Delivered";
 type Shipment = {
@@ -43,7 +47,6 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 export default function SalesPage() {
-  const supabase = useMemo(() => createClient(), []);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +63,9 @@ export default function SalesPage() {
   const [origin, setOrigin] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ShipmentStatus>("All");
   const [search, setSearch] = useState("");
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [syncingQueue, setSyncingQueue] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   async function fetchShipments() {
     const response = await fetch("/api/logistics/shipments");
@@ -78,6 +84,21 @@ export default function SalesPage() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
+    setQueuedCount(getQueuedTransactionCount());
+    setIsOnline(window.navigator.onLine);
+  }, []);
+
+  useEffect(() => {
+    function refreshQueueCount() {
+      setQueuedCount(getQueuedTransactionCount());
+      setIsOnline(window.navigator.onLine);
+    }
+    window.addEventListener("online", refreshQueueCount);
+    window.addEventListener("offline", refreshQueueCount);
+    return () => {
+      window.removeEventListener("online", refreshQueueCount);
+      window.removeEventListener("offline", refreshQueueCount);
+    };
   }, []);
 
   useEffect(() => {
@@ -96,22 +117,28 @@ export default function SalesPage() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel("sales-shipments-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shipments" }, () => {
-        void fetchShipments();
-      })
-      .subscribe();
-
+    const intervalId = window.setInterval(() => {
+      void fetchShipments();
+    }, 5000);
     return () => {
-      void supabase.removeChannel(channel);
+      window.clearInterval(intervalId);
     };
-  }, [supabase]);
+  }, []);
 
   async function updateStatus(shipmentId: string, status: ShipmentStatus) {
     try {
       setError(null);
       setMessage(null);
+      if (!navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/logistics/update-status",
+          method: "POST",
+          body: { shipmentId, status }
+        });
+        setQueuedCount(getQueuedTransactionCount());
+        setMessage("Offline: status update queued. Click Sync Pending when online.");
+        return;
+      }
       const response = await fetch("/api/logistics/update-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -129,6 +156,17 @@ export default function SalesPage() {
         setMessage(`Status updated to ${status}.`);
       }
     } catch (err) {
+      if (err instanceof TypeError || !navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/logistics/update-status",
+          method: "POST",
+          body: { shipmentId, status }
+        });
+        setQueuedCount(getQueuedTransactionCount());
+        setError(null);
+        setMessage("Network issue: status update queued. Click Sync Pending when online.");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Failed to update shipment status.");
     }
   }
@@ -179,22 +217,42 @@ export default function SalesPage() {
       setCreatingOrder(true);
       setError(null);
       setMessage(null);
+      const createOrderBody = {
+        client_name: newClientName,
+        client_email: newClientEmail,
+        origin: DEFAULT_ORIGIN,
+        destination: newDestination,
+        provider_name: newProviderName,
+        waybill_number: newWaybillNumber.trim() || null,
+        items: normalizedLines.map((line) => ({
+          item_name: line.item_name,
+          quantity: line.quantityNum
+        })),
+        eta: newEta ? new Date(newEta).toISOString() : null
+      };
+
+      if (!navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/logistics/create-order",
+          method: "POST",
+          body: createOrderBody
+        });
+        setQueuedCount(getQueuedTransactionCount());
+        setMessage("Offline: order queued. Click Sync Pending when online.");
+        setNewClientName("");
+        setNewClientEmail("");
+        setNewDestination("");
+        setNewProviderName("");
+        setNewWaybillNumber("");
+        setOrderLines([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
+        setNewEta("");
+        return;
+      }
+
       const response = await fetch("/api/logistics/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_name: newClientName,
-          client_email: newClientEmail,
-          origin: DEFAULT_ORIGIN,
-          destination: newDestination,
-          provider_name: newProviderName,
-          waybill_number: newWaybillNumber.trim() || null,
-          items: normalizedLines.map((line) => ({
-            item_name: line.item_name,
-            quantity: line.quantityNum
-          })),
-          eta: newEta ? new Date(newEta).toISOString() : null
-        })
+        body: JSON.stringify(createOrderBody)
       });
       const data = (await response.json()) as {
         error?: string;
@@ -218,9 +276,65 @@ export default function SalesPage() {
       setNewEta("");
       await Promise.all([fetchShipments(), fetchInventoryOptions()]);
     } catch (err) {
+      if (err instanceof TypeError || !navigator.onLine) {
+        const createOrderBody = {
+          client_name: newClientName,
+          client_email: newClientEmail,
+          origin: DEFAULT_ORIGIN,
+          destination: newDestination,
+          provider_name: newProviderName,
+          waybill_number: newWaybillNumber.trim() || null,
+          items: normalizedLines.map((line) => ({
+            item_name: line.item_name,
+            quantity: line.quantityNum
+          })),
+          eta: newEta ? new Date(newEta).toISOString() : null
+        };
+        queueOfflineTransaction({
+          path: "/api/logistics/create-order",
+          method: "POST",
+          body: createOrderBody
+        });
+        setQueuedCount(getQueuedTransactionCount());
+        setError(null);
+        setMessage("Network issue: order queued. Click Sync Pending when online.");
+        setNewClientName("");
+        setNewClientEmail("");
+        setNewDestination("");
+        setNewProviderName("");
+        setNewWaybillNumber("");
+        setOrderLines([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
+        setNewEta("");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Unable to create order.");
     } finally {
       setCreatingOrder(false);
+    }
+  }
+
+  async function syncPendingTransactions() {
+    setSyncingQueue(true);
+    setError(null);
+    try {
+      const result = await flushQueuedTransactions();
+      setQueuedCount(getQueuedTransactionCount());
+      if (result.total === 0) {
+        setMessage("No pending transactions to sync.");
+        return;
+      }
+      if (result.failed > 0) {
+        setMessage(
+          `Synced ${result.synced} transaction(s). ${result.failed} still pending.`
+        );
+      } else {
+        setMessage(`All pending transactions synced (${result.synced}).`);
+      }
+      await Promise.all([fetchShipments(), fetchInventoryOptions()]);
+    } catch {
+      setError("Unable to sync pending transactions right now.");
+    } finally {
+      setSyncingQueue(false);
     }
   }
 
@@ -305,7 +419,17 @@ export default function SalesPage() {
       <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Create Order</h2>
-          <span className="text-xs text-slate-500">Auto appears in Logistics/Sales</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">{queuedCount} pending offline transaction(s)</span>
+            <button
+              type="button"
+              onClick={() => void syncPendingTransactions()}
+              disabled={syncingQueue || queuedCount === 0 || !isOnline}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {syncingQueue ? "Syncing..." : "Sync Pending"}
+            </button>
+          </div>
         </div>
         <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
           <label className="space-y-1">

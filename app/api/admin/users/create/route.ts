@@ -14,6 +14,7 @@ import { UserRole, normalizeRole } from "@/lib/auth/roles";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { sendEmail } from "@/lib/communication/mailer";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/security/password-policy";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 function buildAccountProvisionedEmailTemplate(input: {
   email: string;
@@ -142,6 +143,9 @@ export async function POST(request: NextRequest) {
   if (existing.some((user) => user.email === email)) {
     return NextResponse.json({ error: "User already exists in local registry." }, { status: 409 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:create-user");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   try {
     const admin = createAdminClient();
@@ -182,7 +186,9 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const response = NextResponse.json({ ok: true, communication });
+    const responseBody = { ok: true, communication };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    const response = NextResponse.json(responseBody);
     response.cookies.set(DEMO_USERS_COOKIE, serializeRegisteredUsers(updatedUsers), {
       httpOnly: true,
       sameSite: "lax",

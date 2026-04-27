@@ -12,6 +12,7 @@ import {
 import { requireDemoSession } from "@/lib/auth/session";
 import { ROLE_ACCESS, SIDEBAR_LINKS, UserRole, normalizeRole } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 const grantableRoutes = SIDEBAR_LINKS.filter((link) => link.grantable).map((link) => link.href);
 const allRoles: UserRole[] = ["SuperAdmin", "Admin", "Inventory", "Sales", "Client"];
@@ -114,6 +115,9 @@ export async function POST(request: NextRequest) {
   if (!email) {
     return NextResponse.json({ error: "User email is required." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:permissions-post");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const updated = setUserExtraRoutes(
     email,
@@ -121,7 +125,9 @@ export async function POST(request: NextRequest) {
     request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value
   );
 
-  const response = NextResponse.json({ ok: true });
+  const responseBody = { ok: true };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  const response = NextResponse.json(responseBody);
   response.cookies.set(DEMO_PERMISSIONS_COOKIE, serializePermissions(updated), {
     httpOnly: true,
     sameSite: "lax",
@@ -136,8 +142,13 @@ export async function DELETE(request: NextRequest) {
   if (auth.session.role !== "SuperAdmin") {
     return NextResponse.json({ error: "Super Admin access required." }, { status: 403 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:permissions-delete");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
-  const response = NextResponse.json({ ok: true });
+  const responseBody = { ok: true };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  const response = NextResponse.json(responseBody);
   response.cookies.set(DEMO_PERMISSIONS_COOKIE, serializePermissions({}), {
     httpOnly: true,
     sameSite: "lax",
@@ -162,6 +173,9 @@ export async function PATCH(request: NextRequest) {
   if (!email) {
     return NextResponse.json({ error: "User email is required." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, "admin:permissions-patch");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const sampleUsers = getSampleUsers();
   const isSample = sampleUsers.some((user) => user.email === email);
@@ -195,7 +209,9 @@ export async function PATCH(request: NextRequest) {
       // Local delete still proceeds even if Supabase cleanup fails.
     }
 
-    const response = NextResponse.json({ ok: true });
+    const responseBody = { ok: true };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    const response = NextResponse.json(responseBody);
     response.cookies.set(DEMO_USERS_COOKIE, serializeRegisteredUsers(updatedUsers), {
       httpOnly: true,
       sameSite: "lax",
@@ -243,7 +259,9 @@ export async function PATCH(request: NextRequest) {
     // Local role update still proceeds if Supabase metadata sync fails.
   }
 
-  const response = NextResponse.json({ ok: true });
+  const responseBody = { ok: true };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  const response = NextResponse.json(responseBody);
   response.cookies.set(DEMO_USERS_COOKIE, serializeRegisteredUsers(updatedUsers), {
     httpOnly: true,
     sameSite: "lax",

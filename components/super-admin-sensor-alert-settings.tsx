@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type SensorAlertConfig = {
   warning_threshold_c: number;
@@ -60,15 +61,25 @@ export default function SuperAdminSensorAlertSettings() {
     setError(null);
     setMessage(null);
     try {
+      const payloadBody = {
+        warning_threshold_c: warning,
+        critical_threshold_c: critical,
+        cooldown_minutes: cooldown,
+        alert_email: email
+      };
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/sensor-alert-config",
+          method: "PATCH",
+          body: payloadBody
+        });
+        setMessage("Offline: threshold changes queued. Sync when online.");
+        return;
+      }
       const response = await fetch("/api/admin/sensor-alert-config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          warning_threshold_c: warning,
-          critical_threshold_c: critical,
-          cooldown_minutes: cooldown,
-          alert_email: email
-        })
+        body: JSON.stringify(payloadBody)
       });
       const payload = (await response.json()) as { ok?: boolean; error?: string; config?: SensorAlertConfig };
       if (!response.ok || !payload.config) {
@@ -77,6 +88,21 @@ export default function SuperAdminSensorAlertSettings() {
       setConfig(payload.config);
       setMessage("Sensor alert settings saved.");
     } catch (e) {
+      if (e instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/sensor-alert-config",
+          method: "PATCH",
+          body: {
+            warning_threshold_c: warning,
+            critical_threshold_c: critical,
+            cooldown_minutes: cooldown,
+            alert_email: email
+          }
+        });
+        setError(null);
+        setMessage("Network issue: threshold changes queued.");
+        return;
+      }
       setError(e instanceof Error ? e.message : "Unable to save settings.");
     } finally {
       setSaving(false);
@@ -88,6 +114,15 @@ export default function SuperAdminSensorAlertSettings() {
     setError(null);
     setMessage(null);
     try {
+      if (!window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/sensor-alert-config",
+          method: "POST",
+          body: { email }
+        });
+        setMessage("Offline: alert-send request queued. Sync when online.");
+        return;
+      }
       const response = await fetch("/api/admin/sensor-alert-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -99,6 +134,16 @@ export default function SuperAdminSensorAlertSettings() {
       }
       setMessage(payload.message ?? "Alert sent.");
     } catch (e) {
+      if (e instanceof TypeError || !window.navigator.onLine) {
+        queueOfflineTransaction({
+          path: "/api/admin/sensor-alert-config",
+          method: "POST",
+          body: { email }
+        });
+        setError(null);
+        setMessage("Network issue: alert-send request queued.");
+        return;
+      }
       setError(e instanceof Error ? e.message : "Unable to send alert.");
     } finally {
       setSendingAlert(false);

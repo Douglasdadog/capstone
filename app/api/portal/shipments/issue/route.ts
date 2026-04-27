@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 const issueTypes = new Set(["Delayed Shipment", "Incorrect Status", "Order Inquiry", "Damaged Item"]);
 
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
   if (message.length > 1000) {
     return NextResponse.json({ error: "Message exceeds allowed length." }, { status: 400 });
   }
+  const idempotency = await beginIdempotentRequest(request, "portal:shipment-issue");
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const supabase = createAdminClient();
   const shipmentLookup = supabase.from("shipments").select("id").eq("id", shipmentId);
@@ -58,5 +62,7 @@ export async function POST(request: NextRequest) {
 
   if (ticketError) return NextResponse.json({ error: ticketError.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, ticketId: `#${ticket.id}` });
+  const responseBody = { ok: true, ticketId: `#${ticket.id}` };
+  await completeIdempotentRequest(idempotency.key, 200, responseBody);
+  return NextResponse.json(responseBody);
 }

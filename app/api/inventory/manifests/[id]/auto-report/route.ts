@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
+import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
 type ManifestItemRow = {
   part_number: string;
@@ -30,6 +31,9 @@ export async function POST(
 
   const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Manifest id is required." }, { status: 400 });
+  const idempotency = await beginIdempotentRequest(request, `inventory:manifest-auto-report:${id}`);
+  if (idempotency.errorResponse) return idempotency.errorResponse;
+  if (idempotency.replayResponse) return idempotency.replayResponse;
 
   const body = (await request.json().catch(() => ({}))) as { scannedCounts?: Record<string, number> };
   const scannedCounts = body.scannedCounts ?? {};
@@ -45,7 +49,9 @@ export async function POST(
       return NextResponse.json({ error: manifestReadError?.message ?? "Manifest not found." }, { status: 404 });
     }
     if (manifestRow.status === "Completed") {
-      return NextResponse.json({ ok: true, alreadyCompleted: true });
+      const responseBody = { ok: true, alreadyCompleted: true };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody);
     }
 
     const { data: manifestItems, error: itemsError } = await supabase
@@ -147,12 +153,14 @@ export async function POST(
 
     await supabase.from("manifest_scan_events").delete().eq("manifest_id", id);
 
-    return NextResponse.json({
+    const responseBody = {
       ok: true,
       acceptedCount: Array.from(groupedScannedByProduct.values()).reduce((sum, n) => sum + n, 0),
       missingCount: missing.length,
       status: missing.length > 0 ? "Discrepancies" : "Completed"
-    });
+    };
+    await completeIdempotentRequest(idempotency.key, 200, responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to auto-report missing items." },
