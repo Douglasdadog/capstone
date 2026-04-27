@@ -479,6 +479,32 @@ export default function InventoryScanningPage() {
     window.location.href = "/inventory";
   }
 
+  async function completeWithAutoReport() {
+    if (!manifest) return;
+    const response = await fetch(`/api/inventory/manifests/${manifest.id}/auto-report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scannedCounts: scanned })
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      acceptedCount?: number;
+      missingCount?: number;
+      status?: "Completed" | "Discrepancies";
+    };
+    if (!response.ok) {
+      setError(payload.error ?? "Unable to complete with auto report.");
+      return;
+    }
+    toast.success("Manifest finalized", {
+      description:
+        payload.status === "Discrepancies"
+          ? `Received ${payload.acceptedCount ?? 0} item(s). Missing ${payload.missingCount ?? 0} item(s) auto-reported.`
+          : `Received ${payload.acceptedCount ?? 0} item(s).`
+    });
+    window.location.href = "/inventory";
+  }
+
   if (loading) return <section className="rounded-xl border border-slate-200 bg-white p-5">Loading scanner...</section>;
 
   return (
@@ -617,12 +643,19 @@ export default function InventoryScanningPage() {
           >
             Complete Verification
           </button>
+          <button
+            type="button"
+            onClick={() => void completeWithAutoReport()}
+            className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+          >
+            Auto Report Missing & Complete
+          </button>
           {!allMatched ? (
             <Link
               href={`/inventory/scanning/report?manifestId=${manifest.id}`}
-              className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700"
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
             >
-              Make Report
+              Make Manual Report
             </Link>
           ) : null}
         </div>
