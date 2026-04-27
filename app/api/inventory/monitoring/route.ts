@@ -22,6 +22,9 @@ type SensorAlertRow = {
   severity: "warning" | "critical";
   message: string;
   device_id: string;
+  temperature_c?: number | null;
+  humidity_pct?: number | null;
+  observed_at?: string | null;
   created_at: string;
 };
 
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: true }),
       supabase
         .from("sensor_alert_notifications")
-        .select("id, severity, message, device_id, created_at")
+        .select("id, severity, message, device_id, temperature_c, humidity_pct, observed_at, created_at")
         .order("created_at", { ascending: false })
         .limit(1)
       ,
@@ -68,6 +71,9 @@ export async function GET(request: NextRequest) {
     ]);
 
     const latestSensorAlert = (latestAlerts?.[0] ?? null) as SensorAlertRow | null;
+    const latestAlertMs = latestSensorAlert
+      ? toMillis(latestSensorAlert.observed_at ?? latestSensorAlert.created_at)
+      : null;
     const configuredIotEndpoint =
       configData && typeof (configData as SensorConfigRow).iot_endpoint === "string"
         ? (configData as SensorConfigRow).iot_endpoint
@@ -137,20 +143,45 @@ export async function GET(request: NextRequest) {
       segmentStartMs = previousMs;
     }
 
+    const alertTelemetryMs = latestAlertMs;
+    const alertTemperature =
+      latestSensorAlert && Number.isFinite(Number(latestSensorAlert.temperature_c))
+        ? Number(latestSensorAlert.temperature_c)
+        : null;
+    const alertHumidity =
+      latestSensorAlert && Number.isFinite(Number(latestSensorAlert.humidity_pct))
+        ? Number(latestSensorAlert.humidity_pct)
+        : null;
+    const useAlertTelemetry = Boolean(
+      alertTelemetryMs !== null &&
+        alertTelemetryMs >= latestMs &&
+        alertTemperature !== null &&
+        alertHumidity !== null
+    );
+    const displayLastReadingAt =
+      useAlertTelemetry && latestSensorAlert
+        ? latestSensorAlert.observed_at ?? latestSensorAlert.created_at
+        : latest.created_at;
+    const displayTemperature = useAlertTelemetry && alertTemperature !== null ? alertTemperature : Number(latest.temperature);
+    const displayHumidity = useAlertTelemetry && alertHumidity !== null ? alertHumidity : Number(latest.humidity);
+    const telemetryAgeMs = Date.now() - (useAlertTelemetry && alertTelemetryMs !== null ? alertTelemetryMs : latestMs);
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const ageMs = Date.now() - latestMs;
-    const isRunning = ageMs <= RUNNING_STALE_THRESHOLD_MS;
+    const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= RUNNING_STALE_THRESHOLD_MS;
+    const isRunning = ageMs <= RUNNING_STALE_THRESHOLD_MS || hasFreshAlert;
     const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
-    const staleSeconds = Math.max(0, Math.floor((Date.now() - latestMs) / 1000));
+    const staleSeconds = Math.max(0, Math.floor(telemetryAgeMs / 1000));
     const staleNote = isRunning
-      ? "Sensor connected. Live readings are updating."
+      ? hasFreshAlert && ageMs > RUNNING_STALE_THRESHOLD_MS
+        ? "Sensor connected. Alert heartbeat is active; waiting for next sensor log upload."
+        : "Sensor connected. Live readings are updating."
       : `Sensor disconnected. Last reading ${staleSeconds}s ago.`;
 
     return NextResponse.json({
       source: "live" as const,
-      temperatureC: Number(latest.temperature),
-      humidityPct: Number(latest.humidity),
-      lastReadingAt: latest.created_at,
+      temperatureC: displayTemperature,
+      humidityPct: displayHumidity,
+      lastReadingAt: displayLastReadingAt,
       uptimeSeconds,
       isRunning,
       connectionStatus,
