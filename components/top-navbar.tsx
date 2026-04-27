@@ -167,158 +167,162 @@ export default function TopNavbar() {
       </div>
       {showBackups ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
+          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 px-4 py-8"
           onClick={() => setShowBackups(false)}
         >
-          <div
-            className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setShowBackups(false)}
-              className="absolute right-3 top-3 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              aria-label="Close local backups modal"
-            >
-              X
-            </button>
+          <div className="flex min-h-full items-center justify-center">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Local write backups</h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Saved API write payloads from this browser. Total entries: {backupCount}, filtered:{" "}
-                  {filteredBackups.length}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleBackupNow}
-                  className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
-                >
-                  Backup now
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportBackups}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Export JSON
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearBackups}
-                  className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
-                >
-                  Clear local
-                </button>
+              <div
+                className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
                 <button
                   type="button"
                   onClick={() => setShowBackups(false)}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                  className="absolute right-3 top-3 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-label="Close local backups modal"
                 >
-                  Close
+                  X
                 </button>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">Local write backups</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Saved API write payloads from this browser. Total entries: {backupCount}, filtered:{" "}
+                      {filteredBackups.length}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleBackupNow}
+                      className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+                    >
+                      Backup now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportBackups}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      Export JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearBackups}
+                      className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+                    >
+                      Clear local
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBackups(false)}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+                {backupNotice ? <p className="mt-2 text-xs text-indigo-700">{backupNotice}</p> : null}
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-sm font-semibold text-slate-800">Manual snapshots</h4>
+                    <span className="text-xs text-slate-600">{snapshots.length} saved</span>
+                  </div>
+                  <div className="mt-2 max-h-28 overflow-auto">
+                    {snapshots.length === 0 ? (
+                      <p className="text-xs text-slate-500">No snapshots yet. Click "Backup now" to create one.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {snapshots.slice(0, 20).map((snapshot) => (
+                          <li
+                            key={snapshot.id}
+                            className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1"
+                          >
+                            <span className="text-xs text-slate-700">
+                              {new Date(snapshot.createdAt).toLocaleString()} ({snapshot.entries.length} entries)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleExportSnapshot(snapshot)}
+                              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              Export snapshot
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <label className="text-xs font-medium text-slate-700">Range</label>
+                  <select
+                    value={backupFilter}
+                    onChange={(event) => setBackupFilter(event.target.value as "today" | "7d" | "all")}
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+                  >
+                    <option value="all">All</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="today">Today</option>
+                  </select>
+                  <input
+                    value={backupSearch}
+                    onChange={(event) => setBackupSearch(event.target.value)}
+                    placeholder="Search endpoint/method/payload"
+                    className="min-w-[280px] flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700"
+                  />
+                </div>
+                <div className="mt-4 max-h-[60vh] overflow-auto rounded-xl border border-slate-200 bg-white">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-slate-50 text-slate-700">
+                      <tr>
+                        <th className="px-4 py-3">Time</th>
+                        <th className="px-4 py-3">Method</th>
+                        <th className="px-4 py-3">API</th>
+                        <th className="px-4 py-3">Payload</th>
+                        <th className="px-4 py-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBackups.slice(0, 200).map((entry) => (
+                        <tr key={entry.id} className="border-t border-slate-100 align-top">
+                          <td className="px-4 py-3 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-700">{entry.method}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-slate-700">{entry.url}</td>
+                          <td className="px-4 py-3">
+                            <pre className="max-w-[460px] overflow-auto rounded bg-slate-50 p-2 text-xs text-slate-700">
+                              {JSON.stringify(entry.body, null, 2)}
+                            </pre>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyPayload(entry)}
+                              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              {copiedId === entry.id ? "Copied" : "Copy payload"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredBackups.length === 0 ? (
+                        <tr>
+                          <td className="px-4 py-5 text-slate-500" colSpan={5}>
+                            No matching local backups.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredBackups.length > 200 ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Showing latest 200 entries in viewer. Export JSON includes all stored entries.
+                  </p>
+                ) : null}
               </div>
             </div>
-            {backupNotice ? <p className="mt-2 text-xs text-indigo-700">{backupNotice}</p> : null}
-            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold text-slate-800">Manual snapshots</h4>
-                <span className="text-xs text-slate-600">{snapshots.length} saved</span>
-              </div>
-              <div className="mt-2 max-h-28 overflow-auto">
-                {snapshots.length === 0 ? (
-                  <p className="text-xs text-slate-500">No snapshots yet. Click "Backup now" to create one.</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {snapshots.slice(0, 20).map((snapshot) => (
-                      <li
-                        key={snapshot.id}
-                        className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1"
-                      >
-                        <span className="text-xs text-slate-700">
-                          {new Date(snapshot.createdAt).toLocaleString()} ({snapshot.entries.length} entries)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleExportSnapshot(snapshot)}
-                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          Export snapshot
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <label className="text-xs font-medium text-slate-700">Range</label>
-              <select
-                value={backupFilter}
-                onChange={(event) => setBackupFilter(event.target.value as "today" | "7d" | "all")}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
-              >
-                <option value="all">All</option>
-                <option value="7d">Last 7 days</option>
-                <option value="today">Today</option>
-              </select>
-              <input
-                value={backupSearch}
-                onChange={(event) => setBackupSearch(event.target.value)}
-                placeholder="Search endpoint/method/payload"
-                className="min-w-[280px] flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-700"
-              />
-            </div>
-            <div className="mt-4 max-h-[60vh] overflow-auto rounded-xl border border-slate-200 bg-white">
-              <table className="min-w-full text-left text-sm">
-                <thead className="sticky top-0 bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-4 py-3">Time</th>
-                    <th className="px-4 py-3">Method</th>
-                    <th className="px-4 py-3">API</th>
-                    <th className="px-4 py-3">Payload</th>
-                    <th className="px-4 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBackups.slice(0, 200).map((entry) => (
-                    <tr key={entry.id} className="border-t border-slate-100 align-top">
-                      <td className="px-4 py-3 whitespace-nowrap">{new Date(entry.createdAt).toLocaleString()}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-700">{entry.method}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-700">{entry.url}</td>
-                      <td className="px-4 py-3">
-                        <pre className="max-w-[460px] overflow-auto rounded bg-slate-50 p-2 text-xs text-slate-700">
-                          {JSON.stringify(entry.body, null, 2)}
-                        </pre>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => void handleCopyPayload(entry)}
-                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                        >
-                          {copiedId === entry.id ? "Copied" : "Copy payload"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredBackups.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-5 text-slate-500" colSpan={5}>
-                        No matching local backups.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-            {filteredBackups.length > 200 ? (
-              <p className="mt-2 text-xs text-slate-500">
-                Showing latest 200 entries in viewer. Export JSON includes all stored entries.
-              </p>
-            ) : null}
           </div>
         </div>
       ) : null}
