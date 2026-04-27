@@ -15,6 +15,42 @@ import {
   type LocalWriteBackupSnapshot
 } from "@/lib/offline/local-write-backup";
 
+const REDACTED = "***REDACTED***";
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "newpassword",
+  "currentpassword",
+  "confirmpassword",
+  "secret",
+  "device_secret",
+  "token",
+  "access_token",
+  "refresh_token",
+  "otp",
+  "otpcode",
+  "authorization",
+  "apikey",
+  "api_key"
+]);
+
+function sanitizeForExport(value: unknown, parentKey = ""): unknown {
+  const normalizedKey = parentKey.toLowerCase();
+  if (normalizedKey && SENSITIVE_KEYS.has(normalizedKey)) {
+    return REDACTED;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForExport(item));
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+      key,
+      sanitizeForExport(nestedValue, key)
+    ]);
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
 export default function TopNavbar() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -87,7 +123,8 @@ export default function TopNavbar() {
   }, [backups, backupFilter, backupSearch]);
 
   function exportDataAsJson(data: unknown, filenamePrefix: string) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const sanitized = sanitizeForExport(data);
+    const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const anchor = document.createElement("a");
@@ -137,6 +174,7 @@ export default function TopNavbar() {
     }
 
     try {
+      const safePayload = sanitizeForExport(payload) as typeof payload;
       const XLSX = await import("xlsx");
       const workbook = XLSX.utils.book_new();
       const MAX_COLUMN_WIDTH = 50;
@@ -180,22 +218,22 @@ export default function TopNavbar() {
       };
 
       const summaryRows = [
-        { field: "backupVersion", value: payload.backupVersion ?? "unknown" },
-        { field: "capturedAt", value: payload.capturedAt ?? "unknown" },
-        { field: "warningsCount", value: String(payload.warnings?.length ?? 0) }
+        { field: "backupVersion", value: safePayload.backupVersion ?? "unknown" },
+        { field: "capturedAt", value: safePayload.capturedAt ?? "unknown" },
+        { field: "warningsCount", value: String(safePayload.warnings?.length ?? 0) }
       ];
       appendSheet("Summary", summaryRows);
 
-      const countRows = Object.entries(payload.counts ?? {}).map(([key, value]) => ({
+      const countRows = Object.entries(safePayload.counts ?? {}).map(([key, value]) => ({
         metric: key,
         value
       }));
       appendSheet("Counts", countRows.length > 0 ? countRows : [{ metric: "none", value: 0 }]);
 
-      const warningsRows = (payload.warnings ?? []).map((warning) => ({ warning }));
+      const warningsRows = (safePayload.warnings ?? []).map((warning) => ({ warning }));
       appendSheet("Warnings", warningsRows.length > 0 ? warningsRows : [{ warning: "none" }]);
 
-      const modules = payload.modules ?? {};
+      const modules = safePayload.modules ?? {};
       const toRows = (value: unknown): unknown[] =>
         Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
 
