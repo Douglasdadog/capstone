@@ -189,6 +189,16 @@ export default function InventoryScanningPage() {
   }, [loadPending, supabase]);
 
   useEffect(() => {
+    if (!manifest) return;
+    const intervalId = window.setInterval(() => {
+      void loadPending();
+    }, 2000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loadPending, manifest]);
+
+  useEffect(() => {
     let alive = true;
     async function loadCameras() {
       try {
