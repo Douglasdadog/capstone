@@ -25,6 +25,10 @@ type SensorAlertRow = {
   created_at: string;
 };
 
+type SensorConfigRow = {
+  iot_endpoint: string | null;
+};
+
 function toMillis(value: string): number | null {
   const ms = Date.parse(value);
   return Number.isFinite(ms) ? ms : null;
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const [{ data, error }, { data: latestAlerts }] = await Promise.all([
+    const [{ data, error }, { data: latestAlerts }, { data: configData }] = await Promise.all([
       supabase
         .from("sensor_logs")
         .select("temperature, humidity, created_at")
@@ -55,9 +59,19 @@ export async function GET(request: NextRequest) {
         .select("id, severity, message, device_id, created_at")
         .order("created_at", { ascending: false })
         .limit(1)
+      ,
+      supabase
+        .from("sensor_alert_config")
+        .select("iot_endpoint")
+        .eq("id", true)
+        .maybeSingle()
     ]);
 
     const latestSensorAlert = (latestAlerts?.[0] ?? null) as SensorAlertRow | null;
+    const configuredIotEndpoint =
+      configData && typeof (configData as SensorConfigRow).iot_endpoint === "string"
+        ? (configData as SensorConfigRow).iot_endpoint
+        : null;
 
     if (error) {
       return NextResponse.json({
@@ -69,6 +83,7 @@ export async function GET(request: NextRequest) {
         isRunning: false,
         connectionStatus: "disconnected" as const,
         latestSensorAlert,
+        localIotEndpoint: configuredIotEndpoint,
         note: `No device data: ${error.message}`
       });
     }
@@ -91,6 +106,7 @@ export async function GET(request: NextRequest) {
         isRunning: false,
         connectionStatus: "disconnected" as const,
         latestSensorAlert,
+        localIotEndpoint: configuredIotEndpoint,
         note: "No IoT readings received yet. Device may be disconnected."
       });
     }
@@ -107,6 +123,7 @@ export async function GET(request: NextRequest) {
         isRunning: false,
         connectionStatus: "disconnected" as const,
         latestSensorAlert,
+        localIotEndpoint: configuredIotEndpoint,
         note: "Latest reading has invalid timestamp. Sensor is treated as disconnected."
       });
     }
@@ -138,6 +155,7 @@ export async function GET(request: NextRequest) {
       isRunning,
       connectionStatus,
       latestSensorAlert,
+      localIotEndpoint: configuredIotEndpoint,
       note: staleNote,
       staleSeconds
     });

@@ -58,10 +58,14 @@ create table if not exists public.sensor_alert_config (
   critical_threshold_c numeric not null default 50,
   cooldown_minutes integer not null default 10,
   alert_email text,
+  iot_endpoint text,
   updated_at timestamptz not null default now(),
   constraint sensor_alert_config_singleton check (id = true),
   constraint sensor_alert_thresholds_valid check (critical_threshold_c >= warning_threshold_c)
 );
+
+alter table public.sensor_alert_config
+add column if not exists iot_endpoint text;
 
 insert into public.sensor_alert_config (
   id,

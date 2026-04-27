@@ -10,6 +10,7 @@ type ConfigRow = {
   critical_threshold_c: number;
   cooldown_minutes: number;
   alert_email: string | null;
+  iot_endpoint: string | null;
   updated_at: string;
 };
 
@@ -23,6 +24,13 @@ function parseNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeIotEndpointInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
+
 function normalizeConfigRow(row: Partial<ConfigRow> | null): ConfigRow {
   return {
     id: true,
@@ -30,6 +38,7 @@ function normalizeConfigRow(row: Partial<ConfigRow> | null): ConfigRow {
     critical_threshold_c: Number(row?.critical_threshold_c ?? 50),
     cooldown_minutes: Number(row?.cooldown_minutes ?? 10),
     alert_email: typeof row?.alert_email === "string" ? row.alert_email : null,
+    iot_endpoint: typeof row?.iot_endpoint === "string" ? row.iot_endpoint : null,
     updated_at: typeof row?.updated_at === "string" ? row.updated_at : new Date().toISOString()
   };
 }
@@ -51,7 +60,7 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("sensor_alert_config")
-      .select("id, warning_threshold_c, critical_threshold_c, cooldown_minutes, alert_email, updated_at")
+      .select("id, warning_threshold_c, critical_threshold_c, cooldown_minutes, alert_email, iot_endpoint, updated_at")
       .eq("id", true)
       .maybeSingle();
 
@@ -85,6 +94,7 @@ export async function PATCH(request: NextRequest) {
     critical_threshold_c?: number | string;
     cooldown_minutes?: number | string;
     alert_email?: string | null;
+    iot_endpoint?: string | null;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -96,6 +106,7 @@ export async function PATCH(request: NextRequest) {
   const critical = parseNumber(body.critical_threshold_c);
   const cooldown = parseNumber(body.cooldown_minutes);
   const email = typeof body.alert_email === "string" ? body.alert_email.trim() : "";
+  const iotEndpoint = typeof body.iot_endpoint === "string" ? normalizeIotEndpointInput(body.iot_endpoint) : "";
 
   if (warning === null || critical === null || cooldown === null) {
     return NextResponse.json({ error: "warning, critical, and cooldown must be numeric values." }, { status: 400 });
@@ -112,6 +123,17 @@ export async function PATCH(request: NextRequest) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Alert email is invalid." }, { status: 400 });
   }
+  if (iotEndpoint) {
+    let parsed: URL;
+    try {
+      parsed = new URL(iotEndpoint);
+    } catch {
+      return NextResponse.json({ error: "IoT endpoint must be a valid URL." }, { status: 400 });
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return NextResponse.json({ error: "IoT endpoint must use http or https." }, { status: 400 });
+    }
+  }
   const idempotency = await beginIdempotentRequest(request, "admin:sensor-alert-config-patch");
   if (idempotency.errorResponse) return idempotency.errorResponse;
   if (idempotency.replayResponse) return idempotency.replayResponse;
@@ -127,11 +149,12 @@ export async function PATCH(request: NextRequest) {
           critical_threshold_c: critical,
           cooldown_minutes: Math.round(cooldown),
           alert_email: email || null,
+          iot_endpoint: iotEndpoint || null,
           updated_at: new Date().toISOString()
         },
         { onConflict: "id" }
       )
-      .select("id, warning_threshold_c, critical_threshold_c, cooldown_minutes, alert_email, updated_at")
+      .select("id, warning_threshold_c, critical_threshold_c, cooldown_minutes, alert_email, iot_endpoint, updated_at")
       .single();
 
     if (error) {

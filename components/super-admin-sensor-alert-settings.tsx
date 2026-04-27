@@ -8,8 +8,16 @@ type SensorAlertConfig = {
   critical_threshold_c: number;
   cooldown_minutes: number;
   alert_email: string | null;
+  iot_endpoint: string | null;
   updated_at: string;
 };
+
+function normalizeIotEndpointInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `http://${trimmed}`;
+}
 
 export default function SuperAdminSensorAlertSettings() {
   const [config, setConfig] = useState<SensorAlertConfig | null>(null);
@@ -17,6 +25,7 @@ export default function SuperAdminSensorAlertSettings() {
   const [critical, setCritical] = useState("50");
   const [cooldown, setCooldown] = useState("10");
   const [email, setEmail] = useState("");
+  const [iotEndpoint, setIotEndpoint] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sendingAlert, setSendingAlert] = useState(false);
@@ -47,6 +56,7 @@ export default function SuperAdminSensorAlertSettings() {
         setCritical(String(payload.config.critical_threshold_c));
         setCooldown(String(payload.config.cooldown_minutes));
         setEmail(payload.config.alert_email ?? "");
+        setIotEndpoint(payload.config.iot_endpoint ?? "");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Unable to load sensor alert settings.");
       } finally {
@@ -60,12 +70,15 @@ export default function SuperAdminSensorAlertSettings() {
     setSaving(true);
     setError(null);
     setMessage(null);
+    const normalizedIotEndpoint = normalizeIotEndpointInput(iotEndpoint);
+    setIotEndpoint(normalizedIotEndpoint);
     try {
       const payloadBody = {
         warning_threshold_c: warning,
         critical_threshold_c: critical,
         cooldown_minutes: cooldown,
-        alert_email: email
+        alert_email: email,
+        iot_endpoint: normalizedIotEndpoint
       };
       if (!window.navigator.onLine) {
         queueOfflineTransaction({
@@ -96,7 +109,8 @@ export default function SuperAdminSensorAlertSettings() {
             warning_threshold_c: warning,
             critical_threshold_c: critical,
             cooldown_minutes: cooldown,
-            alert_email: email
+            alert_email: email,
+            iot_endpoint: normalizedIotEndpoint
           }
         });
         setError(null);
@@ -203,6 +217,19 @@ export default function SuperAdminSensorAlertSettings() {
             placeholder="owner@example.com"
             type="email"
           />
+        </label>
+        <label className="text-sm text-slate-700 md:col-span-2">
+          <span className="mb-1 block">IoT local endpoint (manual override)</span>
+          <input
+            value={iotEndpoint}
+            onChange={(event) => setIotEndpoint(event.target.value)}
+            className="w-full rounded-md border border-slate-300 px-3 py-2"
+            placeholder="http://192.168.1.120/health"
+            type="url"
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            Used by inventory monitoring to verify LAN reachability without changing IoT firmware.
+          </span>
         </label>
       </div>
 
