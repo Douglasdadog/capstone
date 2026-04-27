@@ -5,7 +5,8 @@ import { verifyScannerLinkToken } from "@/lib/auth/scanner-link-token";
 import { incrementInventoryByBarcodeScan } from "@/lib/inventory/increment-inventory-by-scan";
 
 function normalizeKey(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
+  // Normalize scanner variants: spaces, hyphens and symbols should not break serial matching.
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 async function resolveProductCodeFromPendingManifestSerial(

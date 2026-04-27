@@ -36,7 +36,8 @@ type HighlightBox = {
 };
 
 function normalizeBarcodeValue(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
+  // Keep serial matching resilient across scanner formats (with/without hyphens/spaces).
+  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
 function asPoint(value: unknown): { x: number; y: number } | null {
