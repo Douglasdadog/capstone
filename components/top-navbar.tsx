@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { UserRole } from "@/lib/auth/roles";
 import {
   createLocalWriteBackupSnapshot,
@@ -165,16 +166,17 @@ export default function TopNavbar() {
           </button>
         </div>
       </div>
-      {showBackups ? (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 px-4 py-8"
-          onClick={() => setShowBackups(false)}
-        >
-          <div className="flex min-h-full items-center justify-center">
+      {showBackups && typeof window !== "undefined"
+        ? createPortal(
             <div
-              className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
+              className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/50 px-4 py-8"
+              onClick={() => setShowBackups(false)}
             >
+              <div className="flex min-h-full items-center justify-center">
+                <div
+                  className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+                  onClick={(event) => event.stopPropagation()}
+                >
                 <button
                   type="button"
                   onClick={() => setShowBackups(false)}
@@ -320,10 +322,11 @@ export default function TopNavbar() {
                     Showing latest 200 entries in viewer. Export JSON includes all stored entries.
                   </p>
                 ) : null}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          , document.body)
+        : null}
     </header>
   );
 }
