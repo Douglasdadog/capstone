@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireDemoSession } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
 const DEFAULT_EXPECTED_INTERVAL_SECONDS = 5;

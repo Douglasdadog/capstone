@@ -240,7 +240,7 @@ export default function InventoryPage() {
   }, []);
 
   const fetchMonitoring = useCallback(async () => {
-    const response = await fetch("/api/inventory/monitoring");
+    const response = await fetch("/api/inventory/monitoring", { cache: "no-store" });
     const data = (await response.json()) as MonitoringPayload;
     if (!response.ok) {
       throw new Error(data.error ?? "Unable to fetch monitoring data.");

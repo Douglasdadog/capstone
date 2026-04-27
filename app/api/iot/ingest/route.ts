@@ -39,17 +39,27 @@ function normalizeEpochMs(value: number): number {
 }
 
 function parseCreatedAtFromPayload(body: IngestPayload): string {
+  const now = Date.now();
+  const MAX_CLOCK_SKEW_MS = 2 * 60 * 1000;
   if (typeof body.created_at === "string" && body.created_at.trim()) {
-    return parseCreatedAt(body.created_at.trim());
+    const iso = parseCreatedAt(body.created_at.trim());
+    const parsedMs = Date.parse(iso);
+    if (Number.isFinite(parsedMs) && Math.abs(parsedMs - now) <= MAX_CLOCK_SKEW_MS) {
+      return iso;
+    }
+    return new Date(now).toISOString();
   }
   const ts = toFiniteNumber(body.ts);
   if (ts !== null) {
     const normalizedTs = normalizeEpochMs(ts);
-    if (normalizedTs >= Date.parse("2020-01-01T00:00:00Z")) {
+    if (
+      normalizedTs >= Date.parse("2020-01-01T00:00:00Z") &&
+      Math.abs(normalizedTs - now) <= MAX_CLOCK_SKEW_MS
+    ) {
       return new Date(normalizedTs).toISOString();
     }
   }
-  return new Date().toISOString();
+  return new Date(now).toISOString();
 }
 
 function toCelsius(temperature: number, unit?: string): number {
