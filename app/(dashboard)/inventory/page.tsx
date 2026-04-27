@@ -273,7 +273,8 @@ export default function InventoryPage() {
     try {
       setRefreshingStatus(true);
       setError(null);
-      await fetchMonitoring();
+      await refreshAll();
+      setClockTick(Date.now());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to refresh monitoring status.");
     } finally {
@@ -416,15 +417,6 @@ export default function InventoryPage() {
       window.clearInterval(intervalId);
     };
   }, [refreshAll]);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchMonitoring();
-    }, 5000);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [fetchMonitoring]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
