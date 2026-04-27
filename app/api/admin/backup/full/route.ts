@@ -14,6 +14,42 @@ type TableDumpResult = {
   warning: string | null;
 };
 
+const REDACTED = "***REDACTED***";
+const SENSITIVE_KEYS = new Set([
+  "password",
+  "newpassword",
+  "currentpassword",
+  "confirmpassword",
+  "secret",
+  "device_secret",
+  "token",
+  "access_token",
+  "refresh_token",
+  "otp",
+  "otpcode",
+  "authorization",
+  "apikey",
+  "api_key"
+]);
+
+function sanitizeForBackup(value: unknown, parentKey = ""): unknown {
+  const normalizedKey = parentKey.toLowerCase();
+  if (normalizedKey && SENSITIVE_KEYS.has(normalizedKey)) {
+    return REDACTED;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForBackup(item));
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+      key,
+      sanitizeForBackup(nestedValue, key)
+    ]);
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
 async function dumpTable(
   table: string,
   options?: { orderBy?: string; ascending?: boolean }
@@ -26,7 +62,7 @@ async function dumpTable(
     }
     const { data, error } = await query;
     if (error) return { rows: [], warning: `${table}: ${error.message}` };
-    return { rows: data ?? [], warning: null };
+    return { rows: (sanitizeForBackup(data ?? []) as unknown[]) ?? [], warning: null };
   } catch (error) {
     return { rows: [], warning: `${table}: ${error instanceof Error ? error.message : "unknown error"}` };
   }
@@ -98,15 +134,18 @@ export async function GET(request: NextRequest) {
     if (error) {
       warnings.push(`supabase-auth-users: ${error.message}`);
     } else {
-      supabaseUsers = data?.users ?? [];
+      supabaseUsers = (sanitizeForBackup(data?.users ?? []) as unknown[]) ?? [];
     }
   } catch (error) {
     warnings.push(`supabase-auth-users: ${error instanceof Error ? error.message : "unknown error"}`);
   }
 
-  const registeredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
-  const sampleUsers = getSampleUsers();
-  const permissions = readPermissions(request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
+  const rawRegisteredUsers = readRegisteredUsers(request.cookies.get(DEMO_USERS_COOKIE)?.value);
+  const rawSampleUsers = getSampleUsers();
+  const rawPermissions = readPermissions(request.cookies.get(DEMO_PERMISSIONS_COOKIE)?.value);
+  const registeredUsers = sanitizeForBackup(rawRegisteredUsers);
+  const sampleUsers = sanitizeForBackup(rawSampleUsers);
+  const permissions = sanitizeForBackup(rawPermissions);
 
   const payload = {
     backupVersion: "1.0.0",
@@ -117,35 +156,35 @@ export async function GET(request: NextRequest) {
         sampleUsers,
         registeredUsers,
         permissions,
-        mfaResetRequests: mfaResetRequestsDump.rows
+        mfaResetRequests: sanitizeForBackup(mfaResetRequestsDump.rows)
       },
       inventory: {
-        inventory: inventoryDump.rows,
-        manifests: manifestsDump.rows,
-        manifestItems: manifestItemsDump.rows,
-        manifestScanEvents: manifestScanEventsDump.rows,
-        manifestReports: manifestReportsDump.rows,
-        alerts: alertsDump.rows
+        inventory: sanitizeForBackup(inventoryDump.rows),
+        manifests: sanitizeForBackup(manifestsDump.rows),
+        manifestItems: sanitizeForBackup(manifestItemsDump.rows),
+        manifestScanEvents: sanitizeForBackup(manifestScanEventsDump.rows),
+        manifestReports: sanitizeForBackup(manifestReportsDump.rows),
+        alerts: sanitizeForBackup(alertsDump.rows)
       },
       logistics: {
-        salesOrders: shipmentsDump.rows,
-        shipments: shipmentsDump.rows,
-        shipmentItems: shipmentItemsDump.rows,
-        trackingIssues: trackingIssuesDump.rows
+        salesOrders: sanitizeForBackup(shipmentsDump.rows),
+        shipments: sanitizeForBackup(shipmentsDump.rows),
+        shipmentItems: sanitizeForBackup(shipmentItemsDump.rows),
+        trackingIssues: sanitizeForBackup(trackingIssuesDump.rows)
       },
       iot: {
-        sensorLogs: sensorLogsDump.rows,
-        sensorAlertNotifications: sensorAlertNotificationsDump.rows,
-        sensorAlertConfig: sensorAlertConfigDump.rows
+        sensorLogs: sanitizeForBackup(sensorLogsDump.rows),
+        sensorAlertNotifications: sanitizeForBackup(sensorAlertNotificationsDump.rows),
+        sensorAlertConfig: sanitizeForBackup(sensorAlertConfigDump.rows)
       },
       system: {
-        idempotencyKeys: idempotencyKeysDump.rows
+        idempotencyKeys: sanitizeForBackup(idempotencyKeysDump.rows)
       }
     },
     counts: {
       supabaseUsers: supabaseUsers.length,
-      sampleUsers: sampleUsers.length,
-      registeredUsers: registeredUsers.length,
+      sampleUsers: rawSampleUsers.length,
+      registeredUsers: rawRegisteredUsers.length,
       inventory: inventoryDump.rows.length,
       manifests: manifestsDump.rows.length,
       manifestItems: manifestItemsDump.rows.length,

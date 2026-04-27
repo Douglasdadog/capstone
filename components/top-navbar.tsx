@@ -139,30 +139,61 @@ export default function TopNavbar() {
     try {
       const XLSX = await import("xlsx");
       const workbook = XLSX.utils.book_new();
+      const MAX_COLUMN_WIDTH = 50;
+      const MIN_COLUMN_WIDTH = 10;
+
+      const normalizeCellValue = (value: unknown): string | number | boolean => {
+        if (value === null || value === undefined) return "";
+        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+        return JSON.stringify(value);
+      };
+
+      const normalizeRows = (rows: unknown[]): Record<string, string | number | boolean>[] => {
+        return rows.map((row) => {
+          if (!row || typeof row !== "object" || Array.isArray(row)) {
+            return { value: normalizeCellValue(row) };
+          }
+          const obj = row as Record<string, unknown>;
+          return Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [key, normalizeCellValue(value)])
+          ) as Record<string, string | number | boolean>;
+        });
+      };
+
+      const appendSheet = (sheetName: string, rows: unknown[]) => {
+        const normalizedRows =
+          rows.length > 0 ? normalizeRows(rows) : ([{ notice: "No data" }] as Record<string, string | number | boolean>[]);
+        const worksheet = XLSX.utils.json_to_sheet(normalizedRows);
+        const headers = Object.keys(normalizedRows[0] ?? {});
+        if (headers.length > 0) {
+          worksheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 }, e: { c: headers.length - 1, r: 0 } }) };
+          worksheet["!freeze"] = { xSplit: 0, ySplit: 1 };
+          worksheet["!cols"] = headers.map((header) => {
+            const longestCell = normalizedRows.reduce((max, row) => {
+              const text = String(row[header] ?? "");
+              return Math.max(max, text.length);
+            }, header.length);
+            return { wch: Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, longestCell + 2)) };
+          });
+        }
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      };
 
       const summaryRows = [
         { field: "backupVersion", value: payload.backupVersion ?? "unknown" },
         { field: "capturedAt", value: payload.capturedAt ?? "unknown" },
         { field: "warningsCount", value: String(payload.warnings?.length ?? 0) }
       ];
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Summary");
+      appendSheet("Summary", summaryRows);
 
       const countRows = Object.entries(payload.counts ?? {}).map(([key, value]) => ({
         metric: key,
         value
       }));
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(countRows.length > 0 ? countRows : [{ metric: "none", value: 0 }]),
-        "Counts"
-      );
+      appendSheet("Counts", countRows.length > 0 ? countRows : [{ metric: "none", value: 0 }]);
 
       const warningsRows = (payload.warnings ?? []).map((warning) => ({ warning }));
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(warningsRows.length > 0 ? warningsRows : [{ warning: "none" }]),
-        "Warnings"
-      );
+      appendSheet("Warnings", warningsRows.length > 0 ? warningsRows : [{ warning: "none" }]);
 
       const modules = payload.modules ?? {};
       const toRows = (value: unknown): unknown[] =>
@@ -200,8 +231,7 @@ export default function TopNavbar() {
       ];
 
       for (const sheet of sheets) {
-        const rows = sheet.rows.length > 0 ? sheet.rows : [{ notice: "No data" }];
-        XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows), sheet.name);
+        appendSheet(sheet.name, sheet.rows);
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
