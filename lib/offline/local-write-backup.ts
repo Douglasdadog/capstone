@@ -8,8 +8,16 @@ export type LocalWriteBackupEntry = {
   createdAt: string;
 };
 
+export type LocalWriteBackupSnapshot = {
+  id: string;
+  createdAt: string;
+  entries: LocalWriteBackupEntry[];
+};
+
 const STORAGE_KEY = "wis_local_write_backup_v1";
+const SNAPSHOT_STORAGE_KEY = "wis_local_write_backup_snapshots_v1";
 const MAX_ENTRIES = 500;
+const MAX_SNAPSHOTS = 50;
 const BACKUP_EVENT_NAME = "wis-local-write-backup-updated";
 
 declare global {
@@ -121,5 +129,40 @@ export function onLocalWriteBackupUpdated(listener: () => void): () => void {
   const wrapped = () => listener();
   window.addEventListener(BACKUP_EVENT_NAME, wrapped);
   return () => window.removeEventListener(BACKUP_EVENT_NAME, wrapped);
+}
+
+function readSnapshots(): LocalWriteBackupSnapshot[] {
+  if (!canUseStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(SNAPSHOT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as LocalWriteBackupSnapshot[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSnapshots(snapshots: LocalWriteBackupSnapshot[]) {
+  if (!canUseStorage()) return;
+  const trimmed = snapshots.slice(-MAX_SNAPSHOTS);
+  window.localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(trimmed));
+}
+
+export function createLocalWriteBackupSnapshot(): LocalWriteBackupSnapshot {
+  const entries = readBackups();
+  const snapshots = readSnapshots();
+  const snapshot: LocalWriteBackupSnapshot = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    entries
+  };
+  snapshots.push(snapshot);
+  writeSnapshots(snapshots);
+  return snapshot;
+}
+
+export function getLocalWriteBackupSnapshots(): LocalWriteBackupSnapshot[] {
+  return readSnapshots();
 }
 

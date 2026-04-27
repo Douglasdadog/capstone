@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { UserRole } from "@/lib/auth/roles";
 import {
+  createLocalWriteBackupSnapshot,
   clearLocalWriteBackups,
   getLocalWriteBackupCount,
   getLocalWriteBackups,
+  getLocalWriteBackupSnapshots,
   installLocalWriteBackupInterceptor,
   onLocalWriteBackupUpdated,
-  type LocalWriteBackupEntry
+  type LocalWriteBackupEntry,
+  type LocalWriteBackupSnapshot
 } from "@/lib/offline/local-write-backup";
 
 export default function TopNavbar() {
@@ -17,9 +20,11 @@ export default function TopNavbar() {
   const [backupCount, setBackupCount] = useState(0);
   const [showBackups, setShowBackups] = useState(false);
   const [backups, setBackups] = useState<LocalWriteBackupEntry[]>([]);
+  const [snapshots, setSnapshots] = useState<LocalWriteBackupSnapshot[]>([]);
   const [backupFilter, setBackupFilter] = useState<"today" | "7d" | "all">("all");
   const [backupSearch, setBackupSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [backupNotice, setBackupNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadSession() {
@@ -48,6 +53,8 @@ export default function TopNavbar() {
 
   function openBackups() {
     setBackups(getLocalWriteBackups().slice().reverse());
+    setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+    setBackupNotice(null);
     setShowBackups(true);
   }
 
@@ -77,24 +84,33 @@ export default function TopNavbar() {
       });
   }, [backups, backupFilter, backupSearch]);
 
-  function handleExportBackups() {
-    const data = getLocalWriteBackups();
+  function exportDataAsJson(data: unknown, filenamePrefix: string) {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `wis-local-write-backups-${timestamp}.json`;
+    anchor.download = `${filenamePrefix}-${timestamp}.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
   }
 
+  function handleExportBackups() {
+    const data = getLocalWriteBackups();
+    exportDataAsJson(data, "wis-local-write-backups");
+  }
+
+  function handleExportSnapshot(snapshot: LocalWriteBackupSnapshot) {
+    exportDataAsJson(snapshot, `wis-local-write-backup-snapshot-${snapshot.id}`);
+  }
+
   function handleClearBackups() {
     clearLocalWriteBackups();
     setBackups([]);
     setBackupCount(0);
+    setBackupNotice("Local write backups cleared.");
   }
 
   async function handleCopyPayload(entry: LocalWriteBackupEntry) {
@@ -106,6 +122,14 @@ export default function TopNavbar() {
     } catch {
       setCopiedId(null);
     }
+  }
+
+  function handleBackupNow() {
+    const snapshot = createLocalWriteBackupSnapshot();
+    setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
+    setBackupNotice(
+      `Manual backup saved locally at ${new Date(snapshot.createdAt).toLocaleString()} (${snapshot.entries.length} entries).`
+    );
   }
 
   return (
@@ -142,8 +166,22 @@ export default function TopNavbar() {
         </div>
       </div>
       {showBackups ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
-          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4"
+          onClick={() => setShowBackups(false)}
+        >
+          <div
+            className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowBackups(false)}
+              className="absolute right-3 top-3 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              aria-label="Close local backups modal"
+            >
+              X
+            </button>
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Local write backups</h3>
@@ -153,6 +191,13 @@ export default function TopNavbar() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBackupNow}
+                  className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+                >
+                  Backup now
+                </button>
                 <button
                   type="button"
                   onClick={handleExportBackups}
@@ -174,6 +219,38 @@ export default function TopNavbar() {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+            {backupNotice ? <p className="mt-2 text-xs text-indigo-700">{backupNotice}</p> : null}
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-sm font-semibold text-slate-800">Manual snapshots</h4>
+                <span className="text-xs text-slate-600">{snapshots.length} saved</span>
+              </div>
+              <div className="mt-2 max-h-28 overflow-auto">
+                {snapshots.length === 0 ? (
+                  <p className="text-xs text-slate-500">No snapshots yet. Click "Backup now" to create one.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {snapshots.slice(0, 20).map((snapshot) => (
+                      <li
+                        key={snapshot.id}
+                        className="flex items-center justify-between gap-2 rounded border border-slate-200 bg-white px-2 py-1"
+                      >
+                        <span className="text-xs text-slate-700">
+                          {new Date(snapshot.createdAt).toLocaleString()} ({snapshot.entries.length} entries)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleExportSnapshot(snapshot)}
+                          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                        >
+                          Export snapshot
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
