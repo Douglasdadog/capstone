@@ -99,11 +99,6 @@ export default function TopNavbar() {
     URL.revokeObjectURL(url);
   }
 
-  function handleExportBackups() {
-    const data = getLocalWriteBackups();
-    exportDataAsJson(data, "wis-local-write-backups");
-  }
-
   function handleExportSnapshot(snapshot: LocalWriteBackupSnapshot) {
     exportDataAsJson(snapshot, `wis-local-write-backup-snapshot-${snapshot.id}`);
   }
@@ -371,13 +366,6 @@ export default function TopNavbar() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleExportBackups}
-                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      Export JSON
-                    </button>
-                    <button
-                      type="button"
                       onClick={handleExportFullBackup}
                       className="rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-800 hover:bg-blue-100"
                     >
@@ -504,7 +492,7 @@ export default function TopNavbar() {
                 </div>
                 {filteredBackups.length > 200 ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Showing latest 200 entries in viewer. Export JSON includes all stored entries.
+                    Showing latest 200 entries in viewer.
                   </p>
                 ) : null}
                 </div>
