@@ -171,11 +171,10 @@ export default function TopNavbar() {
           onClick={() => setShowBackups(false)}
         >
           <div className="flex min-h-full items-center justify-center">
-            <div className="flex items-center justify-between gap-4">
-              <div
-                className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
-                onClick={(event) => event.stopPropagation()}
-              >
+            <div
+              className="relative w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
                 <button
                   type="button"
                   onClick={() => setShowBackups(false)}
@@ -321,7 +320,6 @@ export default function TopNavbar() {
                     Showing latest 200 entries in viewer. Export JSON includes all stored entries.
                   </p>
                 ) : null}
-              </div>
             </div>
           </div>
         </div>
