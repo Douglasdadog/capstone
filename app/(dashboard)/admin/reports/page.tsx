@@ -39,6 +39,7 @@ export default function AdminReportsPage() {
   const [issues, setIssues] = useState<TrackingIssueRow[]>([]);
   const [emailIssue, setEmailIssue] = useState<TrackingIssueEmailContext | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [resolvingIssueId, setResolvingIssueId] = useState<number | null>(null);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -87,6 +88,28 @@ export default function AdminReportsPage() {
       client_name: row.client_name
     });
     setEmailOpen(true);
+  }
+
+  async function markIssueResolved(issueId: number) {
+    try {
+      setResolvingIssueId(issueId);
+      setError(null);
+      const response = await fetch("/api/admin/tracking-issues/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueId })
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error ?? "Unable to mark report as resolved.");
+        return;
+      }
+      await loadReports();
+    } catch {
+      setError("Unable to mark report as resolved.");
+    } finally {
+      setResolvingIssueId(null);
+    }
   }
 
   const openIssues = issues.filter((row) => row.status !== "resolved");
@@ -193,16 +216,26 @@ export default function AdminReportsPage() {
                   <td className="px-3 py-2 text-slate-700">{row.message || "-"}</td>
                   <td className="px-3 py-2 text-slate-600">{row.contact_email || "-"}</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={() => openEmailModal(row)}
-                      disabled={!row.contact_email?.trim()}
-                      title={row.contact_email?.trim() ? "Compose email to customer" : "No contact email on file"}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <Mail className="h-3.5 w-3.5" aria-hidden />
-                      Email
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEmailModal(row)}
+                        disabled={!row.contact_email?.trim()}
+                        title={row.contact_email?.trim() ? "Compose email to customer" : "No contact email on file"}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+                      >
+                        <Mail className="h-3.5 w-3.5" aria-hidden />
+                        Email
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void markIssueResolved(row.id)}
+                        disabled={resolvingIssueId === row.id}
+                        className="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {resolvingIssueId === row.id ? "Resolving..." : "Mark Resolved"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))

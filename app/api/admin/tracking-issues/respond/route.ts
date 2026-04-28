@@ -7,6 +7,15 @@ import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/ide
 const MAX_SUBJECT = 200;
 const MAX_BODY = 8000;
 
+function isMissingColumnError(message: string, column: string): boolean {
+  const escaped = column.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [
+    new RegExp(`column\\s+['"]?${escaped}['"]?\\s+does not exist`, "i"),
+    new RegExp(`Could not find the ['"]${escaped}['"] column`, "i")
+  ];
+  return patterns.some((pattern) => pattern.test(message));
+}
+
 function escapeHtml(s: string) {
   return s
     .replace(/&/g, "&amp;")
@@ -141,8 +150,31 @@ export async function POST(request: NextRequest) {
       resolution_note: message
     })
     .eq("id", issueId);
-  if (resolveUpdate.error && !/column .* does not exist/i.test(resolveUpdate.error.message)) {
-    return NextResponse.json({ error: resolveUpdate.error.message }, { status: 500 });
+  if (resolveUpdate.error) {
+    if (isMissingColumnError(resolveUpdate.error.message, "resolution_note")) {
+      const fallbackUpdate = await supabase
+        .from("tracking_issues")
+        .update({
+          status: "resolved",
+          resolved_at: new Date().toISOString(),
+          resolved_by: auth.session.email
+        })
+        .eq("id", issueId);
+      if (
+        fallbackUpdate.error &&
+        !isMissingColumnError(fallbackUpdate.error.message, "status") &&
+        !isMissingColumnError(fallbackUpdate.error.message, "resolved_at") &&
+        !isMissingColumnError(fallbackUpdate.error.message, "resolved_by")
+      ) {
+        return NextResponse.json({ error: fallbackUpdate.error.message }, { status: 500 });
+      }
+    } else if (
+      !isMissingColumnError(resolveUpdate.error.message, "status") &&
+      !isMissingColumnError(resolveUpdate.error.message, "resolved_at") &&
+      !isMissingColumnError(resolveUpdate.error.message, "resolved_by")
+    ) {
+      return NextResponse.json({ error: resolveUpdate.error.message }, { status: 500 });
+    }
   }
 
   const responseBody = { ok: true };
