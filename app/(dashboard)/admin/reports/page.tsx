@@ -74,15 +74,6 @@ export default function AdminReportsPage() {
     return () => window.clearTimeout(timeoutId);
   }, [loadReports]);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void loadReports();
-    }, 5000);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [loadReports]);
-
   function openEmailModal(row: TrackingIssueRow) {
     setEmailIssue({
       id: row.id,

@@ -18,6 +18,10 @@ type Shipment = {
 const timelineSteps = ["Order Confirmed", "Packed", "In Transit", "Delivered"] as const;
 const issueTypes = ["Delayed Shipment", "Incorrect Status", "Order Inquiry", "Damaged Item"] as const;
 
+function normalizeTrackingValue(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function getActiveStepIndex(status: Shipment["status"]) {
   if (status === "Delivered") return 3;
   if (status === "In Transit") return 2;
@@ -60,9 +64,11 @@ export default function ClientPage() {
     void load();
   }, []);
 
-  const trackedShipment = shipments.find(
-    (shipment) => shipment.tracking_number?.toLowerCase() === trackingNumber.trim().toLowerCase()
-  );
+  const normalizedInput = normalizeTrackingValue(trackingNumber);
+  const trackedShipment = shipments.find((shipment) => {
+    const normalizedTracking = normalizeTrackingValue(shipment.tracking_number ?? "");
+    return normalizedInput.length > 0 && normalizedTracking === normalizedInput;
+  });
   const latestShipment = shipments[0] ?? null;
   const selectedShipment = trackedShipment ?? shipments.find((item) => item.id === selectedShipmentId) ?? latestShipment;
 
