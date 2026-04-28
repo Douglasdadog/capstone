@@ -48,6 +48,14 @@ function toMillis(value: string): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid];
+  return Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+}
+
 export async function GET(request: NextRequest) {
   const auth = requireDemoSession(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: 401 });
@@ -154,6 +162,21 @@ export async function GET(request: NextRequest) {
       segmentStartMs = previousMs;
     }
 
+    const readingIntervalsMs: number[] = [];
+    for (let i = Math.max(1, readings.length - 10); i < readings.length; i += 1) {
+      const prevMs = toMillis(readings[i - 1].created_at);
+      const currMs = toMillis(readings[i].created_at);
+      if (prevMs === null || currMs === null) continue;
+      const gap = currMs - prevMs;
+      if (gap > 0) readingIntervalsMs.push(gap);
+    }
+    const observedMedianIntervalMs = median(readingIntervalsMs);
+    const adaptiveStaleThresholdMs = Math.max(
+      RUNNING_STALE_THRESHOLD_MS,
+      EXPECTED_READING_INTERVAL_SECONDS * 1000 * 3,
+      observedMedianIntervalMs !== null ? observedMedianIntervalMs * 4 : 0
+    );
+
     const alertTelemetryMs = latestAlertMs;
     const alertTemperature =
       latestSensorAlert && Number.isFinite(Number(latestSensorAlert.temperature_c))
@@ -178,16 +201,17 @@ export async function GET(request: NextRequest) {
     const telemetryAgeMs = Date.now() - (useAlertTelemetry && alertTelemetryMs !== null ? alertTelemetryMs : latestMs);
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const ageMs = Date.now() - latestMs;
-    const hasFreshTelemetry = telemetryAgeMs <= RUNNING_STALE_THRESHOLD_MS;
-    const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= RUNNING_STALE_THRESHOLD_MS;
-    const hasRecentTelemetry = Number.isFinite(displayTemperature) && Number.isFinite(displayHumidity) && telemetryAgeMs <= 120_000;
+    const hasFreshTelemetry = telemetryAgeMs <= adaptiveStaleThresholdMs;
+    const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= adaptiveStaleThresholdMs;
+    const hasRecentTelemetry =
+      Number.isFinite(displayTemperature) && Number.isFinite(displayHumidity) && telemetryAgeMs <= adaptiveStaleThresholdMs * 2;
     const isRunning = hasFreshTelemetry || hasFreshAlert || hasRecentTelemetry;
     const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
     const staleSeconds = Math.max(0, Math.floor(telemetryAgeMs / 1000));
     const staleNote = isRunning
       ? staleSeconds > EXPECTED_READING_INTERVAL_SECONDS * 3
         ? `Sensor active. Last reading ${staleSeconds}s ago.`
-        : hasFreshAlert && ageMs > RUNNING_STALE_THRESHOLD_MS
+        : hasFreshAlert && ageMs > adaptiveStaleThresholdMs
           ? "Sensor connected. Alert heartbeat is active; waiting for next sensor log upload."
           : "Sensor connected. Live readings are updating."
       : `Sensor disconnected. Last reading ${staleSeconds}s ago.`;
@@ -204,7 +228,11 @@ export async function GET(request: NextRequest) {
       localIotEndpoint: configuredIotEndpoint,
       note: staleNote,
       staleSeconds,
-      expectedIntervalSeconds: EXPECTED_READING_INTERVAL_SECONDS
+      expectedIntervalSeconds: EXPECTED_READING_INTERVAL_SECONDS,
+      telemetryLagMs: telemetryAgeMs,
+      observedMedianIntervalMs,
+      staleThresholdMs: adaptiveStaleThresholdMs,
+      serverNow: new Date().toISOString()
     });
   } catch (error) {
     return NextResponse.json(

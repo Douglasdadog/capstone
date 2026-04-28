@@ -43,6 +43,10 @@ type MonitoringPayload = {
   } | null;
   note?: string;
   staleSeconds?: number;
+  telemetryLagMs?: number;
+  observedMedianIntervalMs?: number | null;
+  staleThresholdMs?: number;
+  serverNow?: string;
   localIotEndpoint?: string | null;
   error?: string;
 };
@@ -95,6 +99,7 @@ export default function InventoryPage() {
   const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [localIotReachable, setLocalIotReachable] = useState(false);
   const [localIotEndpoint, setLocalIotEndpoint] = useState<string | null>(null);
+  const [lastLocalIotReachableAtMs, setLastLocalIotReachableAtMs] = useState<number | null>(null);
   const [onlineSinceMs, setOnlineSinceMs] = useState<number | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [refreshingInventory, setRefreshingInventory] = useState(false);
@@ -198,7 +203,7 @@ export default function InventoryPage() {
       const url = new URL(baseUrl);
       url.searchParams.set("_t", String(Date.now()));
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 2500);
+      const timeoutId = window.setTimeout(() => controller.abort(), 5000);
       await fetch(url.toString(), {
         method: "GET",
         mode: "no-cors",
@@ -261,19 +266,27 @@ export default function InventoryPage() {
     if (requestSeq !== monitoringRequestSeqRef.current) {
       return;
     }
+    const nowMs = Date.now();
+    const localReachabilityGraceMs = 30_000;
+    const recentlyReachableFromLocal =
+      lastLocalIotReachableAtMs !== null && nowMs - lastLocalIotReachableAtMs <= localReachabilityGraceMs;
+    if (localProbe.reachable) {
+      setLastLocalIotReachableAtMs(nowMs);
+    }
     const connectedFromTelemetry = data.connectionStatus === "connected";
-    const connected = connectedFromTelemetry || localProbe.reachable;
+    const connectedFromLocal = localProbe.reachable || recentlyReachableFromLocal;
+    const connected = connectedFromTelemetry || connectedFromLocal;
     const hasLiveReading = connected && typeof data.lastReadingAt === "string";
     setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
     setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
     setIotUptimeSeconds(connected && typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
-    setIotRunning(Boolean(data.isRunning) || localProbe.reachable);
+    setIotRunning(Boolean(data.isRunning) || connectedFromLocal);
     setLastEnvironmentReadingAt(connected && typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
     setIotConnectionStatus(connected ? "connected" : "disconnected");
-    setLocalIotReachable(localProbe.reachable);
+    setLocalIotReachable(connectedFromLocal);
     setLocalIotEndpoint(localProbe.url ?? null);
     const telemetryNote = typeof data.note === "string" && data.note.length > 0 ? data.note : null;
-    if (!connectedFromTelemetry && localProbe.reachable) {
+    if (!connectedFromTelemetry && connectedFromLocal) {
       setIotStatusNote(
         `Local network link is live via ${localProbe.url}. Device reachable from this laptop; waiting for latest sensor upload to cloud.`
       );
@@ -432,14 +445,14 @@ export default function InventoryPage() {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      void refreshAll().catch(() => {
+      void fetchMonitoring().catch(() => {
         setRealtimeStatus("DISCONNECTED");
       });
     }, 5000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [refreshAll]);
+  }, [fetchMonitoring]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
