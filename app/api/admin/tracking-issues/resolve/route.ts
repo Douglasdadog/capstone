@@ -100,10 +100,6 @@ export async function POST(request: NextRequest) {
         `Issue type: ${issue.issue_type}`,
         `Resolved at: ${resolvedAtLocal}`,
         "",
-        "If you believe this issue is still unresolved, please reply to this email and our team will reopen and review it immediately.",
-        "",
-        `Resolved by: ${auth.session.email} (${auth.session.role})`,
-        "",
         "Best regards,",
         "WIS Support Team",
         "Warehouse Information System"
@@ -130,14 +126,10 @@ export async function POST(request: NextRequest) {
                         <div><strong style="color:#334155;">Ticket reference:</strong> ${escapeHtml(ticketLabel)}</div>
                         <div><strong style="color:#334155;">Issue type:</strong> ${escapeHtml(String(issue.issue_type))}</div>
                         <div><strong style="color:#334155;">Resolved at:</strong> ${escapeHtml(resolvedAtLocal)}</div>
-                        <div><strong style="color:#334155;">Resolved by:</strong> ${escapeHtml(auth.session.email)} (${escapeHtml(auth.session.role)})</div>
                       </div>
                     </td>
                   </tr>
                 </table>
-                <p style="margin:0 0 12px;font-size:14px;line-height:1.65;color:#475569;">
-                  If you believe this issue is still unresolved, please reply to this email and our team will reopen and review it immediately.
-                </p>
                 <p style="margin:18px 0 0;font-size:14px;color:#334155;">
                   Best regards,<br/>
                   <strong>WIS Support Team</strong><br/>
