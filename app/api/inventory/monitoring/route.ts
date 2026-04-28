@@ -18,8 +18,8 @@ const RUNNING_STALE_THRESHOLD_MS = (() => {
   if (Number.isFinite(raw) && raw > 0) {
     return Math.round(raw) * 1000;
   }
-  // Default grace: allow up to 3 missed intervals (min 10s) for transient jitter.
-  return Math.max(10, EXPECTED_READING_INTERVAL_SECONDS * 3) * 1000;
+  // Default grace: tolerate cloud/upload jitter before marking IoT offline.
+  return Math.max(30, EXPECTED_READING_INTERVAL_SECONDS * 12) * 1000;
 })();
 
 type ReadingRow = {
@@ -180,7 +180,8 @@ export async function GET(request: NextRequest) {
     const ageMs = Date.now() - latestMs;
     const hasFreshTelemetry = telemetryAgeMs <= RUNNING_STALE_THRESHOLD_MS;
     const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= RUNNING_STALE_THRESHOLD_MS;
-    const isRunning = hasFreshTelemetry || hasFreshAlert;
+    const hasRecentTelemetry = Number.isFinite(displayTemperature) && Number.isFinite(displayHumidity) && telemetryAgeMs <= 120_000;
+    const isRunning = hasFreshTelemetry || hasFreshAlert || hasRecentTelemetry;
     const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
     const staleSeconds = Math.max(0, Math.floor(telemetryAgeMs / 1000));
     const staleNote = isRunning
