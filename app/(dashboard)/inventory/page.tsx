@@ -707,7 +707,6 @@ export default function InventoryPage() {
                   ? "Connecting..."
                   : "Disconnected (Sensor Device Offline)"}
             </p>
-            <p className="mt-1 text-[10px] leading-tight text-slate-500">Last updated: {sensorLastUpdatedLabel}</p>
             {localIotReachable && localIotEndpoint ? (
               <p className="mt-1 text-[10px] leading-tight text-green-700">LAN link active: {localIotEndpoint}</p>
             ) : null}
