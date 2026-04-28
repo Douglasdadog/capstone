@@ -41,9 +41,14 @@ create table if not exists public.tracking_issues (
   contact_email text,
   created_at timestamptz not null default now()
 );
+alter table public.tracking_issues add column if not exists status text not null default 'open' check (status in ('open', 'resolved'));
+alter table public.tracking_issues add column if not exists resolved_at timestamptz;
+alter table public.tracking_issues add column if not exists resolved_by text;
+alter table public.tracking_issues add column if not exists resolution_note text;
 
 create index if not exists shipment_items_shipment_id_idx on public.shipment_items(shipment_id);
 create index if not exists tracking_issues_shipment_id_idx on public.tracking_issues(shipment_id);
+create index if not exists tracking_issues_status_idx on public.tracking_issues(status);
 
 -- Seed sample shipments (maps to demo client account)
 insert into public.shipments (tracking_number, client_name, client_email, origin, destination, status)

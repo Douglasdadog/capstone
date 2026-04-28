@@ -178,9 +178,9 @@ export async function GET(request: NextRequest) {
     const telemetryAgeMs = Date.now() - (useAlertTelemetry && alertTelemetryMs !== null ? alertTelemetryMs : latestMs);
     const uptimeSeconds = Math.max(0, Math.floor((latestMs - segmentStartMs) / 1000));
     const ageMs = Date.now() - latestMs;
+    const hasFreshTelemetry = telemetryAgeMs <= RUNNING_STALE_THRESHOLD_MS;
     const hasFreshAlert = latestAlertMs !== null && Date.now() - latestAlertMs <= RUNNING_STALE_THRESHOLD_MS;
-    const hasAnyTelemetry = Number.isFinite(displayTemperature) && Number.isFinite(displayHumidity);
-    const isRunning = hasAnyTelemetry || ageMs <= RUNNING_STALE_THRESHOLD_MS || hasFreshAlert;
+    const isRunning = hasFreshTelemetry || hasFreshAlert;
     const connectionStatus = isRunning ? ("connected" as const) : ("disconnected" as const);
     const staleSeconds = Math.max(0, Math.floor(telemetryAgeMs / 1000));
     const staleNote = isRunning

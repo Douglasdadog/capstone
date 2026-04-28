@@ -23,6 +23,9 @@ type TrackingIssueRow = {
   message: string | null;
   contact_email: string | null;
   created_at: string;
+  status?: "open" | "resolved";
+  resolved_at?: string | null;
+  resolved_by?: string | null;
   tracking_number: string | null;
   client_name: string | null;
   client_email: string | null;
@@ -86,6 +89,9 @@ export default function AdminReportsPage() {
     setEmailOpen(true);
   }
 
+  const openIssues = issues.filter((row) => row.status !== "resolved");
+  const resolvedIssues = issues.filter((row) => row.status === "resolved");
+
   return (
     <section className="space-y-4 rounded-2xl border border-white/60 bg-white/90 p-6 shadow-sm backdrop-blur">
       <div className="flex items-center justify-between">
@@ -143,9 +149,9 @@ export default function AdminReportsPage() {
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Customer Tracking Reports</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Open Customer Tracking Reports</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Reports submitted by customers from direct tracking links update here in real time.
+          Reports submitted by customers from direct tracking links.
         </p>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -168,14 +174,14 @@ export default function AdminReportsPage() {
                   Loading customer tracking reports...
                 </td>
               </tr>
-            ) : issues.length === 0 ? (
+            ) : openIssues.length === 0 ? (
               <tr>
                 <td className="px-3 py-4 text-slate-500" colSpan={7}>
-                  No customer tracking reports yet.
+                  No open customer tracking reports.
                 </td>
               </tr>
             ) : (
-              issues.map((row) => (
+              openIssues.map((row) => (
                 <tr key={row.id} className="border-t border-slate-100">
                   <td className="px-3 py-2 text-slate-600">{new Date(row.created_at).toLocaleString()}</td>
                   <td className="px-3 py-2 font-medium text-slate-800">{row.tracking_number || row.shipment_id}</td>
@@ -204,10 +210,66 @@ export default function AdminReportsPage() {
           </tbody>
         </table>
       </div>
+      <div>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Resolved Customer Reports</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Reports moved here after support response is sent.
+        </p>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-slate-50 text-slate-700">
+            <tr>
+              <th className="px-3 py-2">Reported At</th>
+              <th className="px-3 py-2">Tracking #</th>
+              <th className="px-3 py-2">Client</th>
+              <th className="px-3 py-2">Issue</th>
+              <th className="px-3 py-2">Message</th>
+              <th className="px-3 py-2">Resolved At</th>
+              <th className="px-3 py-2">Resolved By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td className="px-3 py-4 text-slate-500" colSpan={7}>
+                  Loading resolved reports...
+                </td>
+              </tr>
+            ) : resolvedIssues.length === 0 ? (
+              <tr>
+                <td className="px-3 py-4 text-slate-500" colSpan={7}>
+                  No resolved reports yet.
+                </td>
+              </tr>
+            ) : (
+              resolvedIssues.map((row) => (
+                <tr key={row.id} className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-slate-600">{new Date(row.created_at).toLocaleString()}</td>
+                  <td className="px-3 py-2 font-medium text-slate-800">{row.tracking_number || row.shipment_id}</td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {row.client_name || "-"}
+                    {row.client_email ? ` (${row.client_email})` : ""}
+                  </td>
+                  <td className="px-3 py-2 text-emerald-700">{row.issue_type}</td>
+                  <td className="px-3 py-2 text-slate-700">{row.message || "-"}</td>
+                  <td className="px-3 py-2 text-slate-600">
+                    {row.resolved_at ? new Date(row.resolved_at).toLocaleString() : "-"}
+                  </td>
+                  <td className="px-3 py-2 text-slate-600">{row.resolved_by || "-"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <TrackingIssueEmailModal
         issue={emailIssue}
         open={emailOpen}
+        onSent={() => {
+          void loadReports();
+        }}
         onClose={() => {
           setEmailOpen(false);
           setEmailIssue(null);

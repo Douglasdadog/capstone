@@ -8,6 +8,9 @@ type TrackingIssueRow = {
   issue_type: string;
   message: string | null;
   contact_email: string | null;
+  status: "open" | "resolved";
+  resolved_at: string | null;
+  resolved_by: string | null;
   created_at: string;
   tracking_number: string | null;
   client_name: string | null;
@@ -24,27 +27,45 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    let data: unknown[] | null = null;
+    let error: { message: string } | null = null;
+    const detailedQuery = await supabase
       .from("tracking_issues")
       .select(
-        "id, shipment_id, issue_type, message, contact_email, created_at, shipments(tracking_number, client_name, client_email, destination)"
+        "id, shipment_id, issue_type, message, contact_email, status, resolved_at, resolved_by, created_at, shipments(tracking_number, client_name, client_email, destination)"
       )
       .order("created_at", { ascending: false })
       .limit(200);
+    data = (detailedQuery.data as unknown[]) ?? null;
+    error = detailedQuery.error ? { message: detailedQuery.error.message } : null;
+
+    if (error && /column .* does not exist/i.test(error.message)) {
+      const legacyQuery = await supabase
+        .from("tracking_issues")
+        .select("id, shipment_id, issue_type, message, contact_email, created_at, shipments(tracking_number, client_name, client_email, destination)")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      data = (legacyQuery.data as unknown[]) ?? null;
+      error = legacyQuery.error ? { message: legacyQuery.error.message } : null;
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     const issues: TrackingIssueRow[] = (data ?? []).map((row) => {
-      const shipment = Array.isArray(row.shipments) ? row.shipments[0] : row.shipments;
+      const rowObj = (row ?? {}) as Record<string, unknown>;
+      const shipment = Array.isArray(rowObj.shipments) ? rowObj.shipments[0] : rowObj.shipments;
       return {
-        id: Number(row.id),
-        shipment_id: String(row.shipment_id),
-        issue_type: String(row.issue_type),
-        message: row.message ? String(row.message) : null,
-        contact_email: row.contact_email ? String(row.contact_email) : null,
-        created_at: String(row.created_at),
+        id: Number(rowObj.id),
+        shipment_id: String(rowObj.shipment_id),
+        issue_type: String(rowObj.issue_type),
+        message: rowObj.message ? String(rowObj.message) : null,
+        contact_email: rowObj.contact_email ? String(rowObj.contact_email) : null,
+        status: rowObj.status === "resolved" ? "resolved" : "open",
+        resolved_at: typeof rowObj.resolved_at === "string" ? rowObj.resolved_at : null,
+        resolved_by: typeof rowObj.resolved_by === "string" ? rowObj.resolved_by : null,
+        created_at: String(rowObj.created_at),
         tracking_number:
           shipment && typeof shipment === "object" && "tracking_number" in shipment
             ? String((shipment as { tracking_number?: string | null }).tracking_number ?? "")

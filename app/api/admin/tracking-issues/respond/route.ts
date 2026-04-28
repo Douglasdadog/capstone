@@ -131,6 +131,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Best-effort resolution mark: keeps compatibility with older schemas where these columns may not exist yet.
+  const resolveUpdate = await supabase
+    .from("tracking_issues")
+    .update({
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+      resolved_by: auth.session.email,
+      resolution_note: message
+    })
+    .eq("id", issueId);
+  if (resolveUpdate.error && !/column .* does not exist/i.test(resolveUpdate.error.message)) {
+    return NextResponse.json({ error: resolveUpdate.error.message }, { status: 500 });
+  }
+
   const responseBody = { ok: true };
   await completeIdempotentRequest(idempotency.key, 200, responseBody);
   return NextResponse.json(responseBody);
