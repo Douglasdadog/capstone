@@ -19,7 +19,8 @@ const RUNNING_STALE_THRESHOLD_MS = (() => {
     return Math.round(raw) * 1000;
   }
   // Default grace: tolerate cloud/upload jitter before marking IoT offline.
-  return Math.max(30, EXPECTED_READING_INTERVAL_SECONDS * 12) * 1000;
+  // Keep this conservative for demos: 5 minutes default if env is not set.
+  return Math.max(300, EXPECTED_READING_INTERVAL_SECONDS * 12) * 1000;
 })();
 
 type ReadingRow = {
