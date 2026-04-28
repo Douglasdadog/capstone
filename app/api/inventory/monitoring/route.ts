@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const HISTORY_WINDOW_HOURS = 24;
 const READING_GAP_TOLERANCE_MS = 15 * 60 * 1000;
 const DEFAULT_EXPECTED_INTERVAL_SECONDS = 5;
 const EXPECTED_READING_INTERVAL_SECONDS = (() => {
@@ -67,16 +66,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const since = new Date(Date.now() - HISTORY_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
-
   try {
     const supabase = createAdminClient();
     const [{ data, error }, { data: latestAlerts }, { data: configData }] = await Promise.all([
       supabase
         .from("sensor_logs")
         .select("temperature, humidity, created_at")
-        .gte("created_at", since)
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: false })
+        .limit(60),
       supabase
         .from("sensor_alert_notifications")
         .select("id, severity, message, device_id, temperature_c, humidity_pct, observed_at, created_at")
@@ -114,13 +111,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const readings = ((data ?? []) as ReadingRow[]).filter((row) => {
+    const readingsDesc = ((data ?? []) as ReadingRow[]).filter((row) => {
       return (
         typeof row.created_at === "string" &&
         Number.isFinite(Number(row.temperature)) &&
         Number.isFinite(Number(row.humidity))
       );
     });
+    // API query is DESC; normalize to ASC for gap/uptime calculations.
+    const readings = readingsDesc.slice().reverse();
 
     if (readings.length === 0) {
       return NextResponse.json({

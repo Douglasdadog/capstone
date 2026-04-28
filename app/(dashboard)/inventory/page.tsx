@@ -112,6 +112,7 @@ export default function InventoryPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const monitoringRequestSeqRef = useRef(0);
+  const lastLocalIotReachableAtMsRef = useRef<number | null>(null);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const canOverrideInventory = role === "SuperAdmin" || role === "Admin";
@@ -262,6 +263,19 @@ export default function InventoryPage() {
       // Ignore stale monitoring responses when multiple refreshes overlap.
       return;
     }
+    const telemetryConnected = data.connectionStatus === "connected";
+    const hasLiveReading = telemetryConnected && typeof data.lastReadingAt === "string";
+    setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
+    setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
+    setIotUptimeSeconds(telemetryConnected && typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
+    setIotRunning(Boolean(data.isRunning) && telemetryConnected);
+    setLastEnvironmentReadingAt(hasLiveReading ? data.lastReadingAt ?? null : null);
+    setIotConnectionStatus(telemetryConnected ? "connected" : "disconnected");
+    setLatestSensorAlert(data.latestSensorAlert ?? null);
+    setRealtimeStatus(telemetryConnected ? "CONNECTED" : "DISCONNECTED");
+    const telemetryNote = typeof data.note === "string" && data.note.length > 0 ? data.note : null;
+    setIotStatusNote(telemetryNote);
+
     const localProbe = await probeLocalIot(data.localIotEndpoint);
     if (requestSeq !== monitoringRequestSeqRef.current) {
       return;
@@ -269,26 +283,18 @@ export default function InventoryPage() {
     const nowMs = Date.now();
     const localReachabilityGraceMs = 30_000;
     const recentlyReachableFromLocal =
-      lastLocalIotReachableAtMs !== null && nowMs - lastLocalIotReachableAtMs <= localReachabilityGraceMs;
+      lastLocalIotReachableAtMsRef.current !== null &&
+      nowMs - lastLocalIotReachableAtMsRef.current <= localReachabilityGraceMs;
     if (localProbe.reachable) {
+      lastLocalIotReachableAtMsRef.current = nowMs;
       setLastLocalIotReachableAtMs(nowMs);
     }
-    const connectedFromTelemetry = data.connectionStatus === "connected";
     const connectedFromLocal = localProbe.reachable || recentlyReachableFromLocal;
-    const connected = connectedFromTelemetry;
-    const hasLiveReading = connected && typeof data.lastReadingAt === "string";
-    setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
-    setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
-    setIotUptimeSeconds(connected && typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
-    setIotRunning(Boolean(data.isRunning) && connected);
-    setLastEnvironmentReadingAt(connected && typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
-    setIotConnectionStatus(connected ? "connected" : "disconnected");
     setLocalIotReachable(connectedFromLocal);
     setLocalIotEndpoint(localProbe.url ?? null);
-    const telemetryNote = typeof data.note === "string" && data.note.length > 0 ? data.note : null;
-    setIotStatusNote(telemetryNote ?? localProbe.message ?? null);
-    setLatestSensorAlert(data.latestSensorAlert ?? null);
-    setRealtimeStatus(connected ? "CONNECTED" : "DISCONNECTED");
+    if (!telemetryNote) {
+      setIotStatusNote(localProbe.message ?? null);
+    }
   }, []);
 
   useEffect(() => {
