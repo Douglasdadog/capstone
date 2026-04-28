@@ -33,6 +33,7 @@ type TrackingIssueRow = {
 };
 
 export default function AdminReportsPage() {
+  const LOCAL_RESOLVED_KEY = "wis_resolved_tracking_issue_ids";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<ManifestReportRow[]>([]);
@@ -40,6 +41,31 @@ export default function AdminReportsPage() {
   const [emailIssue, setEmailIssue] = useState<TrackingIssueEmailContext | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [resolvingIssueId, setResolvingIssueId] = useState<number | null>(null);
+  const [localResolvedIds, setLocalResolvedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_RESOLVED_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as number[];
+      if (!Array.isArray(parsed)) return;
+      setLocalResolvedIds(new Set(parsed.filter((value) => Number.isFinite(value))));
+    } catch {
+      setLocalResolvedIds(new Set());
+    }
+  }, []);
+
+  const persistLocalResolved = useCallback(
+    (next: Set<number>) => {
+      setLocalResolvedIds(next);
+      try {
+        window.localStorage.setItem(LOCAL_RESOLVED_KEY, JSON.stringify(Array.from(next)));
+      } catch {
+        // Ignore storage failures; UI state is still updated for this session.
+      }
+    },
+    [LOCAL_RESOLVED_KEY]
+  );
 
   const loadReports = useCallback(async () => {
     setLoading(true);
@@ -99,10 +125,16 @@ export default function AdminReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ issueId })
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = (await response.json()) as { error?: string; warning?: string };
       if (!response.ok) {
         setError(payload.error ?? "Unable to mark report as resolved.");
         return;
+      }
+      const next = new Set(localResolvedIds);
+      next.add(issueId);
+      persistLocalResolved(next);
+      if (payload.warning) {
+        setError(payload.warning);
       }
       await loadReports();
     } catch {
@@ -112,8 +144,8 @@ export default function AdminReportsPage() {
     }
   }
 
-  const openIssues = issues.filter((row) => row.status !== "resolved");
-  const resolvedIssues = issues.filter((row) => row.status === "resolved");
+  const openIssues = issues.filter((row) => row.status !== "resolved" && !localResolvedIds.has(row.id));
+  const resolvedIssues = issues.filter((row) => row.status === "resolved" || localResolvedIds.has(row.id));
 
   return (
     <section className="space-y-4 rounded-2xl border border-white/60 bg-white/90 p-6 shadow-sm backdrop-blur">

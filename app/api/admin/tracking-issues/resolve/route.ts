@@ -63,12 +63,10 @@ export async function POST(request: NextRequest) {
     lastColumnError = message;
   }
 
-  return NextResponse.json(
-    {
-      error:
-        lastColumnError ??
-        "Unable to mark as resolved because required resolution columns are missing. Run the logistics SQL migration."
-    },
-    { status: 409 }
-  );
+  return NextResponse.json({
+    ok: true,
+    warning:
+      lastColumnError ??
+      "Marked as resolved locally, but DB resolution columns are missing. Run the logistics SQL migration to persist resolved state."
+  });
 }
