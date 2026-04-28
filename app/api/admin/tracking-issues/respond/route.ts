@@ -169,10 +169,10 @@ export async function POST(request: NextRequest) {
       await completeIdempotentRequest(idempotency.key, 200, responseBody);
       return NextResponse.json(responseBody);
     }
-    const onlyMissingColumns = Object.keys(payload).every((column) =>
+    const hasMissingColumn = Object.keys(payload).some((column) =>
       isMissingColumnError(resolveUpdate.error.message, column)
     );
-    if (!onlyMissingColumns) {
+    if (!hasMissingColumn) {
       return NextResponse.json({ error: resolveUpdate.error.message }, { status: 500 });
     }
   }

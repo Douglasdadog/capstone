@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true });
     }
     const message = updateResult.error.message;
-    const onlyMissingColumns = Object.keys(payload).every((column) => isMissingColumnError(message, column));
-    if (!onlyMissingColumns) {
+    const hasMissingColumn = Object.keys(payload).some((column) => isMissingColumnError(message, column));
+    if (!hasMissingColumn) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
     lastColumnError = message;
