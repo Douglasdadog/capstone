@@ -275,9 +275,7 @@ export default function InventoryPage() {
     }
     const connectedFromTelemetry = data.connectionStatus === "connected";
     const connectedFromLocal = localProbe.reachable || recentlyReachableFromLocal;
-    const hasConfiguredLocalEndpoint = typeof data.localIotEndpoint === "string" && data.localIotEndpoint.trim().length > 0;
-    // If local endpoint is configured, LAN reachability is the source of truth for connected/disconnected.
-    const connected = hasConfiguredLocalEndpoint ? connectedFromLocal : connectedFromTelemetry || connectedFromLocal;
+    const connected = connectedFromTelemetry || connectedFromLocal;
     const hasLiveReading = connected && typeof data.lastReadingAt === "string";
     setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
     setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
