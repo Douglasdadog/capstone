@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 
+function isMissingColumnError(message: string): boolean {
+  return /column .* does not exist/i.test(message) || /Could not find the .* column/i.test(message);
+}
+
 type TrackingIssueRow = {
   id: number;
   shipment_id: string;
@@ -39,7 +43,19 @@ export async function GET(request: NextRequest) {
     data = (detailedQuery.data as unknown[]) ?? null;
     error = detailedQuery.error ? { message: detailedQuery.error.message } : null;
 
-    if (error && /column .* does not exist/i.test(error.message)) {
+    if (error && isMissingColumnError(error.message)) {
+      const statusOnlyQuery = await supabase
+        .from("tracking_issues")
+        .select(
+          "id, shipment_id, issue_type, message, contact_email, status, created_at, shipments(tracking_number, client_name, client_email, destination)"
+        )
+        .order("created_at", { ascending: false })
+        .limit(200);
+      data = (statusOnlyQuery.data as unknown[]) ?? null;
+      error = statusOnlyQuery.error ? { message: statusOnlyQuery.error.message } : null;
+    }
+
+    if (error && isMissingColumnError(error.message)) {
       const legacyQuery = await supabase
         .from("tracking_issues")
         .select("id, shipment_id, issue_type, message, contact_email, created_at, shipments(tracking_number, client_name, client_email, destination)")

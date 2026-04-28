@@ -140,44 +140,48 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Best-effort resolution mark: keeps compatibility with older schemas where these columns may not exist yet.
-  const resolveUpdate = await supabase
-    .from("tracking_issues")
-    .update({
+  // Progressive resolution update for partially migrated schemas.
+  const candidates: Array<Record<string, unknown>> = [
+    {
       status: "resolved",
       resolved_at: new Date().toISOString(),
       resolved_by: auth.session.email,
       resolution_note: message
-    })
-    .eq("id", issueId);
-  if (resolveUpdate.error) {
-    if (isMissingColumnError(resolveUpdate.error.message, "resolution_note")) {
-      const fallbackUpdate = await supabase
-        .from("tracking_issues")
-        .update({
-          status: "resolved",
-          resolved_at: new Date().toISOString(),
-          resolved_by: auth.session.email
-        })
-        .eq("id", issueId);
-      if (
-        fallbackUpdate.error &&
-        !isMissingColumnError(fallbackUpdate.error.message, "status") &&
-        !isMissingColumnError(fallbackUpdate.error.message, "resolved_at") &&
-        !isMissingColumnError(fallbackUpdate.error.message, "resolved_by")
-      ) {
-        return NextResponse.json({ error: fallbackUpdate.error.message }, { status: 500 });
-      }
-    } else if (
-      !isMissingColumnError(resolveUpdate.error.message, "status") &&
-      !isMissingColumnError(resolveUpdate.error.message, "resolved_at") &&
-      !isMissingColumnError(resolveUpdate.error.message, "resolved_by")
-    ) {
+    },
+    {
+      status: "resolved",
+      resolved_at: new Date().toISOString(),
+      resolved_by: auth.session.email
+    },
+    {
+      status: "resolved",
+      resolved_at: new Date().toISOString()
+    },
+    {
+      status: "resolved"
+    }
+  ];
+
+  for (const payload of candidates) {
+    const resolveUpdate = await supabase.from("tracking_issues").update(payload).eq("id", issueId);
+    if (!resolveUpdate.error) {
+      const responseBody = { ok: true };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody);
+    }
+    const onlyMissingColumns = Object.keys(payload).every((column) =>
+      isMissingColumnError(resolveUpdate.error.message, column)
+    );
+    if (!onlyMissingColumns) {
       return NextResponse.json({ error: resolveUpdate.error.message }, { status: 500 });
     }
   }
 
-  const responseBody = { ok: true };
+  const responseBody = {
+    ok: true,
+    warning:
+      "Email sent, but resolution columns are missing in DB. Run the logistics SQL migration to enable resolved-panel movement."
+  };
   await completeIdempotentRequest(idempotency.key, 200, responseBody);
   return NextResponse.json(responseBody);
 }

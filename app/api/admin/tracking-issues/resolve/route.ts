@@ -34,23 +34,41 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const updateResult = await supabase
-    .from("tracking_issues")
-    .update({
+  const candidates: Array<Record<string, unknown>> = [
+    {
       status: "resolved",
       resolved_at: new Date().toISOString(),
       resolved_by: auth.session.email
-    })
-    .eq("id", issueId);
+    },
+    {
+      status: "resolved",
+      resolved_at: new Date().toISOString()
+    },
+    {
+      status: "resolved"
+    }
+  ];
 
-  if (
-    updateResult.error &&
-    !isMissingColumnError(updateResult.error.message, "status") &&
-    !isMissingColumnError(updateResult.error.message, "resolved_at") &&
-    !isMissingColumnError(updateResult.error.message, "resolved_by")
-  ) {
-    return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
+  let lastColumnError: string | null = null;
+  for (const payload of candidates) {
+    const updateResult = await supabase.from("tracking_issues").update(payload).eq("id", issueId);
+    if (!updateResult.error) {
+      return NextResponse.json({ ok: true });
+    }
+    const message = updateResult.error.message;
+    const onlyMissingColumns = Object.keys(payload).every((column) => isMissingColumnError(message, column));
+    if (!onlyMissingColumns) {
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+    lastColumnError = message;
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(
+    {
+      error:
+        lastColumnError ??
+        "Unable to mark as resolved because required resolution columns are missing. Run the logistics SQL migration."
+    },
+    { status: 409 }
+  );
 }
