@@ -95,6 +95,7 @@ export default function InventoryPage() {
   const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [localIotReachable, setLocalIotReachable] = useState(false);
   const [localIotEndpoint, setLocalIotEndpoint] = useState<string | null>(null);
+  const [onlineSinceMs, setOnlineSinceMs] = useState<number | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [refreshingInventory, setRefreshingInventory] = useState(false);
   const [clockTick, setClockTick] = useState(() => Date.now());
@@ -105,6 +106,7 @@ export default function InventoryPage() {
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
+  const monitoringRequestSeqRef = useRef(0);
 
   const canManageProducts = role === "SuperAdmin" || role === "Admin" || role === "Inventory";
   const canOverrideInventory = role === "SuperAdmin" || role === "Admin";
@@ -161,6 +163,10 @@ export default function InventoryPage() {
     const hoursAgo = Math.floor(minutesAgo / 60);
     return `${hoursAgo}h ago`;
   }, [clockTick, lastEnvironmentReadingAt]);
+  const displayIotUptimeSeconds = useMemo(() => {
+    if (iotConnectionStatus !== "connected" || onlineSinceMs === null) return 0;
+    return Math.max(0, Math.floor((clockTick - onlineSinceMs) / 1000));
+  }, [clockTick, iotConnectionStatus, onlineSinceMs]);
   const sortedItems = useMemo(() => {
     const statusRank = (item: InventoryItem) => {
       if (item.quantity <= 0) return 0;
@@ -240,20 +246,29 @@ export default function InventoryPage() {
   }, []);
 
   const fetchMonitoring = useCallback(async () => {
-    const response = await fetch("/api/inventory/monitoring", { cache: "no-store" });
+    const requestSeq = monitoringRequestSeqRef.current + 1;
+    monitoringRequestSeqRef.current = requestSeq;
+    const response = await fetch(`/api/inventory/monitoring?t=${Date.now()}`, { cache: "no-store" });
     const data = (await response.json()) as MonitoringPayload;
     if (!response.ok) {
       throw new Error(data.error ?? "Unable to fetch monitoring data.");
     }
+    if (requestSeq !== monitoringRequestSeqRef.current) {
+      // Ignore stale monitoring responses when multiple refreshes overlap.
+      return;
+    }
     const localProbe = await probeLocalIot(data.localIotEndpoint);
+    if (requestSeq !== monitoringRequestSeqRef.current) {
+      return;
+    }
     const connectedFromTelemetry = data.connectionStatus === "connected";
     const connected = connectedFromTelemetry || localProbe.reachable;
-    const hasLiveReading = typeof data.lastReadingAt === "string";
+    const hasLiveReading = connected && typeof data.lastReadingAt === "string";
     setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
     setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
-    setIotUptimeSeconds(typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
+    setIotUptimeSeconds(connected && typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
     setIotRunning(Boolean(data.isRunning) || localProbe.reachable);
-    setLastEnvironmentReadingAt(typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
+    setLastEnvironmentReadingAt(connected && typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
     setIotConnectionStatus(connected ? "connected" : "disconnected");
     setLocalIotReachable(localProbe.reachable);
     setLocalIotEndpoint(localProbe.url ?? null);
@@ -268,6 +283,14 @@ export default function InventoryPage() {
     setLatestSensorAlert(data.latestSensorAlert ?? null);
     setRealtimeStatus(connected ? "CONNECTED" : "DISCONNECTED");
   }, []);
+
+  useEffect(() => {
+    if (iotConnectionStatus === "connected") {
+      setOnlineSinceMs((prev) => prev ?? Date.now());
+      return;
+    }
+    setOnlineSinceMs(null);
+  }, [iotConnectionStatus]);
 
   async function refreshMonitoringStatus() {
     try {
@@ -707,7 +730,10 @@ export default function InventoryPage() {
           <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
             <p className="text-[11px] uppercase tracking-wide text-slate-500">Sensor Uptime</p>
             <p className={`mt-1 text-xs font-semibold ${iotRunning ? "text-green-700" : "text-slate-700"}`}>
-              {formatUptime(iotUptimeSeconds, iotConnectionStatus !== "connected")}
+              {formatUptime(
+                iotConnectionStatus === "connected" ? displayIotUptimeSeconds : iotUptimeSeconds,
+                iotConnectionStatus !== "connected"
+              )}
             </p>
           </article>
           <article className="rounded-md border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-2.5">
