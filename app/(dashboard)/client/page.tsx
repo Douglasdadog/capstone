@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { queueOfflineTransaction } from "@/lib/offline/transaction-queue";
 
 type Shipment = {
@@ -35,42 +35,46 @@ function formatStatusBadge(status: Shipment["status"]) {
 }
 
 export default function ClientPage() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [shipment, setShipment] = useState<Shipment | null>(null);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueType, setIssueType] = useState<(typeof issueTypes)[number]>("Delayed Shipment");
   const [issueMessage, setIssueMessage] = useState("");
   const [issueSubmitting, setIssueSubmitting] = useState(false);
   const [issueResult, setIssueResult] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const selectedShipment = shipment;
 
-  async function fetchShipments() {
-    const response = await fetch("/api/portal/shipments");
-    const data = (await response.json()) as { shipments?: Shipment[]; error?: string };
-    if (!response.ok) throw new Error(data.error ?? "Unable to load shipments.");
-    setShipments(data.shipments ?? []);
-  }
-
-  useEffect(() => {
-    async function load() {
-      try {
-        setError(null);
-        await fetchShipments();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load data.");
-      }
+  async function searchShipment() {
+    const normalizedInput = normalizeTrackingValue(trackingNumber);
+    if (!normalizedInput) {
+      setError("Enter a tracking number first.");
+      setHasSearched(false);
+      setShipment(null);
+      return;
     }
-    void load();
-  }, []);
-
-  const normalizedInput = normalizeTrackingValue(trackingNumber);
-  const trackedShipment = shipments.find((shipment) => {
-    const normalizedTracking = normalizeTrackingValue(shipment.tracking_number ?? "");
-    return normalizedInput.length > 0 && normalizedTracking === normalizedInput;
-  });
-  const latestShipment = shipments[0] ?? null;
-  const selectedShipment = trackedShipment ?? shipments.find((item) => item.id === selectedShipmentId) ?? latestShipment;
+    setSearching(true);
+    setError(null);
+    setIssueResult(null);
+    setHasSearched(true);
+    try {
+      const response = await fetch(`/api/portal/shipments?trackingNumber=${encodeURIComponent(trackingNumber)}`);
+      const data = (await response.json()) as { shipment?: Shipment | null; error?: string };
+      if (!response.ok) {
+        setShipment(null);
+        setError(data.error ?? "Shipment not found.");
+        return;
+      }
+      setShipment(data.shipment ?? null);
+    } catch {
+      setShipment(null);
+      setError("Unable to search shipment right now.");
+    } finally {
+      setSearching(false);
+    }
+  }
 
   async function handleSubmitIssue() {
     if (!selectedShipment) return;
@@ -134,24 +138,6 @@ export default function ClientPage() {
             Enter your tracking number below to view shipment progress, delivery details, and latest status updates.
           </p>
         </div>
-        <div className="grid gap-3 px-6 py-4 text-sm text-slate-600 md:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Total shipments</p>
-            <p className="mt-1 text-xl font-bold text-slate-900">{shipments.length}</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">In transit</p>
-            <p className="mt-1 text-xl font-bold text-amber-700">
-              {shipments.filter((s) => s.status === "In Transit").length}
-            </p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">Delivered</p>
-            <p className="mt-1 text-xl font-bold text-emerald-700">
-              {shipments.filter((s) => s.status === "Delivered").length}
-            </p>
-          </div>
-        </div>
       </header>
 
       {error ? (
@@ -161,12 +147,28 @@ export default function ClientPage() {
       <div className="space-y-6 rounded-2xl border border-white/60 bg-white/85 p-6 shadow-sm backdrop-blur">
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Tracking number</label>
-          <input
-            value={trackingNumber}
-            onChange={(event) => setTrackingNumber(event.target.value)}
-            placeholder="e.g. WIS-1001"
-            className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-lg shadow-sm"
-          />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              value={trackingNumber}
+              onChange={(event) => setTrackingNumber(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void searchShipment();
+                }
+              }}
+              placeholder="e.g. WIS-1001"
+              className="w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-lg shadow-sm"
+            />
+            <button
+              type="button"
+              onClick={() => void searchShipment()}
+              disabled={searching}
+              className="rounded-md bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              {searching ? "Searching..." : "Search"}
+            </button>
+          </div>
           <p className="text-xs text-slate-500">
             Tip: use the full tracking number exactly as shown in your shipment confirmation.
           </p>
@@ -240,77 +242,16 @@ export default function ClientPage() {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">No matching shipment yet.</p>
+            <p className="font-medium text-slate-800">
+              {hasSearched ? "No matching shipment yet." : "Search a tracking number to view shipment details."}
+            </p>
             <p className="mt-1">
-              Enter a tracking number that matches one of your shipments. If you need help, contact customer support.
+              {hasSearched
+                ? "Enter a valid tracking number (example: WIS-3133). If you need help, contact customer support."
+                : "Only the shipment that matches your tracking number will be displayed here."}
             </p>
           </div>
         )}
-
-        {latestShipment ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Most recent shipment</p>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p className="font-semibold text-slate-900">{latestShipment.tracking_number}</p>
-              <span
-                className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${formatStatusBadge(latestShipment.status)}`}
-              >
-                {latestShipment.status}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-slate-600">
-              {latestShipment.origin} &rarr; {latestShipment.destination}
-            </p>
-          </div>
-        ) : null}
-
-        {shipments.length > 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Shipment history</p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-3 py-2">Tracking #</th>
-                    <th className="px-3 py-2">Route</th>
-                    <th className="px-3 py-2">Status</th>
-                    <th className="px-3 py-2">Updated</th>
-                    <th className="px-3 py-2">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shipments.map((row) => (
-                    <tr key={row.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2 font-medium text-slate-900">{row.tracking_number}</td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {row.origin} &rarr; {row.destination}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${formatStatusBadge(row.status)}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">{new Date(row.updated_at).toLocaleString()}</td>
-                      <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedShipmentId(row.id);
-                            setTrackingNumber(row.tracking_number);
-                            setIssueResult(null);
-                          }}
-                          className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {issueResult ? (
