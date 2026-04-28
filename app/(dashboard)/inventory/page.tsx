@@ -275,24 +275,18 @@ export default function InventoryPage() {
     }
     const connectedFromTelemetry = data.connectionStatus === "connected";
     const connectedFromLocal = localProbe.reachable || recentlyReachableFromLocal;
-    const connected = connectedFromTelemetry || connectedFromLocal;
+    const connected = connectedFromTelemetry;
     const hasLiveReading = connected && typeof data.lastReadingAt === "string";
     setTemperatureC(hasLiveReading && typeof data.temperatureC === "number" ? data.temperatureC : null);
     setHumidityPct(hasLiveReading && typeof data.humidityPct === "number" ? data.humidityPct : null);
     setIotUptimeSeconds(connected && typeof data.uptimeSeconds === "number" ? data.uptimeSeconds : 0);
-    setIotRunning(Boolean(data.isRunning) || connectedFromLocal);
+    setIotRunning(Boolean(data.isRunning) && connected);
     setLastEnvironmentReadingAt(connected && typeof data.lastReadingAt === "string" ? data.lastReadingAt : null);
     setIotConnectionStatus(connected ? "connected" : "disconnected");
     setLocalIotReachable(connectedFromLocal);
     setLocalIotEndpoint(localProbe.url ?? null);
     const telemetryNote = typeof data.note === "string" && data.note.length > 0 ? data.note : null;
-    if (!connectedFromTelemetry && connectedFromLocal) {
-      setIotStatusNote(
-        `Local network link is live via ${localProbe.url}. Device reachable from this laptop; waiting for latest sensor upload to cloud.`
-      );
-    } else {
-      setIotStatusNote(telemetryNote ?? localProbe.message ?? null);
-    }
+    setIotStatusNote(telemetryNote ?? localProbe.message ?? null);
     setLatestSensorAlert(data.latestSensorAlert ?? null);
     setRealtimeStatus(connected ? "CONNECTED" : "DISCONNECTED");
   }, []);
