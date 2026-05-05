@@ -30,14 +30,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ alerts: legacy ?? [] });
     }
 
-    const alerts = (data ?? []).map((row) => ({
+    const activities = (data ?? []).map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      action: row.action,
+      actor_email: row.actor_email ?? "unknown",
+      actor_name: row.actor_name ?? "Unknown User",
+      actor_ip: row.actor_ip ?? "unknown",
+      target_module: row.target_module ?? "system",
+      target_id: row.target_id ?? null,
+      details: row.details ?? {}
+    }));
+
+    const alerts = activities.map((row) => ({
       id: row.id,
       created_at: row.created_at,
       status: "Logged",
       item_name: row.target_module,
       message: `${row.action} by ${row.actor_name} <${row.actor_email}> from ${row.actor_ip}`
     }));
-    return NextResponse.json({ alerts });
+    return NextResponse.json({ alerts, activities });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unable to load audit log." },
