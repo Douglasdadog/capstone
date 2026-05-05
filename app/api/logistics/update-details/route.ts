@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
+import { writeActivityLog } from "@/lib/audit/activity-log";
 
 export async function POST(request: NextRequest) {
   const auth = requireDemoSession(request);
@@ -42,6 +43,19 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await writeActivityLog(request, {
+    actorEmail: auth.session.email,
+    actorRole: auth.session.role,
+    action: "logistics.update_shipment_details",
+    targetModule: "logistics",
+    targetId: shipmentId,
+    details: {
+      provider_name: providerName || null,
+      waybill_number: waybillNumber || null,
+      eta
+    }
+  });
 
   return NextResponse.json({ ok: true, shipment: data });
 }

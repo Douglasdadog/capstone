@@ -241,7 +241,7 @@ export default function DashboardSwitch() {
       return;
     }
     if (payload.alertTriggered) {
-      toast.warning(`Auto-replenishment triggered for ${payload.item?.name}`);
+      toast.warning(`Low stock alert triggered for ${payload.item?.name}`);
     } else {
       toast.success(`Sensor reading saved for ${payload.item?.name}`);
     }

@@ -13,16 +13,31 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
-      .from("auto_replenishment_alerts")
-      .select("*")
+      .from("system_activity_logs")
+      .select("id, action, actor_email, actor_name, actor_ip, target_module, target_id, details, created_at")
       .order("created_at", { ascending: false })
       .limit(250);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const { data: legacy, error: legacyError } = await supabase
+        .from("auto_replenishment_alerts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(250);
+      if (legacyError) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ alerts: legacy ?? [] });
     }
 
-    return NextResponse.json({ alerts: data ?? [] });
+    const alerts = (data ?? []).map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      status: "Logged",
+      item_name: row.target_module,
+      message: `${row.action} by ${row.actor_name} <${row.actor_email}> from ${row.actor_ip}`
+    }));
+    return NextResponse.json({ alerts });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unable to load audit log." },

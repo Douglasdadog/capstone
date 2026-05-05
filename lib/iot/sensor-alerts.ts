@@ -73,14 +73,23 @@ async function resolveSensorAlertConfig(supabase: ReturnType<typeof createAdminC
   }
 }
 
-function classifySeverity(temperatureC: number): SensorAlertSeverity | null {
-  if (temperatureC >= criticalThresholdC()) return "critical";
-  if (temperatureC >= warningThresholdC()) return "warning";
-  return null;
-}
-
 function severityLabel(severity: SensorAlertSeverity): string {
   return severity === "critical" ? "CRITICAL" : "WARNING";
+}
+
+function formatObservedAtPht(observedAtIso: string): string {
+  const parsed = new Date(observedAtIso);
+  if (Number.isNaN(parsed.getTime())) return observedAtIso;
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  }).format(parsed);
 }
 
 function buildAlertEmail(args: {
@@ -92,7 +101,7 @@ function buildAlertEmail(args: {
   observedAtIso: string;
 }) {
   const label = severityLabel(args.severity);
-  const observedAt = new Date(args.observedAtIso).toLocaleString();
+  const observedAt = `${formatObservedAtPht(args.observedAtIso)} (PHT)`;
   const subject = `[WIS] ${label} Sensor Alert - ${args.deviceId}`;
   const text =
     `Warehouse Information System Sensor Alert\n\n` +

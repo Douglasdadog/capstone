@@ -82,6 +82,7 @@ export default function AdminShipmentsDashboard() {
   }, [dateFrom, dateTo, sortAsc]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchShipments();
   }, [fetchShipments]);
 

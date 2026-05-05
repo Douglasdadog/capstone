@@ -41,6 +41,12 @@ export default function HomePage() {
               Access Platform
             </Link>
             <Link
+              href="/client/products"
+              className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+            >
+              Order Now
+            </Link>
+            <Link
               href="/shipment-tracking"
               className="rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:bg-slate-100"
             >

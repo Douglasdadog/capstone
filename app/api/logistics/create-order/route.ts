@@ -4,6 +4,7 @@ import { requireDemoSession } from "@/lib/auth/session";
 import { sendSmtpEmail } from "@/lib/communication/mailer";
 import { buildShipmentOrderCreatedEmail } from "@/lib/communication/shipment-email";
 import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
+import { writeActivityLog } from "@/lib/audit/activity-log";
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -197,54 +198,6 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      for (const row of mergedItems) {
-        const snapshot = inventoryMap.get(row.item_name);
-        if (!snapshot) continue;
-        const nextQty = snapshot.quantity - row.quantity;
-        const nowIso = new Date().toISOString();
-
-        const { data: updatedRows, error: stockError } = await supabase
-          .from("inventory")
-          .update({
-            quantity: nextQty,
-            updated_at: nowIso
-          })
-          .eq("id", snapshot.id)
-          .eq("quantity", snapshot.quantity)
-          .select("id, name, quantity, threshold_limit")
-          .limit(1);
-
-        if (stockError || !updatedRows || updatedRows.length === 0) {
-          return NextResponse.json(
-            {
-              error:
-                stockError?.message ??
-                `Order created but stock update failed for ${row.item_name}. Please refresh and retry.`
-            },
-            { status: 409 }
-          );
-        }
-
-        const updated = updatedRows[0];
-        if (Number(updated.quantity) < Number(updated.threshold_limit)) {
-          const { error: alertError } = await supabase.from("auto_replenishment_alerts").insert({
-            inventory_id: updated.id,
-            item_name: updated.name,
-            reading_quantity: updated.quantity,
-            threshold_limit: updated.threshold_limit,
-            status: "triggered",
-            message: `Auto replenishment triggered for ${updated.name}`
-          });
-
-          if (alertError) {
-            return NextResponse.json(
-              { error: `Order created and stock updated, but alert logging failed: ${alertError.message}` },
-              { status: 500 }
-            );
-          }
-        }
-      }
-
       const trackingLink = data.tracking_token ? `${request.nextUrl.origin}/track/${data.tracking_token}` : null;
       const details = mergedItems.map((row) => `${row.item_name} x${row.quantity}`);
 
@@ -272,6 +225,18 @@ export async function POST(request: NextRequest) {
       }
 
       const responseBody = { ok: true, shipment: data, communication };
+      await writeActivityLog(request, {
+        actorEmail: auth.session.email,
+        actorRole: auth.session.role,
+        action: "sales.create_order_request",
+        targetModule: "logistics",
+        targetId: data.id,
+        details: {
+          tracking_number: data.tracking_number,
+          assigned_client_email: client_email,
+          item_count: mergedItems.length
+        }
+      });
       await completeIdempotentRequest(idempotency.key, 201, responseBody);
       return NextResponse.json(responseBody, { status: 201 });
     }

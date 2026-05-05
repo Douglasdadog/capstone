@@ -56,7 +56,7 @@ export async function POST() {
           reading_quantity: newQuantity,
           threshold_limit: selected.threshold_limit,
           status: "triggered",
-          message: `Auto replenishment triggered for ${selected.name}`
+          message: `Low stock alert triggered for ${selected.name}`
         })
         .select("id")
         .single();

@@ -99,7 +99,6 @@ export default function InventoryPage() {
   const [latestSensorAlert, setLatestSensorAlert] = useState<MonitoringPayload["latestSensorAlert"]>(null);
   const [localIotReachable, setLocalIotReachable] = useState(false);
   const [localIotEndpoint, setLocalIotEndpoint] = useState<string | null>(null);
-  const [lastLocalIotReachableAtMs, setLastLocalIotReachableAtMs] = useState<number | null>(null);
   const [onlineSinceMs, setOnlineSinceMs] = useState<number | null>(null);
   const [refreshingStatus, setRefreshingStatus] = useState(false);
   const [refreshingInventory, setRefreshingInventory] = useState(false);
@@ -110,6 +109,7 @@ export default function InventoryPage() {
   const [scannerActivated, setScannerActivated] = useState(false);
   const [sortKey, setSortKey] = useState<InventorySortKey>("updated");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [searchQuery, setSearchQuery] = useState("");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const monitoringRequestSeqRef = useRef(0);
   const lastLocalIotReachableAtMsRef = useRef<number | null>(null);
@@ -132,7 +132,7 @@ export default function InventoryPage() {
         reading_quantity: item.quantity,
         threshold_limit: item.threshold_limit,
         status: "triggered",
-        message: `Auto replenishment triggered for ${item.name}`,
+        message: `Low stock alert triggered for ${item.name}`,
         created_at: item.updated_at,
         isSynthetic: true as const
       }));
@@ -158,17 +158,6 @@ export default function InventoryPage() {
     if (effectiveAlerts.length > 0) return new Date(effectiveAlerts[0].created_at);
     return null;
   }, [effectiveAlerts, lastEnvironmentReadingAt, lastInventoryEventAt]);
-  const sensorLastUpdatedLabel = useMemo(() => {
-    if (!lastEnvironmentReadingAt) return "No reading yet";
-    const readingMs = Date.parse(lastEnvironmentReadingAt);
-    if (!Number.isFinite(readingMs)) return "Timestamp unavailable";
-    const secondsAgo = Math.max(0, Math.floor((clockTick - readingMs) / 1000));
-    if (secondsAgo < 60) return `${secondsAgo}s ago`;
-    const minutesAgo = Math.floor(secondsAgo / 60);
-    if (minutesAgo < 60) return `${minutesAgo}m ago`;
-    const hoursAgo = Math.floor(minutesAgo / 60);
-    return `${hoursAgo}h ago`;
-  }, [clockTick, lastEnvironmentReadingAt]);
   const displayIotUptimeSeconds = useMemo(() => {
     if (iotConnectionStatus !== "connected" || onlineSinceMs === null) return 0;
     return Math.max(0, Math.floor((clockTick - onlineSinceMs) / 1000));
@@ -193,6 +182,11 @@ export default function InventoryPage() {
     });
     return list;
   }, [items, sortDirection, sortKey]);
+  const filteredSortedItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return sortedItems;
+    return sortedItems.filter((item) => item.name.toLowerCase().includes(query));
+  }, [searchQuery, sortedItems]);
 
   async function probeLocalIot(endpoint: string | null | undefined): Promise<LocalIotProbeResult> {
     const baseUrl = typeof endpoint === "string" ? endpoint.trim() : "";
@@ -287,7 +281,6 @@ export default function InventoryPage() {
       nowMs - lastLocalIotReachableAtMsRef.current <= localReachabilityGraceMs;
     if (localProbe.reachable) {
       lastLocalIotReachableAtMsRef.current = nowMs;
-      setLastLocalIotReachableAtMs(nowMs);
     }
     const connectedFromLocal = localProbe.reachable || recentlyReachableFromLocal;
     setLocalIotReachable(connectedFromLocal);
@@ -683,7 +676,7 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-2xl font-bold">Inventory Module</h1>
           <p className="text-slate-600">
-            Live warehouse stock with manual quantity/threshold overrides and auto replenishment alerts.
+            Live warehouse stock with manual quantity/threshold overrides and low stock alerts.
           </p>
         </div>
       </div>
@@ -810,6 +803,15 @@ export default function InventoryPage() {
                 {refreshingInventory ? "Refreshing..." : "Refresh Inventory"}
               </button>
             </div>
+            <div className="border-b border-slate-200 px-4 py-3">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search item name"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-700">
@@ -848,7 +850,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedItems.map((item) => {
+                  {filteredSortedItems.map((item) => {
                     const outOfStock = item.quantity <= 0;
                     const belowThreshold = !outOfStock && item.quantity < item.threshold_limit;
                     const isEditing = editingId === item.id;
@@ -965,10 +967,10 @@ export default function InventoryPage() {
                       </tr>
                     );
                   })}
-                  {!loading && items.length === 0 ? (
+                  {!loading && filteredSortedItems.length === 0 ? (
                     <tr>
                       <td className="px-4 py-6 text-slate-500" colSpan={7}>
-                        No inventory items found.
+                        {items.length === 0 ? "No inventory items found." : "No matching inventory items found."}
                       </td>
                     </tr>
                   ) : null}
@@ -1073,7 +1075,7 @@ export default function InventoryPage() {
           <div className="rounded-lg border border-slate-200 bg-white">
             <div className="border-b border-slate-200 px-4 py-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
-                Auto Replenishment Alerts
+                Low Stock Alerts
               </h2>
             </div>
             <div className="space-y-3 p-4">

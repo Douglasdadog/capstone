@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { sendEmail } from "@/lib/communication/mailer";
 import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
+import { writeActivityLog } from "@/lib/audit/activity-log";
 
 type ConfigRow = {
   id: boolean;
@@ -49,7 +50,7 @@ function ensureSuperAdmin(request: NextRequest) {
   if (auth.session.role !== "SuperAdmin") {
     return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { ok: true as const };
+  return { ok: true as const, session: auth.session };
 }
 
 export async function GET(request: NextRequest) {
@@ -171,6 +172,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     const responseBody = { ok: true, config: normalizeConfigRow(data as ConfigRow) };
+    await writeActivityLog(request, {
+      actorEmail: guard.session.email,
+      actorRole: guard.session.role,
+      action: "admin.update_sensor_alert_config",
+      targetModule: "system-config",
+      details: {
+        warning_threshold_c: warning,
+        critical_threshold_c: critical,
+        cooldown_minutes: Math.round(cooldown)
+      }
+    });
     await completeIdempotentRequest(idempotency.key, 200, responseBody);
     return NextResponse.json(responseBody);
   } catch (error) {
@@ -278,6 +290,13 @@ export async function POST(request: NextRequest) {
     });
 
     const responseBody = { ok: true, message: `Alert sent to ${recipient}.` };
+    await writeActivityLog(request, {
+      actorEmail: guard.session.email,
+      actorRole: guard.session.role,
+      action: "admin.send_sensor_test_alert",
+      targetModule: "system-config",
+      details: { recipient, device_id: deviceId }
+    });
     await completeIdempotentRequest(idempotency.key, 200, responseBody);
     return NextResponse.json(responseBody);
   } catch (error) {

@@ -4,6 +4,8 @@ import { requireDemoSession } from "@/lib/auth/session";
 import { buildShipmentStatusEmail } from "@/lib/communication/shipment-email";
 import { sendSmtpEmail } from "@/lib/communication/mailer";
 import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
+import { releaseShipmentInventory } from "@/lib/logistics/release-inventory";
+import { writeActivityLog } from "@/lib/audit/activity-log";
 
 type ShipmentStatus = "Pending" | "In Transit" | "Delivered";
 
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const { data: shipment, error: fetchError } = await supabase
     .from("shipments")
-    .select("id, tracking_number, client_name, client_email, origin, destination, status, eta, provider_name, waybill_number, tracking_token")
+    .select("*")
     .eq("id", shipmentId)
     .single();
 
@@ -53,17 +55,50 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: fetchError?.message ?? "Shipment not found." }, { status: 404 });
   }
 
-  const { data: updated, error: updateError } = await supabase
+  if (status === "In Transit") {
+    if (!shipment.payment_proof_url) {
+      return NextResponse.json({ error: "Payment proof is required before releasing shipment." }, { status: 400 });
+    }
+    const released = await releaseShipmentInventory(shipmentId);
+    if (!released.ok) return NextResponse.json({ error: released.error }, { status: 409 });
+  }
+
+  const nowIso = new Date().toISOString();
+  let updated: Record<string, unknown> | null = null;
+  let updateError: { message: string } | null = null;
+  const modernUpdate = await supabase
     .from("shipments")
     .update({
       status,
-      updated_at: new Date().toISOString()
+      milestone_status: status,
+      payment_status: status === "In Transit" ? "Verified" : shipment.payment_status ?? "Awaiting Payment",
+      payment_verified_at: status === "In Transit" ? nowIso : null,
+      updated_at: nowIso
     })
     .eq("id", shipmentId)
     .select(
       "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
     )
     .single();
+  if (!modernUpdate.error && modernUpdate.data) {
+    updated = modernUpdate.data as Record<string, unknown>;
+  } else if (modernUpdate.error?.message.toLowerCase().includes("column")) {
+    const legacyUpdate = await supabase
+      .from("shipments")
+      .update({
+        status,
+        updated_at: nowIso
+      })
+      .eq("id", shipmentId)
+      .select(
+        "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
+      )
+      .single();
+    updateError = legacyUpdate.error ? { message: legacyUpdate.error.message } : null;
+    updated = (legacyUpdate.data as Record<string, unknown> | null) ?? null;
+  } else {
+    updateError = modernUpdate.error ? { message: modernUpdate.error.message } : null;
+  }
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -113,6 +148,14 @@ export async function POST(request: NextRequest) {
     shipment: updated,
     communication
   };
+  await writeActivityLog(request, {
+    actorEmail: auth.session.email,
+    actorRole: auth.session.role,
+    action: "logistics.update_status",
+    targetModule: "logistics",
+    targetId: shipmentId,
+    details: { status }
+  });
   await completeIdempotentRequest(idempotency.key, 200, responseBody);
   return NextResponse.json(responseBody);
 }

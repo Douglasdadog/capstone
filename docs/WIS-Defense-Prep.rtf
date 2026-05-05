@@ -1,0 +1,86 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}}
+\fs24
+\b WIS Defense Prep Reviewer\b0\line
+Warehouse Information System (WIS)\line
+\line
+\b Answer Framework (Always Use)\b0\line
+1) Goal - bakit ginawa\line
+2) Implementation - paano ginawa\line
+3) Security/Control - anong safeguards\line
+4) Result - anong na-improve\line
+\line
+\b 1) Architecture\b0\line
+\b Q:\b0 Ano architecture ng system?\line
+\b A:\b0 Next.js web app with modules (Inventory, Sales, Reports, Client Tracking), Supabase PostgreSQL database, server-side API routes as data plane, and role-based access (SuperAdmin/Admin/Inventory/Sales/Client).\line
+\line
+\b Q:\b0 Bakit server-driven instead of direct browser table access?\line
+\b A:\b0 Para aligned sa strict RLS hardening. Controlled, auditable, and safer ang access via backend APIs.\line
+\line
+\b 2) SQL Database Security\b0\line
+\b Q:\b0 Safe ba SQL database?\line
+\b A:\b0 Pentest-hardened with residual risk (hindi hack-proof). We enforce least privilege, RLS, deny policies, and backend-only privileged access.\line
+\line
+\b Q:\b0 Ano exact controls?\line
+\b A:\b0\line
+- Revoked broad privileges from anon/authenticated roles.\line
+- Enabled and forced RLS on core business tables.\line
+- Added explicit deny policies for anon/authenticated.\line
+- Service-role backend routes handle privileged DB operations.\line
+- Idempotency table for replay safety.\line
+\line
+\b Proof Scripts:\b0\line
+- docs/supabase-security-hardening.sql\line
+- docs/supabase-idempotency-setup.sql\line
+\line
+\b 3) Auth and MFA\b0\line
+\b Q:\b0 Paano secured ang sensitive account actions?\line
+\b A:\b0 MFA-backed flows for sensitive actions, with admin-governed reset workflow (approve/deny/audit).\line
+\line
+\b Q:\b0 May brute-force protection ba?\line
+\b A:\b0 Yes. Rate limiting and auth failure delay on sensitive auth/public endpoints.\line
+\line
+\b 4) Backup and Recovery\b0\line
+\b Q:\b0 Ano backup strategy?\line
+\b A:\b0 Hybrid: local write backup + full server snapshot backup. Exports available in JSON (restore-friendly) and Excel (audit-friendly).\line
+\line
+\b Q:\b0 Paano sensitive data sa backup?\line
+\b A:\b0 Sensitive fields are masked (password/token/secret/otp/api keys), server-side and client-side export sanitization.\line
+\line
+\b 5) IoT Monitoring\b0\line
+\b Q:\b0 Paano detect if IoT live or disconnected?\line
+\b A:\b0 Based on fresh telemetry timestamps plus alert heartbeat fallback, with optional LAN reachability probe.\line
+\line
+\b Q:\b0 Connected pa rin minsan kahit off?\line
+\b A:\b0 We tightened logic so connected status now requires fresh telemetry/heartbeat within threshold, reducing false connected states.\line
+\line
+\b 6) Client Tracking and Privacy\b0\line
+\b Q:\b0 Paano protected ang shipment visibility?\line
+\b A:\b0 Search-only client tracking. Walang default full shipment listing; details only show on matching tracking number.\line
+\line
+\b 7) Reports and Ticket Resolution\b0\line
+\b Q:\b0 Paano issue lifecycle?\line
+\b A:\b0 Open and Resolved panels. Per-report actions: Email and Mark Resolved. Resolution can notify customer with closure email.\line
+\line
+\b Q:\b0 Paano kung kulang DB migration columns?\line
+\b A:\b0 Progressive fallback logic prevents crashes, and local UI fallback keeps workflow usable while migration is being completed.\line
+\line
+\b 8) Hard Questions (Short Answers)\b0\line
+\b Q:\b0 Is this 100 percent secure?\line
+\b A:\b0 No system is 100 percent secure. We use hardened controls and continuous risk management.\line
+\line
+\b Q:\b0 How do you handle retries/duplicate requests?\line
+\b A:\b0 Idempotency keys prevent duplicate side effects.\line
+\line
+\b Q:\b0 What if network fails mid-operation?\line
+\b A:\b0 Offline queue + local write backup preserve operations and allow recovery.\line
+\line
+\b 45-Second Pitch (Memorize)\b0\line
+Our system uses secure-by-default design. We moved critical data access to backend APIs and hardened Supabase with forced RLS, explicit deny policies, and least-privilege revokes for low-privilege roles. For reliability, we implemented idempotency, local write backups, and full backup exports with sensitive-field masking. For operations, we improved IoT monitoring using freshness-based connectivity logic. For governance, we added issue resolution workflows with audit visibility and customer closure notifications. Overall, the platform is pentest-hardened, operationally resilient, and managed with clear residual-risk controls.\line
+\line
+\b Defense Tips\b0\line
+- Never say hack-proof; say pentest-hardened with residual risk.\line
+- Mention one proof file/script per answer.\line
+- Keep first answer short; expand only when asked.\line
+- If asked about gaps, present next-phase plan: WAF, distributed rate limit, centralized security logs.\line
+}

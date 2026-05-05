@@ -12,7 +12,7 @@ export async function GET(
   const { data: shipment, error } = await supabase
     .from("shipments")
     .select(
-      "id, tracking_number, client_name, origin, destination, status, updated_at, eta, provider_name, waybill_number, item_name, quantity"
+      "id, tracking_number, client_name, origin, destination, status, milestone_status, updated_at, eta, provider_name, waybill_number, item_name, quantity"
     )
     .eq("tracking_token", token)
     .maybeSingle();

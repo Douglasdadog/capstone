@@ -20,6 +20,13 @@ type Shipment = {
   waybill_number?: string | null;
   eta?: string | null;
   tracking_token?: string | null;
+  milestone_status?: ShipmentStatus;
+  payment_status?: "Awaiting Payment" | "Submitted" | "Verified" | "Rejected";
+  payment_proof_url?: string | null;
+  payment_rejection_reason?: string | null;
+  assigned_client_name?: string | null;
+  assigned_client_email?: string | null;
+  inventory_deducted_at?: string | null;
   order_items?: Array<{ item_name: string; quantity: number }>;
   updated_at: string;
 };
@@ -32,6 +39,11 @@ type OrderLine = {
   id: string;
   item_name: string;
   quantity: string;
+};
+type ClientAccount = {
+  email: string;
+  name: string;
+  source: "registered" | "sample" | "supabase";
 };
 
 const PROVIDER_OPTIONS = ["LBC", "J&T Express", "2GO", "DHL", "Ninja Van", "Flash Express", "Local Trucking"] as const;
@@ -56,6 +68,8 @@ export default function SalesPage() {
   const [orderLines, setOrderLines] = useState<OrderLine[]>([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
   const [newClientName, setNewClientName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
+  const [selectedClientEmail, setSelectedClientEmail] = useState("");
+  const [clientAccounts, setClientAccounts] = useState<ClientAccount[]>([]);
   const [newDestination, setNewDestination] = useState("");
   const [newProviderName, setNewProviderName] = useState<(typeof PROVIDER_OPTIONS)[number] | "">("");
   const [newWaybillNumber, setNewWaybillNumber] = useState("");
@@ -66,6 +80,9 @@ export default function SalesPage() {
   const [queuedCount, setQueuedCount] = useState(0);
   const [syncingQueue, setSyncingQueue] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [rejectTarget, setRejectTarget] = useState<Shipment | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
 
   async function fetchShipments() {
     const response = await fetch("/api/logistics/shipments");
@@ -80,6 +97,13 @@ export default function SalesPage() {
     if (!response.ok) throw new Error(data.error ?? "Unable to load inventory options.");
     const sorted = [...(data.items ?? [])].sort((a, b) => a.name.localeCompare(b.name));
     setInventoryItems(sorted);
+  }
+
+  async function fetchClientAccounts() {
+    const response = await fetch("/api/logistics/client-accounts");
+    const data = (await response.json()) as { clients?: ClientAccount[]; error?: string };
+    if (!response.ok) throw new Error(data.error ?? "Unable to load client accounts.");
+    setClientAccounts(data.clients ?? []);
   }
 
   useEffect(() => {
@@ -106,7 +130,7 @@ export default function SalesPage() {
       try {
         setLoading(true);
         setError(null);
-        await Promise.all([fetchShipments(), fetchInventoryOptions()]);
+        await Promise.all([fetchShipments(), fetchInventoryOptions(), fetchClientAccounts()]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load sales module.");
       } finally {
@@ -266,15 +290,22 @@ export default function SalesPage() {
         : data.communication
           ? ` Email not sent: ${data.communication.message}`
           : "";
-      setMessage(`Order created: ${data.shipment?.tracking_number ?? "Tracking assigned"}.${emailNote}`);
+      const invoiceUrl =
+        data.shipment?.tracking_token ? `/api/logistics/invoice/${data.shipment.tracking_token}` : null;
+      setMessage(
+        `Order request submitted: ${data.shipment?.tracking_number ?? "Tracking assigned"}.${emailNote}${
+          invoiceUrl ? ` Invoice: ${invoiceUrl}` : ""
+        }`
+      );
       setNewClientName("");
       setNewClientEmail("");
+      setSelectedClientEmail("");
       setNewDestination("");
       setNewProviderName("");
       setNewWaybillNumber("");
       setOrderLines([{ id: crypto.randomUUID(), item_name: "", quantity: "1" }]);
       setNewEta("");
-      await Promise.all([fetchShipments(), fetchInventoryOptions()]);
+      await Promise.all([fetchShipments(), fetchInventoryOptions(), fetchClientAccounts()]);
     } catch (err) {
       if (err instanceof TypeError || !navigator.onLine) {
         const createOrderBody = {
@@ -300,6 +331,7 @@ export default function SalesPage() {
         setMessage("Network issue: order queued. Click Sync Pending when online.");
         setNewClientName("");
         setNewClientEmail("");
+        setSelectedClientEmail("");
         setNewDestination("");
         setNewProviderName("");
         setNewWaybillNumber("");
@@ -310,6 +342,42 @@ export default function SalesPage() {
       setError(err instanceof Error ? err.message : "Unable to create order.");
     } finally {
       setCreatingOrder(false);
+    }
+  }
+
+  async function approveAndRelease(shipmentId: string) {
+    try {
+      setError(null);
+      setMessage(null);
+      const response = await fetch("/api/logistics/approve-release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shipmentId })
+      });
+      const payload = (await response.json()) as { error?: string; shipment?: Shipment };
+      if (!response.ok) throw new Error(payload.error ?? "Unable to approve release.");
+      setMessage(`Shipment ${payload.shipment?.tracking_number ?? ""} approved and released.`);
+      await Promise.all([fetchShipments(), fetchInventoryOptions()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to approve release.");
+    }
+  }
+
+  async function rejectPayment(shipmentId: string, reason: string) {
+    try {
+      setError(null);
+      setMessage(null);
+      const response = await fetch("/api/logistics/reject-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shipmentId, reason })
+      });
+      const payload = (await response.json()) as { error?: string; shipment?: Shipment };
+      if (!response.ok) throw new Error(payload.error ?? "Unable to reject payment proof.");
+      setMessage(`Payment proof rejected for ${payload.shipment?.tracking_number ?? "shipment"}.`);
+      await fetchShipments();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reject payment proof.");
     }
   }
 
@@ -348,6 +416,18 @@ export default function SalesPage() {
 
   function updateOrderLine(lineId: string, patch: Partial<OrderLine>) {
     setOrderLines((prev) => prev.map((line) => (line.id === lineId ? { ...line, ...patch } : line)));
+  }
+
+  function addItemToCart(itemName: string) {
+    setOrderLines((prev) => {
+      const found = prev.find((line) => line.item_name === itemName);
+      if (!found) return [...prev, { id: crypto.randomUUID(), item_name: itemName, quantity: "1" }];
+      return prev.map((line) =>
+        line.item_name === itemName
+          ? { ...line, quantity: String(Math.max(1, Number.parseInt(line.quantity, 10) + 1 || 1)) }
+          : line
+      );
+    });
   }
 
   const today = new Date().toDateString();
@@ -418,7 +498,7 @@ export default function SalesPage() {
 
       <article className="rounded-xl border-2 border-slate-300 bg-white p-4 shadow-md shadow-slate-300/40 ring-1 ring-slate-200/80">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Create Order</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Digital Catalog & Create Order</h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">{queuedCount} pending offline transaction(s)</span>
             <button
@@ -432,6 +512,29 @@ export default function SalesPage() {
           </div>
         </div>
         <div className="grid gap-1.5 md:grid-cols-2 xl:grid-cols-4">
+          <label className="space-y-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assign Client Account</span>
+            <select
+              value={selectedClientEmail}
+              onChange={(event) => {
+                const email = event.target.value;
+                setSelectedClientEmail(email);
+                const account = clientAccounts.find((row) => row.email === email);
+                if (account) {
+                  setNewClientEmail(account.email);
+                  setNewClientName(account.name);
+                }
+              }}
+              className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
+            >
+              <option value="">Select client account</option>
+              {clientAccounts.map((account) => (
+                <option key={account.email} value={account.email}>
+                  {account.name} ({account.email})
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="space-y-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Client Name</span>
             <input
@@ -480,7 +583,7 @@ export default function SalesPage() {
             disabled={creatingOrder}
             className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
-            {creatingOrder ? "Creating..." : "Create Order"}
+            {creatingOrder ? "Submitting..." : "Submit Request"}
           </button>
         </div>
         <div className="mt-1 grid gap-1.5 md:grid-cols-2">
@@ -510,6 +613,24 @@ export default function SalesPage() {
               className="w-full rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-sm"
             />
           </label>
+        </div>
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Catalog (Add to Cart)</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {orderableItems.slice(0, 12).map((item) => (
+              <div key={item.id} className="rounded-md border border-slate-200 bg-white px-3 py-2">
+                <p className="text-sm font-semibold text-slate-800">{item.name}</p>
+                <p className="text-xs text-slate-500">Stock: {item.quantity}</p>
+                <button
+                  type="button"
+                  onClick={() => addItemToCart(item.name)}
+                  className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Add to Cart
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="mt-2 space-y-1.5">
           {orderLines.map((line, index) => {
@@ -622,6 +743,8 @@ export default function SalesPage() {
             ) : (
               visibleShipments.map((row) => {
                 const trackingUrl = row.tracking_token && origin ? `${origin}/track/${row.tracking_token}` : null;
+                const invoiceUrl = row.tracking_token ? `${origin}/api/logistics/invoice/${row.tracking_token}` : null;
+                const milestone = row.milestone_status ?? row.status;
                 return (
                   <div
                     key={row.id}
@@ -637,6 +760,7 @@ export default function SalesPage() {
                         <p className="text-xs text-slate-500">
                           Destination: {row.destination}
                         </p>
+                        <p className="text-xs text-slate-500">Payment: {row.payment_status ?? "Awaiting Payment"}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <select
@@ -648,7 +772,44 @@ export default function SalesPage() {
                           <option value="In Transit">In Transit</option>
                           <option value="Delivered">Delivered</option>
                         </select>
+                        {row.status === "Pending" ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void approveAndRelease(row.id)}
+                              className="rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                            >
+                              Approve & Release
+                            </button>
+                            {row.payment_proof_url ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectTarget(row);
+                                  setRejectReason(row.payment_rejection_reason ?? "Payment proof is unclear.");
+                                }}
+                                className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                              >
+                                Reject Proof
+                              </button>
+                            ) : null}
+                          </>
+                        ) : null}
                       </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-1 text-center text-[11px] font-medium">
+                      {(["Pending", "In Transit", "Delivered"] as const).map((step, idx) => {
+                        const active =
+                          milestone === "Delivered" ? idx <= 2 : milestone === "In Transit" ? idx <= 1 : idx <= 0;
+                        return (
+                          <span
+                            key={step}
+                            className={`rounded border px-2 py-1 ${active ? "border-amber-300 bg-amber-50 text-amber-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}
+                          >
+                            {step}
+                          </span>
+                        );
+                      })}
                     </div>
                     <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-3">
                       <p>
@@ -674,6 +835,29 @@ export default function SalesPage() {
                       <p className="mt-3 break-all rounded-md border border-slate-200 bg-slate-50/80 px-2 py-1.5 text-[11px] text-slate-600">
                         {trackingUrl}
                       </p>
+                    ) : null}
+                    {row.payment_proof_url ? (
+                      <a
+                        href={row.payment_proof_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block text-xs font-semibold text-emerald-700 hover:underline"
+                      >
+                        View payment proof
+                      </a>
+                    ) : null}
+                    {row.payment_status === "Rejected" && row.payment_rejection_reason ? (
+                      <p className="mt-1 text-xs font-medium text-red-700">Rejection: {row.payment_rejection_reason}</p>
+                    ) : null}
+                    {invoiceUrl ? (
+                      <a
+                        href={invoiceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 ml-3 inline-block text-xs font-semibold text-indigo-700 hover:underline"
+                      >
+                        Download invoice PDF
+                      </a>
                     ) : null}
                   </div>
                 );
@@ -728,6 +912,54 @@ export default function SalesPage() {
           </div>
         </article>
       </div>
+      {rejectTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-900">Reject Payment Proof</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Tracking <span className="font-semibold">{rejectTarget.tracking_number}</span>
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              rows={4}
+              placeholder="Reason for rejection"
+              className="mt-4 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-slate-500">This will be visible in audit trail and client feedback.</p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectTarget(null);
+                  setRejectReason("");
+                }}
+                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={rejectSubmitting || rejectReason.trim().length < 4}
+                onClick={async () => {
+                  if (!rejectTarget) return;
+                  try {
+                    setRejectSubmitting(true);
+                    await rejectPayment(rejectTarget.id, rejectReason.trim());
+                    setRejectTarget(null);
+                    setRejectReason("");
+                  } finally {
+                    setRejectSubmitting(false);
+                  }
+                }}
+                className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+              >
+                {rejectSubmitting ? "Submitting..." : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

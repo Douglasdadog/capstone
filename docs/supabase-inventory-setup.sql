@@ -16,7 +16,7 @@ add column if not exists category text not null default 'Maintenance Free';
 alter table public.inventory
 add column if not exists image_url text;
 
--- Auto replenishment log table
+-- Low stock alert log table
 create table if not exists public.auto_replenishment_alerts (
   id uuid primary key default gen_random_uuid(),
   inventory_id uuid not null references public.inventory(id) on delete cascade,
@@ -112,6 +112,15 @@ begin
   end if;
 end
 $$;
+
+-- One-time wording backfill for historical alert trail rows
+update public.auto_replenishment_alerts
+set message = regexp_replace(
+  message,
+  '^Auto replenishment triggered for ',
+  'Low stock alert triggered for '
+)
+where message like 'Auto replenishment triggered for %';
 
 do $$
 begin

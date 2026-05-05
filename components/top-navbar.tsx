@@ -63,6 +63,9 @@ export default function TopNavbar() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [backupNotice, setBackupNotice] = useState<string | null>(null);
   const [backupNowSaving, setBackupNowSaving] = useState(false);
+  const [restoreDryRunLoading, setRestoreDryRunLoading] = useState(false);
+  const [restoreApplyLoading, setRestoreApplyLoading] = useState(false);
+  const [restoreConfirmationText, setRestoreConfirmationText] = useState("");
 
   useEffect(() => {
     async function loadSession() {
@@ -138,16 +141,6 @@ export default function TopNavbar() {
 
   function handleExportSnapshot(snapshot: LocalWriteBackupSnapshot) {
     exportDataAsJson(snapshot, `wis-local-write-backup-snapshot-${snapshot.id}`);
-  }
-
-  function handleExportFullBackup() {
-    const latest = getLocalWriteBackupSnapshots().slice().reverse()[0];
-    if (!latest?.serverData?.fullBackupPayload) {
-      setBackupNotice("No full backup payload found yet. Click 'Backup now' first.");
-      return;
-    }
-    exportDataAsJson(latest.serverData.fullBackupPayload, "wis-full-backup");
-    setBackupNotice("Full backup exported successfully.");
   }
 
   async function handleExportFullBackupExcel() {
@@ -364,6 +357,75 @@ export default function TopNavbar() {
     }
   }
 
+  async function handleRestoreDryRun() {
+    const latest = getLocalWriteBackupSnapshots().slice().reverse()[0];
+    const payload = latest?.serverData?.fullBackupPayload;
+    if (!payload) {
+      setBackupNotice("No full backup payload found yet. Click 'Backup now' first.");
+      return;
+    }
+    setRestoreDryRunLoading(true);
+    try {
+      const response = await fetch("/api/admin/backup/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload,
+          dryRun: true
+        })
+      });
+      const data = (await response.json()) as { error?: string; validation?: { inventoryRows?: number; sensorConfigRows?: number } };
+      if (!response.ok) {
+        setBackupNotice(data.error ?? "Restore dry-run failed.");
+        return;
+      }
+      setBackupNotice(
+        `Restore dry-run OK. Inventory rows: ${data.validation?.inventoryRows ?? 0}, sensor config rows: ${data.validation?.sensorConfigRows ?? 0}.`
+      );
+    } catch {
+      setBackupNotice("Restore dry-run failed. Please try again.");
+    } finally {
+      setRestoreDryRunLoading(false);
+    }
+  }
+
+  async function handleRestoreApply() {
+    const latest = getLocalWriteBackupSnapshots().slice().reverse()[0];
+    const payload = latest?.serverData?.fullBackupPayload;
+    if (!payload) {
+      setBackupNotice("No full backup payload found yet. Click 'Backup now' first.");
+      return;
+    }
+    setRestoreApplyLoading(true);
+    try {
+      const response = await fetch("/api/admin/backup/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payload,
+          apply: true,
+          confirmationText: restoreConfirmationText
+        })
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        result?: { restoredInventory?: number; restoredSensorConfig?: number };
+      };
+      if (!response.ok) {
+        setBackupNotice(data.error ?? "Restore apply failed.");
+        return;
+      }
+      setBackupNotice(
+        `Restore applied. Inventory rows restored: ${data.result?.restoredInventory ?? 0}, sensor config rows: ${data.result?.restoredSensorConfig ?? 0}.`
+      );
+      setRestoreConfirmationText("");
+    } catch {
+      setBackupNotice("Restore apply failed. Please try again.");
+    } finally {
+      setRestoreApplyLoading(false);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-20 border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between px-6 py-3">
@@ -442,6 +504,14 @@ export default function TopNavbar() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => void handleRestoreDryRun()}
+                      disabled={restoreDryRunLoading}
+                      className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                    >
+                      {restoreDryRunLoading ? "Validating..." : "Restore Dry-Run"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleClearBackups}
                       className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100"
                     >
@@ -457,6 +527,25 @@ export default function TopNavbar() {
                   </div>
                 </div>
                 {backupNotice ? <p className="mt-2 text-xs text-indigo-700">{backupNotice}</p> : null}
+                {role === "SuperAdmin" ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs text-amber-800">Type RESTORE to enable apply:</p>
+                    <input
+                      value={restoreConfirmationText}
+                      onChange={(event) => setRestoreConfirmationText(event.target.value)}
+                      placeholder="RESTORE"
+                      className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-slate-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleRestoreApply()}
+                      disabled={restoreApplyLoading || restoreConfirmationText.trim() !== "RESTORE"}
+                      className="rounded-md border border-amber-300 bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-60"
+                    >
+                      {restoreApplyLoading ? "Applying..." : "Apply Restore"}
+                    </button>
+                  </div>
+                ) : null}
                 <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-sm font-semibold text-slate-800">Manual snapshots</h4>
@@ -464,7 +553,7 @@ export default function TopNavbar() {
                   </div>
                   <div className="mt-2 max-h-28 overflow-auto">
                     {snapshots.length === 0 ? (
-                      <p className="text-xs text-slate-500">No snapshots yet. Click "Backup now" to create one.</p>
+                      <p className="text-xs text-slate-500">No snapshots yet. Click &quot;Backup now&quot; to create one.</p>
                     ) : (
                       <ul className="space-y-1">
                         {snapshots.slice(0, 20).map((snapshot) => (

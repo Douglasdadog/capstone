@@ -12,6 +12,7 @@ import {
   serializeLoginGuard,
   serializeSession
 } from "@/lib/auth/demo-auth";
+import { writeActivityLog } from "@/lib/audit/activity-log";
 
 const LOCK_THRESHOLD = 5;
 const LOCK_WINDOW_MS = 15 * 60 * 1000;
@@ -118,6 +119,13 @@ export async function POST(request: NextRequest) {
         path: "/"
       }
     );
+    await writeActivityLog(request, {
+      actorEmail: normalizedEmail,
+      actorRole: normalizeRole(data.user.user_metadata?.role),
+      action: "auth.login_success",
+      targetModule: "auth",
+      details: { source: "supabase" }
+    });
     return response;
   }
 
@@ -147,5 +155,12 @@ export async function POST(request: NextRequest) {
       path: "/"
     }
   );
+  await writeActivityLog(request, {
+    actorEmail: user.email,
+    actorRole: user.role,
+    action: "auth.login_success",
+    targetModule: "auth",
+    details: { source: isRegisteredUser ? "registered" : "sample" }
+  });
   return response;
 }

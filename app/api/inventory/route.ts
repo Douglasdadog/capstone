@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireDemoSession } from "@/lib/auth/session";
 import { beginIdempotentRequest, completeIdempotentRequest } from "@/lib/api/idempotency";
 
-const CATEGORY_OPTIONS = ["Maintenance Free", "Conventional"] as const;
+type InventoryCategory = "Maintenance Free" | "Conventional";
 
 function parseNonNegativeInt(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -11,7 +11,7 @@ function parseNonNegativeInt(value: unknown): number | null {
   return n >= 0 ? n : null;
 }
 
-function normalizeCategory(value: unknown): (typeof CATEGORY_OPTIONS)[number] | null {
+function normalizeCategory(value: unknown): InventoryCategory | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
   if (normalized === "maintenance free") return "Maintenance Free";
@@ -19,7 +19,7 @@ function normalizeCategory(value: unknown): (typeof CATEGORY_OPTIONS)[number] | 
   return null;
 }
 
-function resolveDefaultImageUrl(category: (typeof CATEGORY_OPTIONS)[number]): string {
+function resolveDefaultImageUrl(category: InventoryCategory): string {
   if (category === "Maintenance Free") {
     return "https://placehold.co/320x200/fef3c7/92400e?text=Evvo+Maintenance+Free";
   }
@@ -43,7 +43,7 @@ async function logLowStockAlert(
     reading_quantity: item.quantity,
     threshold_limit: item.threshold_limit,
     status: "triggered",
-    message: `Auto replenishment triggered for ${item.name}`
+    message: `Low stock alert triggered for ${item.name}`
   });
 
   return error ? error.message : null;

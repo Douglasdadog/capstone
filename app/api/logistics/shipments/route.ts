@@ -15,6 +15,13 @@ type ShipmentRow = {
   provider_name?: string | null;
   waybill_number?: string | null;
   tracking_token?: string | null;
+  milestone_status?: "Pending" | "In Transit" | "Delivered";
+  payment_status?: "Awaiting Payment" | "Submitted" | "Verified" | "Rejected";
+  payment_proof_url?: string | null;
+  assigned_client_name?: string | null;
+  assigned_client_email?: string | null;
+  inventory_deducted_at?: string | null;
+  [key: string]: unknown;
 };
 
 function parseYmd(value: string | null): string | null {
@@ -73,9 +80,7 @@ export async function GET(request: NextRequest) {
   const query = () => {
     let q = supabase
       .from("shipments")
-      .select(
-        "id, tracking_number, client_name, client_email, origin, destination, status, updated_at, eta, provider_name, waybill_number, tracking_token"
-      );
+      .select("*");
     if (dateFrom) {
       q = q.gte("updated_at", `${dateFrom}T00:00:00.000Z`);
     }

@@ -1,0 +1,59 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Calibri;}}
+\fs22
+\b WIS Defense Prep - One Page Quick Reviewer\b0\line
+\line
+\b Core Positioning\b0\line
+Our system is \b pentest-hardened with residual risk\b0  (not hack-proof).\line
+\line
+\b 20-Second Architecture\b0\line
+Next.js web app + Supabase PostgreSQL + server-side APIs as data plane.\line
+Role-based access: SuperAdmin/Admin/Inventory/Sales/Client.\line
+\line
+\b 30-Second Security Summary\b0\line
+1) Least privilege: revoked broad anon/authenticated DB privileges.\line
+2) Forced RLS on critical business tables.\line
+3) Explicit deny policies for anon/authenticated roles.\line
+4) Service-role backend access for privileged operations.\line
+5) Idempotency keys to prevent duplicate side effects.\line
+6) Rate limit + input validation on sensitive routes.\line
+\line
+\b Proof Files\b0\line
+- docs/supabase-security-hardening.sql\line
+- docs/supabase-idempotency-setup.sql\line
+- docs/SECURITY_HARDENING.md\line
+\line
+\b High-Likelihood Defense Questions (Fast Answers)\b0\line
+\b Q: Safe ba SQL DB niyo?\b0\line
+\b A:\b0 Yes, hardened with RLS + least privilege + deny policies + backend-only privileged access.\line
+\line
+\b Q: SQL injection defense?\b0\line
+\b A:\b0 Query builder + strict validation + no raw exposed SQL concatenation + rate limits.\line
+\line
+\b Q: Paano brute-force protection?\b0\line
+\b A:\b0 Sensitive auth routes have rate limiting and failure delay.\line
+\line
+\b Q: Paano duplicate requests/offline retries?\b0\line
+\b A:\b0 Idempotency keys prevent duplicate side effects.\line
+\line
+\b Q: Paano backup security?\b0\line
+\b A:\b0 Hybrid backup (local writes + full server snapshot), sensitive fields masked in exports.\line
+\line
+\b Q: Paano IoT live/disconnect detection?\b0\line
+\b A:\b0 Fresh telemetry/heartbeat based, with stale thresholds and LAN probe fallback.\line
+\line
+\b Q: Paano client shipment privacy?\b0\line
+\b A:\b0 Search-only tracking; no default full shipment listing.\line
+\line
+\b Q: Paano reports lifecycle?\b0\line
+\b A:\b0 Open and Resolved panels, with mark-resolved workflow and customer closure email.\line
+\line
+\b 45-Second Final Pitch\b0\line
+We designed WIS with defense-in-depth. Critical data access is controlled via backend APIs, while Supabase is hardened using forced RLS, explicit deny policies, and least-privilege revokes for low-privilege roles. We added idempotency for replay safety, backup controls with sensitive-field masking, and operational monitoring improvements for IoT freshness and status accuracy. Governance is supported through issue-resolution workflows and customer closure notifications. Overall, WIS is secure-by-default, audit-aware, and pentest-hardened with managed residual risk.\line
+\line
+\b Last-Minute Defense Tips\b0\line
+- Never say 100 percent secure/hack-proof.\line
+- Say: hardened + monitored + continuously improved.\line
+- Answer short first, then expand when asked.\line
+- If challenged on limits, give roadmap: WAF, distributed rate limit, centralized security logs.\line
+}

@@ -16,26 +16,31 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
   const trackingNumber = (request.nextUrl.searchParams.get("trackingNumber") ?? "").trim();
-  if (!trackingNumber) {
-    return NextResponse.json({ shipment: null });
-  }
+  const isPrivileged = auth.session.role === "SuperAdmin" || auth.session.role === "Admin";
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("shipments")
     .select("*")
     .order("updated_at", { ascending: false })
     .limit(1000);
 
+  if (!isPrivileged) {
+    query = query.eq("client_email", auth.session.email);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  if (!trackingNumber) {
+    return NextResponse.json({ shipments: rows, shipment: rows[0] ?? null });
+  }
+
   const normalizedInput = normalizeTracking(trackingNumber);
-  const shipment = (data ?? []).find((row) => {
-    const value =
-      row && typeof row === "object" && "tracking_number" in row ? String((row as { tracking_number?: string }).tracking_number ?? "") : "";
-    return normalizeTracking(value) === normalizedInput;
-  });
+  const shipment = rows.find((row) => normalizeTracking(String(row.tracking_number ?? "")) === normalizedInput);
 
   if (!shipment) {
     return NextResponse.json({ error: "Shipment not found." }, { status: 404 });
