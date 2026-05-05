@@ -8,9 +8,20 @@ type InventoryItem = {
   name: string;
   quantity: number;
   category?: string | null;
+  image_url?: string | null;
 };
 
 type CartLine = { item_name: string; quantity: number };
+
+const MAINTENANCE_FREE_IMAGES = [
+  "/images/products/battery-maintenance-free-1.jpg",
+  "/images/products/battery-maintenance-free-2.jpg"
+];
+
+const CONVENTIONAL_IMAGES = [
+  "/images/products/battery-conventional-1.jpg",
+  "/images/products/battery-conventional-2.jpg"
+];
 
 export default function ClientProductsPage() {
   const router = useRouter();
@@ -24,6 +35,32 @@ export default function ClientProductsPage() {
   const [destination, setDestination] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  const itemByName = useMemo(() => new Map(items.map((item) => [item.name, item])), [items]);
+  const getAvailableStock = (itemName: string) => itemByName.get(itemName)?.quantity ?? 0;
+  const getCartQty = (itemName: string) => cart.find((line) => line.item_name === itemName)?.quantity ?? 0;
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(items.map((item) => item.category?.trim() || "General"))).sort()],
+    [items]
+  );
+  const filteredItems = useMemo(() => {
+    const keyword = searchQuery.trim().toLowerCase();
+    return items.filter((item) => {
+      const matchesCategory =
+        selectedCategory === "All" ? true : (item.category?.trim() || "General") === selectedCategory;
+      const matchesKeyword = keyword.length === 0 ? true : item.name.toLowerCase().includes(keyword);
+      return matchesCategory && matchesKeyword;
+    });
+  }, [items, searchQuery, selectedCategory]);
+
+  const resolveProductImage = (item: InventoryItem, index: number) => {
+    if (item.image_url && item.image_url.trim().length > 0) return item.image_url;
+    const normalizedCategory = (item.category ?? "").toLowerCase();
+    const pool = normalizedCategory.includes("maintenance") ? MAINTENANCE_FREE_IMAGES : CONVENTIONAL_IMAGES;
+    return pool[index % pool.length];
+  };
 
   useEffect(() => {
     async function load() {
@@ -43,17 +80,32 @@ export default function ClientProductsPage() {
   }, []);
 
   function addToCart(itemName: string) {
+    const stock = getAvailableStock(itemName);
+    if (stock <= 0) {
+      setError(`"${itemName}" is currently out of stock.`);
+      return;
+    }
     setCart((prev) => {
       const found = prev.find((line) => line.item_name === itemName);
       if (!found) return [...prev, { item_name: itemName, quantity: 1 }];
+      if (found.quantity >= stock) return prev;
       return prev.map((line) => (line.item_name === itemName ? { ...line, quantity: line.quantity + 1 } : line));
     });
+    setError(null);
   }
 
   function updateQty(itemName: string, qty: number) {
+    const stock = getAvailableStock(itemName);
     setCart((prev) =>
       prev
-        .map((line) => (line.item_name === itemName ? { ...line, quantity: Math.max(1, Math.floor(qty || 1)) } : line))
+        .map((line) => {
+          if (line.item_name !== itemName) return line;
+          if (!Number.isFinite(qty)) return line;
+          const normalized = Math.floor(qty);
+          if (normalized <= 0) return { ...line, quantity: 0 };
+          const clamped = Math.min(Math.max(1, normalized), Math.max(1, stock));
+          return { ...line, quantity: clamped };
+        })
         .filter((line) => line.quantity > 0)
     );
   }
@@ -63,6 +115,7 @@ export default function ClientProductsPage() {
   }
 
   const cartTotalItems = useMemo(() => cart.reduce((sum, row) => sum + row.quantity, 0), [cart]);
+  const uniqueProductsInCart = cart.length;
 
   async function submitRequest() {
     if (!fullName.trim() || !destination.trim() || !contactNumber.trim()) {
@@ -99,62 +152,134 @@ export default function ClientProductsPage() {
   }
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">Products</h1>
-        <p className="text-sm text-slate-600">Sign in to save order requests. Build your cart, then submit request.</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Shop by available stock, review your cart, and submit your request in one flow.
+        </p>
       </div>
       {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Digital Catalog</h2>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Digital Catalog</h2>
+              <p className="text-xs text-slate-500">
+                {filteredItems.length} of {items.length} product(s)
+              </p>
+            </div>
+            <div className="mt-3 space-y-3">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search products..."
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
+              <div className="flex flex-wrap gap-2">
+                {categories.map((category) => {
+                  const active = selectedCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setSelectedCategory(category)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                        active
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {loading ? (
               <p className="mt-2 text-sm text-slate-500">Loading products...</p>
             ) : (
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {items.map((item) => (
-                  <div key={item.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-semibold text-slate-800">{item.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {item.category ?? "General"} • Stock: {item.quantity}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => addToCart(item.name)}
-                      className="mt-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      Add to Cart
-                    </button>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {filteredItems.map((item, index) => (
+                  <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition hover:shadow-sm">
+                    <div className="mb-3 aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <img
+                        src={resolveProductImage(item, index)}
+                        alt={item.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.category ?? "General"}</p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                        In stock: {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addToCart(item.name)}
+                        disabled={getCartQty(item.name) >= item.quantity}
+                        className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      >
+                        {getCartQty(item.name) >= item.quantity ? "Max in Cart" : "Add to Cart"}
+                      </button>
+                    </div>
                   </div>
                 ))}
+                {!loading && filteredItems.length === 0 ? (
+                  <div className="col-span-full rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                    No products match your current search/filter.
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
         </div>
         <div className="space-y-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Shopping Cart</h2>
-            <p className="mt-1 text-xs text-slate-500">{cartTotalItems} total item(s)</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {uniqueProductsInCart} product(s) • {cartTotalItems} total unit(s)
+            </p>
             <div className="mt-3 space-y-2">
               {cart.length === 0 ? (
                 <p className="text-sm text-slate-500">Cart is empty.</p>
               ) : (
                 cart.map((line) => (
-                  <div key={line.item_name} className="rounded-md border border-slate-200 bg-slate-50 p-2">
-                    <p className="text-xs font-semibold text-slate-700">{line.item_name}</p>
-                    <div className="mt-1 flex items-center gap-2">
+                  <div key={line.item_name} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-semibold text-slate-700">{line.item_name}</p>
+                      <p className="text-[11px] text-slate-500">Stock: {getAvailableStock(line.item_name)}</p>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateQty(line.item_name, line.quantity - 1)}
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        -
+                      </button>
                       <input
                         type="number"
                         min={1}
+                        max={getAvailableStock(line.item_name)}
                         value={line.quantity}
                         onChange={(event) => updateQty(line.item_name, Number.parseInt(event.target.value, 10))}
-                        className="w-20 rounded border border-slate-300 px-2 py-1 text-xs"
+                        className="w-20 rounded border border-slate-300 px-2 py-1 text-center text-xs"
                       />
                       <button
                         type="button"
+                        onClick={() => updateQty(line.item_name, line.quantity + 1)}
+                        disabled={line.quantity >= getAvailableStock(line.item_name)}
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => removeLine(line.item_name)}
-                        className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
+                        className="ml-auto rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
                       >
                         Remove
                       </button>
@@ -164,7 +289,7 @@ export default function ClientProductsPage() {
               )}
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">Submit Request</h2>
             <div className="mt-2 space-y-2">
               <input
