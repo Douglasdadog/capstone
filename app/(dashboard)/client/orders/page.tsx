@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 type Shipment = {
   id: string;
@@ -17,7 +16,6 @@ type Shipment = {
 };
 
 export default function ClientOrdersPage() {
-  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [selected, setSelected] = useState<Shipment | null>(null);
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "In Transit" | "Completed">("All");
@@ -42,13 +40,14 @@ export default function ClientOrdersPage() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get("created") !== "1") return;
-    const token = searchParams.get("token");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("created") !== "1") return;
+    const token = params.get("token");
     const message = token
       ? `Order submitted successfully. It is now linked to your account and visible below. Tracking token: ${token}`
       : "Order submitted successfully. It is now linked to your account and visible below.";
     setNotice(message);
-  }, [searchParams]);
+  }, []);
 
   const visibleOrders = useMemo(
     () =>
