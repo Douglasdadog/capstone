@@ -42,6 +42,7 @@ export default function ClientProductsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [failedImageIds, setFailedImageIds] = useState<Record<string, true>>({});
 
   const itemByName = useMemo(() => new Map(items.map((item) => [item.name, item])), [items]);
   const getAvailableStock = (itemName: string) => itemByName.get(itemName)?.quantity ?? 0;
@@ -61,11 +62,23 @@ export default function ClientProductsPage() {
   }, [items, searchQuery, selectedCategory]);
 
   const resolveProductImage = (item: InventoryItem, index: number) => {
-    if (item.image_url && item.image_url.trim().length > 0) return item.image_url;
+    const candidate = item.image_url?.trim() ?? "";
+    const hasUsableDbImage =
+      candidate.length > 0 &&
+      !failedImageIds[item.id] &&
+      (candidate.startsWith("/") || candidate.startsWith("http://") || candidate.startsWith("https://"));
+    if (hasUsableDbImage) return candidate;
     const normalizedCategory = (item.category ?? "").toLowerCase();
     const pool = normalizedCategory.includes("maintenance") ? MAINTENANCE_FREE_IMAGES : CONVENTIONAL_IMAGES;
     return pool[index % pool.length];
   };
+
+  function markImageFailed(itemId: string) {
+    setFailedImageIds((prev) => {
+      if (prev[itemId]) return prev;
+      return { ...prev, [itemId]: true };
+    });
+  }
 
   useEffect(() => {
     async function load() {
@@ -215,6 +228,7 @@ export default function ClientProductsPage() {
                         fill
                         className="object-cover"
                         sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
+                        onError={() => markImageFailed(item.id)}
                       />
                     </div>
                     <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.name}</p>
