@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type InventoryItem = {
   id: string;
@@ -15,12 +16,16 @@ type CartLine = { item_name: string; quantity: number };
 
 const MAINTENANCE_FREE_IMAGES = [
   "/images/products/battery-maintenance-free-1.jpg",
-  "/images/products/battery-maintenance-free-2.jpg"
+  "/images/products/battery-maintenance-free-2.jpg",
+  "/images/products/battery-maintenance-free-3.jpg",
+  "/images/products/battery-maintenance-free-4.jpg"
 ];
 
 const CONVENTIONAL_IMAGES = [
   "/images/products/battery-conventional-1.jpg",
-  "/images/products/battery-conventional-2.jpg"
+  "/images/products/battery-conventional-2.jpg",
+  "/images/products/battery-conventional-3.jpg",
+  "/images/products/battery-conventional-4.jpg"
 ];
 
 export default function ClientProductsPage() {
@@ -203,11 +208,13 @@ export default function ClientProductsPage() {
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {filteredItems.map((item, index) => (
                   <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition hover:shadow-sm">
-                    <div className="mb-3 aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img
+                    <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <Image
                         src={resolveProductImage(item, index)}
                         alt={item.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 1024px) 320px, (min-width: 640px) 50vw, 100vw"
                       />
                     </div>
                     <p className="line-clamp-2 text-sm font-semibold text-slate-900">{item.name}</p>

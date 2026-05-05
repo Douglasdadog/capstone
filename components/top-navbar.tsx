@@ -66,6 +66,7 @@ export default function TopNavbar() {
   const [restoreDryRunLoading, setRestoreDryRunLoading] = useState(false);
   const [restoreApplyLoading, setRestoreApplyLoading] = useState(false);
   const [restoreConfirmationText, setRestoreConfirmationText] = useState("");
+  const isSuperAdmin = role === "SuperAdmin";
 
   useEffect(() => {
     async function loadSession() {
@@ -93,6 +94,7 @@ export default function TopNavbar() {
   }, []);
 
   function openBackups() {
+    if (!isSuperAdmin) return;
     setBackups(getLocalWriteBackups().slice().reverse());
     setSnapshots(getLocalWriteBackupSnapshots().slice().reverse());
     setBackupNotice(null);
@@ -439,14 +441,16 @@ export default function TopNavbar() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={openBackups}
-            className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100"
-            title="View local write backups"
-          >
-            Backups ({backupCount})
-          </button>
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              onClick={openBackups}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm transition-colors hover:bg-emerald-100"
+              title="View local write backups"
+            >
+              Backups ({backupCount})
+            </button>
+          ) : null}
           <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm">
             Role: {role ?? "Unknown"}
           </span>
@@ -459,7 +463,7 @@ export default function TopNavbar() {
           </button>
         </div>
       </div>
-      {showBackups && typeof window !== "undefined"
+      {showBackups && isSuperAdmin && typeof window !== "undefined"
         ? createPortal(
             <div
               className="fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/50 px-4 py-8"
