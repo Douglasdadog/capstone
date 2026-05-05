@@ -28,6 +28,26 @@ const CONVENTIONAL_IMAGES = [
   "/images/products/battery-conventional-4.jpg"
 ];
 
+function dedupeInventoryByName(rows: InventoryItem[]): InventoryItem[] {
+  const grouped = new Map<string, InventoryItem>();
+  for (const row of rows) {
+    const normalizedName = row.name.trim().toLowerCase();
+    if (!normalizedName) continue;
+    const current = grouped.get(normalizedName);
+    if (!current) {
+      grouped.set(normalizedName, { ...row, quantity: Math.max(0, Number(row.quantity) || 0) });
+      continue;
+    }
+    grouped.set(normalizedName, {
+      ...current,
+      quantity: current.quantity + Math.max(0, Number(row.quantity) || 0),
+      category: current.category ?? row.category ?? null,
+      image_url: current.image_url ?? row.image_url ?? null
+    });
+  }
+  return Array.from(grouped.values());
+}
+
 export default function ClientProductsPage() {
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -87,7 +107,8 @@ export default function ClientProductsPage() {
         const response = await fetch("/api/inventory");
         const data = (await response.json()) as { items?: InventoryItem[]; error?: string };
         if (!response.ok) throw new Error(data.error ?? "Unable to load products.");
-        setItems((data.items ?? []).filter((row) => Number(row.quantity) > 0));
+        const uniqueItems = dedupeInventoryByName(data.items ?? []).filter((row) => Number(row.quantity) > 0);
+        setItems(uniqueItems);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unable to load products.");
       } finally {
