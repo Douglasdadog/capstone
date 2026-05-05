@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Shipment = {
   id: string;
@@ -16,6 +17,7 @@ type Shipment = {
 };
 
 export default function ClientOrdersPage() {
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Shipment[]>([]);
   const [selected, setSelected] = useState<Shipment | null>(null);
   const [statusFilter, setStatusFilter] = useState<"All" | "Pending" | "In Transit" | "Completed">("All");
@@ -38,6 +40,15 @@ export default function ClientOrdersPage() {
       setError(err instanceof Error ? err.message : "Unable to load orders.");
     });
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("created") !== "1") return;
+    const token = searchParams.get("token");
+    const message = token
+      ? `Order submitted successfully. It is now linked to your account and visible below. Tracking token: ${token}`
+      : "Order submitted successfully. It is now linked to your account and visible below.";
+    setNotice(message);
+  }, [searchParams]);
 
   const visibleOrders = useMemo(
     () =>
@@ -78,7 +89,9 @@ export default function ClientOrdersPage() {
     <section className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         <h1 className="text-2xl font-bold text-slate-900">Orders</h1>
-        <p className="text-sm text-slate-600">View your orders, filter by status, and upload payment proof for pending requests.</p>
+        <p className="text-sm text-slate-600">
+          View your own account orders, filter by status, and upload payment proof for pending requests.
+        </p>
       </div>
       {error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
       {notice ? <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</div> : null}

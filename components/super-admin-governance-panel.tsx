@@ -12,6 +12,16 @@ type AlertRow = {
   item_name?: string;
 };
 
+type ActivityRow = {
+  id: string;
+  created_at: string;
+  action: string;
+  actor_name: string;
+  actor_email: string;
+  actor_ip: string;
+  target_module: string;
+};
+
 type SecurityRequestRow = {
   id: number;
   user_name?: string | null;
@@ -41,15 +51,9 @@ function formatRoleLabel(role: string) {
   return role === "SuperAdmin" ? "Super Admin" : role;
 }
 
-function getMfaDecisionTag(message: string | undefined): "Approved" | "Denied" | null {
-  const text = (message ?? "").toLowerCase();
-  if (text.includes("mfa reset approved")) return "Approved";
-  if (text.includes("mfa reset denied")) return "Denied";
-  return null;
-}
-
 export default function SuperAdminGovernancePanel() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [requests, setRequests] = useState<SecurityRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,13 +75,18 @@ export default function SuperAdminGovernancePanel() {
         fetch("/api/admin/security-requests")
       ]);
 
-      const auditData = (await auditRes.json()) as { alerts?: AlertRow[]; error?: string };
+      const auditData = (await auditRes.json()) as {
+        alerts?: AlertRow[];
+        activities?: ActivityRow[];
+        error?: string;
+      };
       const requestData = (await requestRes.json()) as { requests?: SecurityRequestRow[]; error?: string };
 
       if (!auditRes.ok) throw new Error(auditData.error ?? "Unable to load audit entries.");
       if (!requestRes.ok) throw new Error(requestData.error ?? "Unable to load security requests.");
 
       setAlerts(auditData.alerts ?? []);
+      setActivities(auditData.activities ?? []);
       setRequests(requestData.requests ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load governance data.");
@@ -314,49 +323,47 @@ export default function SuperAdminGovernancePanel() {
               <tr>
                 <th className="px-4 py-3">Timestamp</th>
                 <th className="px-4 py-3">Action</th>
-                <th className="px-4 py-3">Reference</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">IP Address</th>
+                <th className="px-4 py-3">Module</th>
               </tr>
             </thead>
             <tbody>
-              {alerts.slice(0, 12).map((row) => (
+              {activities.slice(0, 12).map((row) => (
+                <tr key={row.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">{new Date(row.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <AuditActionBadge status="Logged" message={row.action} />
+                  </td>
+                  <td className="px-4 py-3">{row.actor_name || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{row.actor_email || "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{row.actor_ip || "—"}</td>
+                  <td className="px-4 py-3">{row.target_module || "—"}</td>
+                </tr>
+              ))}
+              {!loading && activities.length === 0 && alerts.slice(0, 12).map((row) => (
                 <tr key={row.id} className="border-t border-slate-100">
                   <td className="px-4 py-3">{new Date(row.created_at).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <AuditActionBadge status={row.status} message={row.message} />
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span>{row.message ?? row.item_name ?? "—"}</span>
-                      {getMfaDecisionTag(row.message) === "Approved" ? (
-                        <a
-                          href="#mfa-approval-history"
-                          className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200/80 hover:bg-emerald-200"
-                        >
-                          Approved
-                        </a>
-                      ) : null}
-                      {getMfaDecisionTag(row.message) === "Denied" ? (
-                        <a
-                          href="#mfa-denial-history"
-                          className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800 ring-1 ring-red-200/80 hover:bg-red-200"
-                        >
-                          Denied
-                        </a>
-                      ) : null}
-                    </div>
-                  </td>
+                  <td className="px-4 py-3">—</td>
+                  <td className="px-4 py-3">—</td>
+                  <td className="px-4 py-3">—</td>
+                  <td className="px-4 py-3">{row.item_name ?? "—"}</td>
                 </tr>
               ))}
-              {!loading && alerts.length === 0 ? (
+              {!loading && activities.length === 0 && alerts.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-5 text-slate-500" colSpan={3}>
+                  <td className="px-4 py-5 text-slate-500" colSpan={6}>
                     No privileged actions yet.
                   </td>
                 </tr>
               ) : null}
               {loading ? (
                 <tr>
-                  <td className="px-4 py-5 text-slate-500" colSpan={3}>
+                  <td className="px-4 py-5 text-slate-500" colSpan={6}>
                     Loading audit trail...
                   </td>
                 </tr>

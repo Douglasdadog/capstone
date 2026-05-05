@@ -182,7 +182,9 @@ export default function ClientProductsPage() {
       });
       const payload = (await response.json()) as { error?: string; shipment?: { tracking_token?: string } };
       if (!response.ok) throw new Error(payload.error ?? "Unable to submit request.");
-      router.push("/client/orders");
+      const tracking = payload.shipment?.tracking_token;
+      const target = tracking ? `/client/orders?created=1&token=${encodeURIComponent(tracking)}` : "/client/orders?created=1";
+      router.push(target);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit request.");
     } finally {

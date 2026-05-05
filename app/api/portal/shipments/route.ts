@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
 
   if (!isPrivileged) {
     query = query.eq("client_email", auth.session.email);
+    query = query.eq("order_source", "client");
   }
 
   const { data, error } = await query;
