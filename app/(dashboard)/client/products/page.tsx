@@ -82,6 +82,11 @@ export default function ClientProductsPage() {
   }, [items, searchQuery, selectedCategory]);
 
   const resolveProductImage = (item: InventoryItem, index: number) => {
+    const normalizedName = item.name.toLowerCase();
+    if (normalizedName.includes("d-zel") && normalizedName.includes("king")) {
+      return "/images/products/kings-lithium.png";
+    }
+    
     const candidate = item.image_url?.trim() ?? "";
     const hasUsableDbImage =
       candidate.length > 0 &&
