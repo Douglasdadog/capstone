@@ -86,6 +86,9 @@ export default function ClientProductsPage() {
     if (normalizedName.includes("d-zel") && normalizedName.includes("king")) {
       return "/images/products/kings-lithium.png";
     }
+    if (normalizedName.includes("evvo")) {
+      return "/images/products/vasworld-battery.png";
+    }
     
     const candidate = item.image_url?.trim() ?? "";
     const hasUsableDbImage =
