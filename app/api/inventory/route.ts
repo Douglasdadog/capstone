@@ -26,6 +26,40 @@ function resolveDefaultImageUrl(category: InventoryCategory): string {
   return "https://placehold.co/320x200/e2e8f0/334155?text=D-Zel+King+Conventional";
 }
 
+type InventoryItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  threshold_limit: number;
+  category?: string | null;
+  image_url?: string | null;
+  updated_at?: string | null;
+};
+
+function dedupeInventory(rows: InventoryItem[]): InventoryItem[] {
+  const grouped = new Map<string, InventoryItem>();
+  for (const row of rows) {
+    const normalizedName = row.name.trim().toLowerCase();
+    if (!normalizedName) continue;
+    const current = grouped.get(normalizedName);
+    if (!current) {
+      grouped.set(normalizedName, { ...row, quantity: Math.max(0, Number(row.quantity) || 0) });
+      continue;
+    }
+    grouped.set(normalizedName, {
+      ...current,
+      quantity: current.quantity + Math.max(0, Number(row.quantity) || 0),
+      category: current.category ?? row.category ?? null,
+      image_url: current.image_url ?? row.image_url ?? null,
+      updated_at:
+        new Date(current.updated_at ?? 0) > new Date(row.updated_at ?? 0)
+          ? current.updated_at
+          : row.updated_at
+    });
+  }
+  return Array.from(grouped.values());
+}
+
 function isMissingInventoryColumnError(message: string): boolean {
   const normalized = message.toLowerCase();
   return normalized.includes("column") && normalized.includes("inventory.") && normalized.includes("does not exist");
@@ -79,7 +113,7 @@ export async function GET() {
       return NextResponse.json({ items });
     }
 
-    return NextResponse.json({ items: modernQuery.data ?? [] });
+    return NextResponse.json({ items: dedupeInventory((modernQuery.data as InventoryItem[]) ?? []) });
   } catch (error) {
     return NextResponse.json(
       {
@@ -141,6 +175,36 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
+
+    // Check if item with same name exists
+    const { data: existing } = await supabase
+      .from("inventory")
+      .select("id, name, quantity, threshold_limit")
+      .eq("name", name)
+      .maybeSingle();
+
+    if (existing) {
+      const newTotal = Number(existing.quantity || 0) + quantity;
+      const { data: updated, error: updateError } = await supabase
+        .from("inventory")
+        .update({
+          quantity: newTotal,
+          category,
+          image_url,
+          threshold_limit: Math.max(threshold_limit, existing.threshold_limit || 0),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select("id, category, name, image_url, quantity, threshold_limit, updated_at")
+        .single();
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      
+      const responseBody = { item: updated };
+      await completeIdempotentRequest(idempotency.key, 200, responseBody);
+      return NextResponse.json(responseBody, { status: 200 });
+    }
+
     const modernInsert = await supabase
       .from("inventory")
       .insert({

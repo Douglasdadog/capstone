@@ -143,6 +143,7 @@ export default function SalesPage() {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       void fetchShipments();
+      void fetchInventoryOptions().catch(() => {});
     }, 5000);
     return () => {
       window.clearInterval(intervalId);

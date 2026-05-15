@@ -71,6 +71,30 @@ function formatUptime(seconds: number | null | undefined, showPlaceholder = fals
   return `${minutes}m`;
 }
 
+function dedupeInventoryByName(rows: InventoryItem[]): InventoryItem[] {
+  const grouped = new Map<string, InventoryItem>();
+  for (const row of rows) {
+    const normalizedName = row.name.trim().toLowerCase();
+    if (!normalizedName) continue;
+    const current = grouped.get(normalizedName);
+    if (!current) {
+      grouped.set(normalizedName, { ...row, quantity: Math.max(0, Number(row.quantity) || 0) });
+      continue;
+    }
+    grouped.set(normalizedName, {
+      ...current,
+      quantity: current.quantity + Math.max(0, Number(row.quantity) || 0),
+      category: current.category ?? row.category ?? null,
+      image_url: current.image_url ?? row.image_url ?? null,
+      updated_at:
+        new Date(current.updated_at).getTime() > new Date(row.updated_at).getTime()
+          ? current.updated_at
+          : row.updated_at
+    });
+  }
+  return Array.from(grouped.values());
+}
+
 export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [role, setRole] = useState<string | null>(null);
@@ -227,7 +251,7 @@ export default function InventoryPage() {
     if (!response.ok) {
       throw new Error(data.error ?? "Unable to fetch inventory.");
     }
-    const nextItems = data.items ?? [];
+    const nextItems = dedupeInventoryByName(data.items ?? []);
     setItems(nextItems);
     const latest = nextItems
       .map((row) => row.updated_at)
@@ -441,11 +465,12 @@ export default function InventoryPage() {
       void fetchMonitoring().catch(() => {
         setRealtimeStatus("DISCONNECTED");
       });
+      void fetchInventory().catch(() => {});
     }, 5000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchMonitoring]);
+  }, [fetchMonitoring, fetchInventory]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {

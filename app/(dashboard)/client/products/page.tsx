@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -108,23 +108,28 @@ export default function ClientProductsPage() {
     });
   }
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/inventory");
-        const data = (await response.json()) as { items?: InventoryItem[]; error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Unable to load products.");
-        const uniqueItems = dedupeInventoryByName(data.items ?? []).filter((row) => Number(row.quantity) > 0);
-        setItems(uniqueItems);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load products.");
-      } finally {
-        setLoading(false);
-      }
+  const loadProducts = useCallback(async (isInitial = false) => {
+    try {
+      if (isInitial) setLoading(true);
+      const response = await fetch("/api/inventory");
+      const data = (await response.json()) as { items?: InventoryItem[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Unable to load products.");
+      const uniqueItems = dedupeInventoryByName(data.items ?? []).filter((row) => Number(row.quantity) > 0);
+      setItems(uniqueItems);
+    } catch (err) {
+      if (isInitial) setError(err instanceof Error ? err.message : "Unable to load products.");
+    } finally {
+      if (isInitial) setLoading(false);
     }
-    void load();
   }, []);
+
+  useEffect(() => {
+    void loadProducts(true);
+    const intervalId = window.setInterval(() => {
+      void loadProducts(false);
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [loadProducts]);
 
   function addToCart(itemName: string) {
     const stock = getAvailableStock(itemName);
